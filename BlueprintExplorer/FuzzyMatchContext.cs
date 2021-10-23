@@ -127,5 +127,51 @@ namespace BlueprintExplorer
 
         public string Needle;
 
+
     }
+
+    public static class FuzzyMatcher
+    {
+        public static IEnumerable<T> FuzzyMatch<T>(this IEnumerable<(T, string)> input, string needle, float scoreThreshold = 10)
+        {
+            var result = new FuzzyMatchContext<T>(needle.ToLower());
+            return input.Select(i => result.Match(i.Item2, i.Item1)).Where(match => match.Score > scoreThreshold).OrderByDescending(match => match.Score).Select(m => m.Handle);
+        }
+        /// <summary>
+        /// Fuzzy Match all items in input against the needle
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="input">input items</param>
+        /// <param name="haystack">function to get the 'string' key of an input item to match against</param>
+        /// <param name="needle">value to match against</param>
+        /// <param name="scoreThreshold">discard all results under this score (default: 10)</param>
+        /// <returns>An IEnumerable<out T> that contains elements from the input sequence that score above the threshold, sorted by score</out></returns>
+        public static IEnumerable<T> FuzzyMatch<T>(this IEnumerable<T> input, Func<T, string> haystack, string needle, float scoreThreshold = 10)
+        {
+            return input.Select(i => (i, haystack(i))).FuzzyMatch(needle, scoreThreshold);
+        }
+
+
+        public class ExampleType
+        {
+            int Foo;
+            string Bar;
+
+            public string Name => $"{Bar}.{Foo}";
+        }
+
+        public static void Example()
+        {
+            //Assume some input list (or enumerable)
+            List<ExampleType> inputList = new();
+
+            //Get an enumerable of all the matches (above a score threshold, default = 10)
+            var matches = inputList.FuzzyMatch(type => type.Name, "string_to_search");
+
+            //Get top 20 results
+            var top20 = matches.Take(20).ToList();
+        }
+
+    }
+
 }
