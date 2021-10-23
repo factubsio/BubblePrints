@@ -116,6 +116,8 @@ namespace BlueprintExplorer
         public string GuidText { get; set; }
         public string Name { get; set; }
         public string Type { get; set; }
+        public string TypeName;
+        public string Namespace;
         public string Raw { get; set; }
         public dynamic obj;
         public bool Parsed;

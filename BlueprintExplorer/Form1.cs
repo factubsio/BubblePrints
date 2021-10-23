@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ModKit;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -480,9 +481,12 @@ namespace BlueprintExplorer
                     e.Value = resultCache[row].Handle.Name;
                     break;
                 case 1:
-                    e.Value = resultCache[row].Handle.Type;
+                    e.Value = resultCache[row].Handle.TypeName;
                     break;
                 case 2:
+                    e.Value = resultCache[row].Handle.Namespace;
+                    break;
+                case 3:
                     e.Value = resultCache[row].Handle.GuidText;
                     break;
                 default:
@@ -496,6 +500,18 @@ namespace BlueprintExplorer
             if (history.Count == 0)
                 return;
             ShowBlueprint(history.Peek(), false);
+
+        }
+
+        private void omniSearch_TextChanged_1(object sender, EventArgs e) {
+
+        }
+
+        private void label1_Click(object sender, EventArgs e) {
+
+        }
+
+        private void resultsGrid_CellContentClick(object sender, DataGridViewCellEventArgs e) {
 
         }
     }

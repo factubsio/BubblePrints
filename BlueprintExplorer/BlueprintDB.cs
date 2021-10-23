@@ -1,17 +1,14 @@
 ﻿using K4os.Compression.LZ4;
 using System;
 using System.Collections.Generic;
-using System.Data.SQLite;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace BlueprintExplorer
-{
+namespace BlueprintExplorer {
     public partial class BlueprintDB
     {
         [System.Runtime.InteropServices.DllImport("kernel32.dll")]
@@ -54,10 +51,33 @@ namespace BlueprintExplorer
 
             static FileStream OpenFile()
             {
-                return File.Open($"blueprints_raw.binz", FileMode.Open, FileAccess.Read, FileShare.Read);
+                var path = Properties.Settings.Default.BlueprintDBPath;
+                try {
+                    return File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                }
+                catch {
+                    OpenFileDialog fileDialog = new OpenFileDialog();
+                    fileDialog.Title = "Please locate the blueprint database (blueprints_raw.binz)";
+                    fileDialog.InitialDirectory = "c:\\";
+                    fileDialog.Filter = "Blueprint Database (*.binz)|*.binz";
+                    fileDialog.FilterIndex = 2;
+                    fileDialog.RestoreDirectory = true;
+
+                    if (fileDialog.ShowDialog() == DialogResult.OK) {
+                        path = fileDialog.FileName;
+                        if (path?.Length > 0) {
+                            Properties.Settings.Default.BlueprintDBPath = path;
+                            Properties.Settings.Default.Save();
+                            return File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        }
+                    }
+                }
+                return null;
             }
 
             var file = OpenFile();
+            if (file == null)
+                return null;
             var binary = new BinaryReader(file);
 
             int count = binary.ReadInt32();
@@ -101,7 +121,13 @@ namespace BlueprintExplorer
                         bp.GuidText = batchReader.ReadString();
                         bp.Name = batchReader.ReadString();
                         bp.Type = batchReader.ReadString();
-
+                        var components = bp.Type.Split('.');
+                        if (components.Length <= 1)
+                            bp.TypeName = bp.Type;
+                        else {
+                            bp.TypeName = components.Last();
+                            bp.Namespace = string.Join('.', components.Take(components.Length - 1));
+                        }
                         bool rawCompressed = batchReader.ReadBoolean();
                         if (rawCompressed)
                         {
@@ -219,7 +245,7 @@ namespace BlueprintExplorer
         {
             var guid = Guid.Parse(bp.GuidText);
             bp.LowerName = bp.Name.ToLower();
-            bp.LowerType = bp.Type.ToLower();
+            bp.LowerType = bp.TypeName.ToLower();
 
             var end = bp.Type.LastIndexOf('.');
             types.Add(bp.Type.Substring(end + 1));
