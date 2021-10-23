@@ -13,14 +13,41 @@ namespace BlueprintExplorer
     public partial class Form1 : Form
     {
         private BlueprintDB db => BlueprintDB.Instance;
+        public static bool Dark;
         bool Good => initialize?.IsCompleted ?? false;
 
         public Form1()
         {
+            var env = Environment.GetEnvironmentVariable("BubbleprintsTheme");
+            Dark = env?.Equals("dark") ?? false;
+
             InitializeComponent();
             omniSearch.TextChanged += OmniSearch_TextChanged;
             bpView.NodeMouseClick += BpView_NodeMouseClick;
             resultsGrid.CellClick += ResultsGrid_CellClick;
+
+            Color bgColor = omniSearch.BackColor;
+            resultsGrid.RowHeadersVisible = false;
+
+            if (Dark)
+            {
+                bgColor = Color.FromArgb(50, 50, 50);
+
+                this.BackColor = bgColor;
+                filter.BackColor = bgColor;
+                filter.ForeColor = Color.White;
+                omniSearch.BackColor = bgColor;
+                omniSearch.ForeColor = Color.White;
+                bpView.BackColor = bgColor;
+                bpView.ForeColor = Color.White;
+                resultsGrid.BackgroundColor = bgColor;
+                resultsGrid.ForeColor = Color.White;
+                resultsGrid.ColumnHeadersDefaultCellStyle.BackColor = bgColor;
+                resultsGrid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+                resultsGrid.EnableHeadersVisualStyles = false;
+                resultsGrid.DefaultCellStyle.ForeColor = Color.White;
+                resultsGrid.DefaultCellStyle.BackColor = bgColor;
+            }
 
             omniSearch.Enabled = false;
             filter.Enabled = false;
@@ -39,6 +66,7 @@ namespace BlueprintExplorer
                 bpView.Enabled = true;
                 omniSearch.Text = "";
                 omniSearch.Select();
+                GC.Collect();
             }, TaskScheduler.FromCurrentSynchronizationContext());
 
             new Thread(() =>
@@ -305,6 +333,8 @@ namespace BlueprintExplorer
         private void PushHistory(BlueprintHandle bp)
         {
             var button = new Button();
+            if (Dark)
+                button.ForeColor = Color.White;
             button.MinimumSize = new Size(10, 44);
             button.Text = bp.Name;
             button.AutoSize = true;
