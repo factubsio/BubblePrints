@@ -16,7 +16,7 @@ namespace BlueprintExplorer {
             var strictFailures = 0;
             foreach (var entry in searchable.Matches) {
                 var match = entry.Value;
-                if (match.IsFuzzy)
+                if (match.IsFuzzy && match.Score >= 10)
                     fuzzyCount += 1;
                 else if (!match.IsMatch)
                     strictFailures += 1;
