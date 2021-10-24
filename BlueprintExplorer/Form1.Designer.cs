@@ -195,7 +195,7 @@ namespace BlueprintExplorer
             // 
             this.historyBread.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.historyBread.Location = new System.Drawing.Point(4, 1055);
+            this.historyBread.Location = new System.Drawing.Point(4, 1051);
             this.historyBread.Margin = new System.Windows.Forms.Padding(4);
             this.historyBread.Name = "historyBread";
             this.historyBread.Size = new System.Drawing.Size(3254, 80);
@@ -211,7 +211,7 @@ namespace BlueprintExplorer
             this.bpView.Location = new System.Drawing.Point(4, 59);
             this.bpView.Margin = new System.Windows.Forms.Padding(4);
             this.bpView.Name = "bpView";
-            this.bpView.Size = new System.Drawing.Size(3252, 985);
+            this.bpView.Size = new System.Drawing.Size(3252, 981);
             this.bpView.TabIndex = 0;
             // 
             // Form1

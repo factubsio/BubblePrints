@@ -165,7 +165,7 @@ namespace BlueprintExplorer {
                             break;
                         }
                     }
-                    if (!foundRestricted && SearchText?.Length > 0)
+                    if (!foundRestricted && SearchText?.Length > 0 && key == "name") // perf hack for now.  TODO - add a way to flag the primary index for fuzzy search
                         searchable.Matches[key] = FuzzyMatch(searchable, key, text);
                 }
             }
