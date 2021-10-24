@@ -9,7 +9,12 @@ namespace BlueprintExplorer {
         Dictionary<string, MatchResult> Matches { get; set; }                   // place to store search results
     }
     public static class MatchHelpers {
-        public static bool HasMatches(this ISearchable searchable, float scoreThreshold = 10) => searchable.Matches == null || searchable.Matches.All(m => m.Value.IsMatch && m.Value.Score >= scoreThreshold);
+        public static bool HasMatches(this ISearchable searchable, float scoreThreshold = 10)
+            => (searchable.Matches == null
+                || (searchable.Matches.Where(m => !m.Value.IsFuzzy).All(m => m.Value.IsMatch)
+                    && searchable.Matches.Any(m => m.Value.IsFuzzy && m.Value.IsMatch && m.Value.Score >= scoreThreshold)
+                    )
+            );
     }
     public class MatchResult {
         public struct Span {
@@ -29,6 +34,7 @@ namespace BlueprintExplorer {
         public string Key;
         public string Text;
         public MatchQuery Context;
+        public bool IsFuzzy;
 
         public bool IsMatch => TotalMatched > 0;
         public List<Span> spans = new();
@@ -44,11 +50,12 @@ namespace BlueprintExplorer {
 
         public float Score => (TargetRatio * MatchRatio * 1.0f) + (BestRun * 4) + (GoodRuns * 2) - Penalty + Bonus;
 
-        public MatchResult(ISearchable target, string key, string text, MatchQuery context) {
+        public MatchResult(ISearchable target, string key, string text, MatchQuery context, bool isFuzzy = true) {
             Target = target;
             Key = key;
             Text = text;
-            this.Context = context;
+            Context = context;
+            IsFuzzy = isFuzzy;
         }
         public void AddSpan(Span span) {
             spans.Add(span);
@@ -62,10 +69,10 @@ namespace BlueprintExplorer {
         }
     }
     public class MatchQuery {
-        public string SearchText;                                   // general search text
-        public Dictionary<string, string> RestrictedSearchTexts;    // restricted to certain provider keys
+        public string SearchText;                                   // general search text which will be fuzzy and pass if any matches
+        public Dictionary<string, string> StrictSearchTexts;        // these are specific keys such as type: and these will be evaluated with AND logic
         private MatchResult Match(string searchText, ISearchable searchable, string key, string text) {
-            var result = new MatchResult(searchable, key, text, this);
+            var result = new MatchResult(searchable, key, text, this, false);
             var index = text.IndexOf(searchText);
             if (index >= 0) {
                 MatchResult.Span span = new MatchResult.Span(index, searchText.Length);
@@ -128,28 +135,28 @@ namespace BlueprintExplorer {
         }
 
         public MatchQuery(string queryText) {
-            var unrestricted = new List<string>();
-            RestrictedSearchTexts = new();
+            var fuzzySearchText = new List<string>();
+            StrictSearchTexts = new();
             var terms = queryText.Split(' ');
             foreach (var term in terms) {
                 if (term.Contains(':')) {
                     var pair = term.Split(':');
-                    RestrictedSearchTexts[pair[0]] = pair[1];
+                    StrictSearchTexts[pair[0]] = pair[1];
                 }
                 else
-                    unrestricted.Add(term);
+                    fuzzySearchText.Add(term);
             }
-            SearchText = string.Join(' ', unrestricted);
+            SearchText = string.Join(' ', fuzzySearchText);
         }
 
         public ISearchable Evaluate(ISearchable searchable) {
-            if (SearchText?.Length > 0 || RestrictedSearchTexts.Count > 0) {
+            if (SearchText?.Length > 0 || StrictSearchTexts.Count > 0) {
                 searchable.Matches = new();
                 foreach (var provider in searchable.Providers) {
                     var key = provider.Key;
                     var text = provider.Value();
                     bool foundRestricted = false;
-                    foreach (var entry in RestrictedSearchTexts) {
+                    foreach (var entry in StrictSearchTexts) {
                         if (key.StartsWith(entry.Key)) {
                             searchable.Matches[key] = Match(entry.Value, searchable, key, text);
                             foundRestricted = true;
