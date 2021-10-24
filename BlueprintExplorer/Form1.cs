@@ -125,10 +125,11 @@ namespace BlueprintExplorer {
             InvalidateTimer.Start();
 
         }
-
         private void InvalidateResults() {
+            resultsCache = db.SearchBlueprints(Search?.ToLower());
+            count.Text = $"{resultsCache.Count()}";
             var oldRowCount = resultsGrid.Rows.Count;
-            var newRowCount = resultsCache.Count;
+            var newRowCount = resultsCache.Count();
             if (newRowCount > oldRowCount)
                 resultsGrid.Rows.Add(newRowCount - oldRowCount);
             else {
@@ -141,7 +142,8 @@ namespace BlueprintExplorer {
         private void OmniSearch_TextChanged(object sender, EventArgs e) {
             if (!Good)
                 return;
-            UpdateSearchResults(1f);
+            InvalidateResults();
+            //UpdateSearchResults(1f);
         }
 
         private string Search => omniSearch.Text;
