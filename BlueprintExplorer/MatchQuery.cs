@@ -9,7 +9,7 @@ namespace BlueprintExplorer {
         Dictionary<string, MatchResult> Matches { get; set; }                   // place to store search results
     }
     public static class MatchHelpers {
-        public static bool HasMatches(this ISearchable searchable, float scoreThreshold = 10) => searchable.Matches == null || searchable.Matches.Where(m => m.Value.IsMatch && m.Value.Score >= scoreThreshold).Any();
+        public static bool HasMatches(this ISearchable searchable, float scoreThreshold = 10) => searchable.Matches == null || searchable.Matches.All(m => m.Value.IsMatch && m.Value.Score >= scoreThreshold);
     }
     public class MatchResult {
         public struct Span {
