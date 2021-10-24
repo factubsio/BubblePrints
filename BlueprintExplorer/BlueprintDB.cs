@@ -253,33 +253,15 @@ namespace BlueprintExplorer {
             Blueprints[guid] = bp;
         }
 
-
-        public List<FuzzyMatchResult<BlueprintHandle>> GetBlueprints(string namePattern, string typePattern)
+        public List<BlueprintHandle> SearchBlueprints(string searchText)
         {
-            if (namePattern == null && typePattern == null)
-                return new();
+            var query = new MatchQuery(searchText);
+            query.UpdateSearchResults(cache);
+            if (searchText?.Length > 0)
+                return cache.Where(h => h.HasMatches()).ToList();
+            else
+                return cache;
 
-            if (namePattern != null && typePattern == null)
-            {
-                var namePatternNormalised = namePattern.ToLower();
-                var result = new FuzzyMatchContext<BlueprintHandle>(namePatternNormalised);
-                return cache.Select(bp => result.Match(bp.LowerName, bp)).Where(match => match.Score > 10).OrderByDescending(match => match.Score).Take(20).ToList();
-            }
-
-            if (namePattern == null && typePattern != null)
-            {
-                var typePatternNormalised = typePattern.ToLower();
-                //return cache.Where(bp => bp.LowerType.Contains(typePatternNormalised)).Take(400).ToList();
-            }
-
-            if (namePattern != null && typePattern != null)
-            {
-                var namePatternNormalised = namePattern.ToLower();
-                var typePatternNormalised = typePattern.ToLower();
-                //return cache.Where(bp => bp.LowerType.Contains(typePatternNormalised) && bp.LowerName.Contains(namePatternNormalised)).Take(400).ToList();
-            }
-
-            return new();
         }
     }
 }

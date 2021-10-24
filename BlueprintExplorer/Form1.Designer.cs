@@ -38,6 +38,7 @@ namespace BlueprintExplorer
             this.BPType = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.BPNamespace = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.BPGuid = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.count = new System.Windows.Forms.Label();
             this.filter = new System.Windows.Forms.TextBox();
             this.historyBread = new System.Windows.Forms.FlowLayoutPanel();
             this.bpView = new System.Windows.Forms.TreeView();
@@ -57,7 +58,7 @@ namespace BlueprintExplorer
             this.omniSearch.Location = new System.Drawing.Point(277, 21);
             this.omniSearch.Margin = new System.Windows.Forms.Padding(12);
             this.omniSearch.Name = "omniSearch";
-            this.omniSearch.PlaceholderText = "type something...";
+            this.omniSearch.PlaceholderText = "enter search text...";
             this.omniSearch.Size = new System.Drawing.Size(2960, 80);
             this.omniSearch.TabIndex = 0;
             this.omniSearch.TextChanged += new System.EventHandler(this.omniSearch_TextChanged_1);
@@ -102,6 +103,7 @@ namespace BlueprintExplorer
             // 
             // splitContainer1.Panel2
             // 
+            this.splitContainer1.Panel2.Controls.Add(this.count);
             this.splitContainer1.Panel2.Controls.Add(this.filter);
             this.splitContainer1.Panel2.Controls.Add(this.historyBread);
             this.splitContainer1.Panel2.Controls.Add(this.bpView);
@@ -169,13 +171,23 @@ namespace BlueprintExplorer
             this.BPGuid.ReadOnly = true;
             this.BPGuid.Width = 240;
             // 
+            // count
+            // 
+            this.count.AutoSize = true;
+            this.count.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.count.Location = new System.Drawing.Point(7, 6);
+            this.count.Name = "count";
+            this.count.Size = new System.Drawing.Size(100, 48);
+            this.count.TabIndex = 3;
+            this.count.Text = "        ";
+            // 
             // filter
             // 
-            this.filter.Location = new System.Drawing.Point(0, 4);
+            this.filter.Location = new System.Drawing.Point(186, 8);
             this.filter.Margin = new System.Windows.Forms.Padding(4);
             this.filter.Name = "filter";
             this.filter.PlaceholderText = "Filter Blueprint...";
-            this.filter.Size = new System.Drawing.Size(1192, 43);
+            this.filter.Size = new System.Drawing.Size(1460, 43);
             this.filter.TabIndex = 2;
             this.filter.TextChanged += new System.EventHandler(this.filter_TextChanged);
             // 
@@ -183,7 +195,7 @@ namespace BlueprintExplorer
             // 
             this.historyBread.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.historyBread.Location = new System.Drawing.Point(4, 1161);
+            this.historyBread.Location = new System.Drawing.Point(4, 1085);
             this.historyBread.Margin = new System.Windows.Forms.Padding(4);
             this.historyBread.Name = "historyBread";
             this.historyBread.Size = new System.Drawing.Size(3254, 80);
@@ -199,7 +211,7 @@ namespace BlueprintExplorer
             this.bpView.Location = new System.Drawing.Point(4, 59);
             this.bpView.Margin = new System.Windows.Forms.Padding(4);
             this.bpView.Name = "bpView";
-            this.bpView.Size = new System.Drawing.Size(3252, 1091);
+            this.bpView.Size = new System.Drawing.Size(3252, 1015);
             this.bpView.TabIndex = 0;
             // 
             // Form1
@@ -238,6 +250,7 @@ namespace BlueprintExplorer
         private System.Windows.Forms.DataGridViewTextBoxColumn BPType;
         private System.Windows.Forms.DataGridViewTextBoxColumn BPNamespace;
         private System.Windows.Forms.DataGridViewTextBoxColumn BPGuid;
+        private System.Windows.Forms.Label count;
     }
 }
 
