@@ -17,6 +17,10 @@ namespace BlueprintExplorer {
                         )
                     )
             );
+        public static float Score(this ISearchable searchable)
+            => searchable.Matches == null
+            ? float.PositiveInfinity
+            : searchable.Matches.Sum(m => m.Value.Score);
     }
     public class MatchResult {
         public struct Span {

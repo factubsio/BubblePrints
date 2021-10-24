@@ -258,7 +258,7 @@ namespace BlueprintExplorer {
             var query = new MatchQuery(searchText);
             query.UpdateSearchResults(cache);
             if (searchText?.Length > 0)
-                return cache.Where(h => h.HasMatches()).ToList();
+                return cache.Where(h => h.HasMatches()).OrderByDescending(h => h.Score()).Take(20).ToList();
             else
                 return cache;
 

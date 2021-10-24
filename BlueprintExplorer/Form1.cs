@@ -1,6 +1,7 @@
 ﻿using ModKit;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text.Json;
@@ -61,7 +62,7 @@ namespace BlueprintExplorer {
                 resultsGrid.Enabled = true;
                 bpView.Enabled = true;
                 omniSearch.Text = "";
-                //omniSearch.Select();
+                omniSearch.Select();
                 GC.Collect();
             }, TaskScheduler.FromCurrentSynchronizationContext());
 
@@ -126,8 +127,14 @@ namespace BlueprintExplorer {
 
         }
         private void InvalidateResults() {
+            Stopwatch watch = new Stopwatch();
+            watch.Start();
             resultsCache = db.SearchBlueprints(Search?.ToLower());
             count.Text = $"{resultsCache.Count()}";
+            watch.Stop();
+            Console.WriteLine($"After Search: {watch.ElapsedMilliseconds} msec");
+            watch.Reset();
+            watch.Start();
             var oldRowCount = resultsGrid.Rows.Count;
             var newRowCount = resultsCache.Count();
             if (newRowCount > oldRowCount)
@@ -137,6 +144,8 @@ namespace BlueprintExplorer {
                 if (newRowCount > 0)
                     resultsGrid.Rows.Add(newRowCount);
             }
+            watch.Stop();
+            Console.WriteLine($"After dataGridView: {watch.ElapsedMilliseconds} msec");
             resultsGrid.Invalidate();
         }
         private void OmniSearch_TextChanged(object sender, EventArgs e) {
