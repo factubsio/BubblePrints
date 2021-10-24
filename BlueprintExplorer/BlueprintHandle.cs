@@ -18,15 +18,22 @@ namespace BlueprintExplorer {
         public dynamic obj;
         public bool Parsed;
 
-        public string LowerName;
-        public string LowerType;
+        public string NameLower;
+        public string TypeNameLower;
+        public string NamespaceLower;
 
         #region ISearchable
-        public Dictionary<string, Func<string>> Providers => new() {
-            { "name", () => this.Name.ToLower() },
-            { "type", () => this.TypeName.ToLower() },
-            { "space", () => this.Namespace.ToLower() }
-        };
+        internal Dictionary<string, Func<string>> _Providers = null;
+        public Dictionary<string, Func<string>> Providers { get {
+                if (_Providers != null) return _Providers;
+                _Providers = new() {
+                    { "name", () => this.NameLower },
+                    { "type", () => this.TypeNameLower },
+                    { "space", () => this.NamespaceLower }
+                };
+                return _Providers;
+            }
+        }
         public Dictionary<string, MatchResult> Matches { get; set; } = new();
 
         #endregion

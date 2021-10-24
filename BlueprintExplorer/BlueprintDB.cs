@@ -244,9 +244,9 @@ namespace BlueprintExplorer {
         private void AddBlueprint(BlueprintHandle bp)
         {
             var guid = Guid.Parse(bp.GuidText);
-            bp.LowerName = bp.Name.ToLower();
-            bp.LowerType = bp.TypeName.ToLower();
-
+            bp.NameLower = bp.Name.ToLower();
+            bp.TypeNameLower = bp.TypeName.ToLower();
+            bp.NamespaceLower = bp.Namespace.ToLower();
             var end = bp.Type.LastIndexOf('.');
             types.Add(bp.Type.Substring(end + 1));
             cache.Add(bp);

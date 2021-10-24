@@ -5,14 +5,16 @@ using System.Linq;
 
 namespace BlueprintExplorer {
     public interface ISearchable {
-        Dictionary<string, Func<string>> Providers { get; } // named functions to extract different text out of the target
-        Dictionary<string, MatchResult> Matches { get; set; }                   // place to store search results
+        Dictionary<string, Func<string>> Providers { get; }     // named functions to extract different text out of the target
+        Dictionary<string, MatchResult> Matches { get; set; }   // place to store search results
     }
     public static class MatchHelpers {
         public static bool HasMatches(this ISearchable searchable, float scoreThreshold = 10)
             => (searchable.Matches == null
                 || (searchable.Matches.Where(m => !m.Value.IsFuzzy).All(m => m.Value.IsMatch)
-                    && searchable.Matches.Any(m => m.Value.IsFuzzy && m.Value.IsMatch && m.Value.Score >= scoreThreshold)
+                    && (    !searchable.Matches.Where(m => m.Value.IsFuzzy).Any()
+                       ||   searchable.Matches.Any(m => m.Value.IsFuzzy && m.Value.IsMatch && m.Value.Score >= scoreThreshold)
+                        )
                     )
             );
     }
@@ -135,7 +137,7 @@ namespace BlueprintExplorer {
         }
 
         public MatchQuery(string queryText) {
-            var fuzzySearchText = new List<string>();
+            var unrestricted = new List<string>();
             StrictSearchTexts = new();
             var terms = queryText.Split(' ');
             foreach (var term in terms) {
@@ -144,9 +146,9 @@ namespace BlueprintExplorer {
                     StrictSearchTexts[pair[0]] = pair[1];
                 }
                 else
-                    fuzzySearchText.Add(term);
+                    unrestricted.Add(term);
             }
-            SearchText = string.Join(' ', fuzzySearchText);
+            SearchText = string.Join(' ', unrestricted);
         }
 
         public ISearchable Evaluate(ISearchable searchable) {
