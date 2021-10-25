@@ -25,9 +25,8 @@ jobs:
         run: dotnet build --configuration Release --no-restore
       - name: list
         run: ls -r
-      # - name: Release
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     files: |
-      #       Release.txt
-      #       LICENSE
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            BubblePrints\BlueprintExplorer\bin\Release
