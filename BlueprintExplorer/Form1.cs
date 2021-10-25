@@ -8,7 +8,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using static BlueprintExplorer.BlueprintDB;
 
 namespace BlueprintExplorer {
     public partial class Form1 : Form {
@@ -25,26 +24,36 @@ namespace BlueprintExplorer {
             bpView.NodeMouseClick += BpView_NodeMouseClick;
             resultsGrid.CellClick += ResultsGrid_CellClick;
 
+            InstallReadline(omniSearch);
+            InstallReadline(filter);
+
             Color bgColor = omniSearch.BackColor;
             resultsGrid.RowHeadersVisible = false;
 
             if (Dark) {
                 bgColor = Color.FromArgb(50, 50, 50);
 
-                this.BackColor = bgColor;
-                filter.BackColor = bgColor;
-                filter.ForeColor = Color.White;
-                omniSearch.BackColor = bgColor;
-                omniSearch.ForeColor = Color.White;
-                bpView.BackColor = bgColor;
-                bpView.ForeColor = Color.White;
-                resultsGrid.BackgroundColor = bgColor;
-                resultsGrid.ForeColor = Color.White;
-                resultsGrid.ColumnHeadersDefaultCellStyle.BackColor = bgColor;
-                resultsGrid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+                void DarkenStyles(params DataGridViewCellStyle []styles)
+                {
+                    foreach (var style in styles)
+                    {
+                        style.ForeColor = Color.White;
+                        style.BackColor = bgColor;
+                    }
+                }
+                void DarkenControls(params Control []controls)
+                {
+                    foreach (var c in controls)
+                    {
+                        c.ForeColor = Color.White;
+                        c.BackColor = bgColor;
+                    }
+                }
+
                 resultsGrid.EnableHeadersVisualStyles = false;
-                resultsGrid.DefaultCellStyle.ForeColor = Color.White;
-                resultsGrid.DefaultCellStyle.BackColor = bgColor;
+                this.BackColor = bgColor;
+                DarkenControls(filter, omniSearch, bpView, resultsGrid, SearchLabel, count, splitContainer1);
+                DarkenStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
             }
 
             omniSearch.Enabled = false;
@@ -58,7 +67,6 @@ namespace BlueprintExplorer {
             initialize = BlueprintDB.Instance.TryConnect();
             initialize.ContinueWith(b => {
                 omniSearch.Enabled = true;
-                filter.Enabled = false;
                 resultsGrid.Enabled = true;
                 bpView.Enabled = true;
                 omniSearch.Text = "";
@@ -95,7 +103,8 @@ namespace BlueprintExplorer {
 
         private Stack<BlueprintHandle> history = new();
 
-        private void BpView_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e) {
+        private void BpView_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
+        {
             if (e.Node.Tag == null)
                 return;
             Guid guid = Guid.Parse(e.Node.Tag as string);
@@ -104,34 +113,28 @@ namespace BlueprintExplorer {
 
             ShowBlueprint(db.Blueprints[guid], true);
         }
-        static System.Windows.Forms.Timer InvalidateTimer;
 
         private DateTime lastChange = DateTime.MinValue;
         private TimeSpan debounceTime = TimeSpan.FromSeconds(1.5);
 
-        private void timer1_Tick(object sender, EventArgs e) {
-            Console.WriteLine("tick");
-            lastChange = DateTime.Now;
-            resultsCache = db.SearchBlueprints(Search?.ToLower());
-            count.Text = $"{resultsCache.Count}";
-            InvalidateTimer.Stop();
-            InvalidateResults();
-        }
-        private void UpdateSearchResults(double delay) {
-            InvalidateTimer?.Stop();
-            InvalidateTimer = new System.Windows.Forms.Timer();
-            InvalidateTimer.Interval = (int)(delay * 1000);
-            InvalidateTimer.Tick += new EventHandler(timer1_Tick);
-            InvalidateTimer.Start();
+        int lastFinished = 0;
+        private CancellationTokenSource finishingFirst;
+        private CancellationTokenSource finishingLast;
+        private Task<List<BlueprintHandle>> overlappedSearch;
 
-        }
-        private void InvalidateResults() {
-            Stopwatch watch = new Stopwatch();
-            watch.Start();
-            resultsCache = db.SearchBlueprints(Search?.ToLower());
-            count.Text = $"{resultsCache.Count()}";
+        private void SetResults(List<BlueprintHandle> results, CancellationTokenSource cancellation, int matchBuffer)
+        {
+            if (cancellation == finishingFirst)
+                finishingFirst = null;
+            if (cancellation == finishingLast)
+                finishingLast = null;
+
+            lastFinished = matchBuffer;
+            BlueprintDB.UnlockBuffer(matchBuffer);
+            resultsCache = results;
+            count.Text = $"{resultsCache.Count}";
             var oldRowCount = resultsGrid.Rows.Count;
-            var newRowCount = resultsCache.Count();
+            var newRowCount = resultsCache.Count;
             if (newRowCount > oldRowCount)
                 resultsGrid.Rows.Add(newRowCount - oldRowCount);
             else {
@@ -139,54 +142,96 @@ namespace BlueprintExplorer {
                 if (newRowCount > 0)
                     resultsGrid.Rows.Add(newRowCount);
             }
-            watch.Stop();
-            Console.WriteLine($"InvalidateResults: {watch.ElapsedMilliseconds} msec");
             resultsGrid.Invalidate();
         }
+
+        private void InvalidateResults() {
+            CancellationTokenSource cancellation = new();
+
+            int matchBuffer = 0;
+
+            if (finishingLast != null && finishingLast != finishingFirst)
+            {
+                finishingLast.Cancel();
+                overlappedSearch.Wait();
+                BlueprintDB.UnlockBuffer(1);
+            }
+
+            finishingLast = cancellation;
+
+            if (finishingFirst == null)
+            {
+                matchBuffer = 0;
+                finishingFirst = cancellation;
+            }
+            else
+            {
+                matchBuffer = 1;
+            }
+
+            var search = db.SearchBlueprintsAsync(Search?.ToLower(), cancellation.Token, matchBuffer);
+
+            if (matchBuffer == 1)
+                overlappedSearch = search;
+            
+            search.ContinueWith(task =>
+            {
+                if (cancellation.IsCancellationRequested)
+                    return;
+
+                this.Invoke((Action<List<BlueprintHandle>, CancellationTokenSource, int>)SetResults, task.Result, cancellation, matchBuffer);
+            });
+
+         }
         private void OmniSearch_TextChanged(object sender, EventArgs e) {
             if (!Good)
                 return;
             InvalidateResults();
-            //UpdateSearchResults(1f);
         }
 
         private string Search => omniSearch.Text;
 
-        private char[] wordSeparators =
+        private static readonly char[] wordSeparators =
         {
             ' ',
             '.',
             '/',
             ':',
         };
-        private void KillForwardLine() {
-            var here = omniSearch.SelectionStart;
-            if (omniSearch.SelectionLength == 0) {
+        private static void KillForwardLine(TextBox box) {
+            var here = box.SelectionStart;
+            string Search = box.Text;
+            if (box.SelectionLength == 0) {
                 if (here > 0)
-                    omniSearch.Text = Search.Substring(0, here);
+                    box.Text = Search.Substring(0, here);
                 else
-                    omniSearch.Text = "";
-                omniSearch.Select(Search.Length, 0);
+                    box.Text = "";
+                box.Select(Search.Length, 0);
 
             }
 
         }
 
-        private void KillBackLine() {
-            var here = omniSearch.SelectionStart;
-            if (omniSearch.SelectionLength == 0) {
+        private static void KillBackLine(TextBox box) {
+            var here = box.SelectionStart;
+            string Search = box.Text;
+            if (box.SelectionLength == 0) {
                 if (here < Search.Length)
-                    omniSearch.Text = Search.Substring(here);
+                    box.Text = Search.Substring(here);
                 else
-                    omniSearch.Text = "";
+                    box.Text = "";
 
             }
 
         }
 
-        private void KillBackWord() {
-            var here = omniSearch.SelectionStart;
-            if (omniSearch.SelectionLength == 0) {
+        private static void KillBackWord(TextBox box) {
+            var here = box.SelectionStart;
+            string Search = box.Text;
+            if (box.SelectionLength == 0) {
+                if (here == 0)
+                    return;
+
                 while (here > 0 && Search[here - 1] == ' ')
                     here--;
 
@@ -205,34 +250,70 @@ namespace BlueprintExplorer {
                     newSearch += Search.Substring(here);
                 }
 
-                omniSearch.Text = newSearch;
-                omniSearch.SelectionStart = killTo + 1;
+                box.Text = newSearch;
+                box.SelectionStart = killTo + 1;
             }
         }
 
-        private void omniSearch_KeyDown(object sender, KeyEventArgs e) {
-            if (e.Control) {
-                switch (e.KeyCode) {
-                    case Keys.W:
-                        KillBackWord();
-                        break;
-                    case Keys.K:
-                        KillForwardLine();
-                        break;
-                    case Keys.U:
-                        KillBackLine();
-                        break;
-                    case Keys.E:
-                        omniSearch.Select(Search.Length, 0);
-                        break;
-                    case Keys.A:
-                        omniSearch.Select(0, 0);
-                        e.Handled = true;
-                        e.SuppressKeyPress = true;
-                        break;
+        public static void InstallReadline(TextBox box)
+        {
+            List<string> history = new();
+            int historyIndex = -1;
+
+            box.KeyDown += (sender, e) =>
+            {
+                if (e.Control)
+                {
+                    switch (e.KeyCode)
+                    {
+                        case Keys.W:
+                            KillBackWord(box);
+                            break;
+                        case Keys.K:
+                            KillForwardLine(box);
+                            break;
+                        case Keys.U:
+                            KillBackLine(box);
+                            break;
+                        case Keys.E:
+                            box.Select(box.Text.Length, 0);
+                            break;
+                        case Keys.A:
+                            box.Select(0, 0);
+                            e.Handled = true;
+                            e.SuppressKeyPress = true;
+                            break;
+                        case Keys.N:
+                            int next = historyIndex + 1;
+                            if (next < history.Count)
+                            {
+                                historyIndex = next;
+                                box.Text = history[historyIndex];
+                            }
+                            e.Handled = true;
+                            e.SuppressKeyPress = true;
+                            break;
+                        case Keys.P:
+                            if (history.Count > 0 && historyIndex > 0)
+                            {
+                                historyIndex--;
+                                box.Text = history[historyIndex];
+                            }
+                            e.Handled = true;
+                            e.SuppressKeyPress = true;
+                            break;
+                    }
                 }
-            }
-            else if (e.KeyCode == Keys.Return || e.KeyCode == Keys.Enter) {
+                else if (e.KeyCode == Keys.Return || e.KeyCode == Keys.Enter)
+                {
+                    history.Add(box.Text);
+                    historyIndex = history.Count - 1;
+                }
+            };
+        }
+
+        private void omniSearch_KeyDown(object sender, KeyEventArgs e) {
+            if (e.KeyCode == Keys.Return || e.KeyCode == Keys.Enter) {
                 if (resultsCache.Count > 0) {
                     ShowSelected();
                 }
@@ -304,6 +385,7 @@ namespace BlueprintExplorer {
         }
 
         private void ShowBlueprint(BlueprintHandle bp, bool updateHistory) {
+            filter.Enabled = true;
             if (!bp.Parsed) {
                 bp.obj = JsonSerializer.Deserialize<dynamic>(bp.Raw);
                 bp.Parsed = true;
@@ -336,6 +418,8 @@ namespace BlueprintExplorer {
 
             Stack<BlueprintHandle.VisitedElement> stack = new();
 
+            // Iterate the nodes twice, the first time we prune empty branches, the second time we generate the TreeNodes
+            // And all because you can't hide TreeNodes...
             foreach (var e in nodeList) {
                 if (e.levelDelta > 0) {
                     e.Empty = !filterPred(e);
@@ -425,7 +509,7 @@ namespace BlueprintExplorer {
                     e.Value = resultsCache[row].Namespace;
                     break;
                 case 3:
-                    e.Value = resultsCache[row].Score().ToString();
+                    e.Value = resultsCache[row].Score(lastFinished).ToString();
                     break;
                 case 4:
                     e.Value = resultsCache[row].GuidText;

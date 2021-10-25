@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -252,26 +253,87 @@ namespace BlueprintExplorer {
             cache.Add(bp);
             Blueprints[guid] = bp;
             // preheat this
-            _ = bp.Matches;
+            bp.PrimeMatches(2);
         }
 
-        public List<BlueprintHandle> SearchBlueprints(string searchText)
+        public List<BlueprintHandle> SearchBlueprints(string searchText, int matchBuffer, CancellationToken cancellationToken)
         {
-            var query = new MatchQuery(searchText);
             if (searchText?.Length > 0) {
                 var results = new List<BlueprintHandle>() { Capacity = cache.Count };
+                MatchQuery query = new(searchText, BlueprintHandle.MatchProvider);
                 foreach (var handle in cache) {
-                    query.Evaluate(handle);
-                    if (handle.HasMatches())
+                    query.Evaluate(handle, matchBuffer);
+                    if (handle.HasMatches(matchBuffer))
                         results.Add(handle);
+                    cancellationToken.ThrowIfCancellationRequested();
                 }
-                results.Sort((x, y) => y.Score().CompareTo(x.Score()));
+                results.Sort((x, y) => y.Score(matchBuffer).CompareTo(x.Score(matchBuffer)));
                 return results;
                 //return cache.Select(h => query.Evaluate(h)).OfType<BlueprintHandle>().Where(h => h.HasMatches()).OrderByDescending(h => h.Score()).ToList();
             }
             else
                 return cache;
 
+        }
+
+        private static bool[] locked = new bool[2];
+
+        private static string Status(bool running)
+        {
+            return running ? "|" : " ";
+        }
+
+        public const bool debugTasks = false;
+
+        private static void LogTask(int bufferIndex, bool starting, string text)
+        {
+#if DEBUG
+            if (!debugTasks)
+                return;
+
+            if (bufferIndex == 1)
+            {
+                Console.Write(Status(locked[0]).PadRight(40));
+                Console.WriteLine(text);
+            }
+            else
+            {
+                Console.Write(text.PadRight(40));
+                Console.WriteLine(Status(locked[1]));
+            }
+#endif
+        }
+
+        public static void UnlockBuffer(int matchBuffer)
+        {
+            //Console.WriteLine($"Unlocking: {matchBuffer}");
+            locked[matchBuffer] = false;
+        }
+        public Task<List<BlueprintHandle>> SearchBlueprintsAsync(string searchText, CancellationToken cancellationToken, int matchBuffer = 0)
+        {
+            //Console.WriteLine($"Locking: {matchBuffer}");
+            locked[matchBuffer] = true;
+            LogTask(matchBuffer, true, $">>> Starting >>>");
+            return Task.Run(() =>
+            {
+                Stopwatch watch = new();
+                watch.Start();
+                try
+                {
+                    var result = SearchBlueprints(searchText, matchBuffer, cancellationToken);
+                    LogTask(matchBuffer, false, $"<<< Completed <<<");
+                    watch.Stop();
+                    Console.WriteLine($"Search completed after: {watch.ElapsedMilliseconds}ms");
+                    return result;
+                }
+                catch (OperationCanceledException)
+                {
+                    LogTask(matchBuffer, false, $"<<< Cancelled <<< ");
+                    watch.Stop();
+                    Console.WriteLine($"Search canelled after: {watch.ElapsedMilliseconds}ms");
+                    return null;
+                }
+            }, cancellationToken);
         }
     }
 }

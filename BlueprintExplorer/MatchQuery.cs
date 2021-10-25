@@ -5,8 +5,8 @@ using System.Linq;
 
 namespace BlueprintExplorer {
     public interface ISearchable {
-        Dictionary<string, Func<string>> Providers { get; }     // named functions to extract different text out of the target
-        MatchResult[] Matches { get; }   // place to store search results
+        //Dictionary<string, Func<string>> Providers { get; }     // named functions to extract different text out of the target
+        MatchResult[] GetMatches(int index);
     }
     public class MatchResult {
         public struct Span {
@@ -172,7 +172,18 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
             result.Recalculate(text);
         }
 
-        public MatchQuery(string queryText) {
+        public class MatchProvider
+        {
+            public Func<object, string>[] Terms;
+
+            public MatchProvider(params Func<object,string>[] terms)
+            {
+                Terms = terms;
+            }
+        }
+
+        public MatchQuery(string queryText, MatchProvider provider) {
+            this.Provider = provider;
             var unrestricted = new List<string>();
             StrictSearchTexts = new();
             var terms = queryText.Split(' ');
@@ -186,13 +197,17 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
             }
             SearchText = string.Join(' ', unrestricted);
         }
-        public ISearchable Evaluate(ISearchable searchable) {
-            var matches = searchable.CleanedMatches();
+
+        private MatchProvider Provider;
+
+        public ISearchable Evaluate(ISearchable searchable, int index) {
+            var matches = searchable.CleanedMatches(index);
             if (SearchText?.Length > 0 || StrictSearchTexts.Count > 0) {
                 bool foundRestricted = false;
-                foreach (var match in matches) { 
+                for (int i = 0; i < matches.Length; i++) {
+                    MatchResult match = matches[i];
                     var key = match.Key;
-                    var text = searchable.Providers[key]();
+                    var text = Provider.Terms[i](searchable);
                     foreach (var entry in StrictSearchTexts) {
                         if (key.StartsWith(entry.Key)) {
                             Match(entry.Value, text, match);
@@ -202,20 +217,20 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
                     }
                 }
                 if (!foundRestricted && SearchText?.Length > 0) {
-                    FuzzyMatch(searchable.Providers["name"](), matches[0]);
+                    FuzzyMatch(Provider.Terms[0](searchable), matches[0]);
                 }
             }
             return searchable;
         }
     }
     public static class MatchHelpers {
-        public static bool HasMatches(this ISearchable searchable) {
-            if (searchable.Matches == null)
+        public static bool HasMatches(this ISearchable searchable, int index) {
+            if (searchable.GetMatches(index) == null)
                 return true;
             var fuzzyCount = 0;
             var strictFailures = 0;
             var strictMatches = 0;
-            foreach (var match in searchable.Matches) {
+            foreach (var match in searchable.GetMatches(index)) {
                 if (match.IsFuzzy) {
                     if (match.Score >= 10)
                         fuzzyCount += 1;
@@ -229,11 +244,11 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
             }
             return (fuzzyCount >= 1 || strictMatches > 0) && strictFailures == 0;
         }
-        public static float Score(this ISearchable searchable) {
-            if (searchable.Matches == null)
+        public static float Score(this ISearchable searchable, int index) {
+            if (searchable.GetMatches(index) == null)
                 return float.PositiveInfinity;
             var score = 0f;
-            foreach (var match in searchable.Matches) {
+            foreach (var match in searchable.GetMatches(index)) {
                 score += match.Score;
             //    if (match.Score > 50) {
             //        System.Console.WriteLine($"{match}");
@@ -241,8 +256,8 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
             }
             return score;
         }
-        public static MatchResult[] CleanedMatches(this ISearchable searchable) {
-            var matches = searchable.Matches;
+        public static MatchResult[] CleanedMatches(this ISearchable searchable, int index) {
+            var matches = searchable.GetMatches(index);
             // cleanup old match results
             var count = matches.Length;
             for (var ii = 0; ii<count; ii++)

@@ -23,25 +23,47 @@ namespace BlueprintExplorer {
         public string NamespaceLower;
 
         #region ISearchable
-        internal Dictionary<string, Func<string>> _Providers = null;
-        public Dictionary<string, Func<string>> Providers { get {
-                if (_Providers != null) return _Providers;
-                _Providers = new() {
-                    { "name", () => this.NameLower },
-                    { "type", () => this.TypeNameLower },
-                    { "space", () => this.NamespaceLower }
+        //internal Dictionary<string, Func<string>> _Providers = null;
+        //public Dictionary<string, Func<string>> Providers { get {
+        //        if (_Providers != null) return _Providers;
+        //        _Providers = new() {
+        //            { "name", () => this.NameLower },
+        //            { "type", () => this.TypeNameLower },
+        //            { "space", () => this.NamespaceLower }
+        //        };
+        //        return _Providers;
+        //   }
+        //}
+        internal MatchResult[][] _Matches;
+
+        internal static readonly MatchQuery.MatchProvider MatchProvider = new MatchQuery.MatchProvider(
+                    obj => (obj as BlueprintHandle).NameLower,
+                    obj => (obj as BlueprintHandle).TypeNameLower,
+                    obj => (obj as BlueprintHandle).NamespaceLower);
+
+        private MatchResult[] CreateResultArray()
+        {
+            return new MatchResult[] {
+                    new MatchResult("name", this),
+                    new MatchResult("type", this),
+                    new MatchResult("space", this),
                 };
-                return _Providers;
-            }
         }
-        internal MatchResult[] _Matches = null;
-        public MatchResult[] Matches {  get {
-                if (_Matches != null) return _Matches;
-                _Matches = this.Providers.Select(p => new MatchResult(p.Key, this)).ToArray();
-                return _Matches;
-            } }
+        public MatchResult[] GetMatches(int index)
+        {
+            if (_Matches[index] == null)
+                _Matches[index] = CreateResultArray();
+            return _Matches[index];
+        }
+        
 
         #endregion
+        public void PrimeMatches(int count)
+        {
+            _Matches = new MatchResult[count][];
+            for (int i = 0; i < count; i++)
+                _Matches[i] = CreateResultArray();
+        }
 
         public static bool TryGetReference(string value, out Guid guid) {
             guid = Guid.Empty;
