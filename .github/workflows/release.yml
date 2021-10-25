@@ -1,10 +1,10 @@
 name: Release
 
-on: [push]
-# Get it workign on branch first?
-  # push:
-    # tags:
-    #   - "v*"
+# on: [push]
+on:
+  push:
+    tags:
+      - "v*"
 
 jobs:
   build:

@@ -1,6 +1,9 @@
 name: dotnet package
 
-on: [push]
+on:
+  push:
+    tags-ignore:
+      - "v*"
 
 jobs:
   build:
