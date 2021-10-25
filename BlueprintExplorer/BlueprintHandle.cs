@@ -34,7 +34,12 @@ namespace BlueprintExplorer {
                 return _Providers;
             }
         }
-        public MatchResult[] Matches { get; set; } = null;
+        internal MatchResult[] _Matches = null;
+        public MatchResult[] Matches {  get {
+                if (_Matches != null) return _Matches;
+                _Matches = this.Providers.Select(p => new MatchResult(p.Key, this)).ToArray();
+                return _Matches;
+            } }
 
         #endregion
 

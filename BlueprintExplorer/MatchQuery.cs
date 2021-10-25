@@ -6,7 +6,7 @@ using System.Linq;
 namespace BlueprintExplorer {
     public interface ISearchable {
         Dictionary<string, Func<string>> Providers { get; }     // named functions to extract different text out of the target
-        MatchResult[] Matches { get; set; }   // place to store search results
+        MatchResult[] Matches { get; }   // place to store search results
     }
     public class MatchResult {
         public struct Span {
@@ -207,8 +207,6 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
                     FuzzyMatch(searchable.Providers["name"](), matches[0]);
                 }
             }
-            else
-                searchable.Matches = null;
             return searchable;
         }
     }
@@ -247,13 +245,10 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
         }
         public static MatchResult[] CleanedMatches(this ISearchable searchable) {
             var matches = searchable.Matches;
-            // create match results if needed (first time we see this searchable)
-            if (matches == null)
-                matches = searchable.Matches = searchable.Providers.Select(p => new MatchResult(p.Key, searchable)).ToArray();
             // cleanup old match results
-            foreach (var match in matches) {
-                match.Clean();
-            }
+            var count = matches.Length;
+            for (var ii = 0; ii<count; ii++)
+                matches[ii].Clean();
             return matches;
         }
     }
