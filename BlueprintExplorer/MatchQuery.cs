@@ -57,6 +57,8 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
             Clean();
         }
         public void Clean() {
+            if (IsClean)
+                return;
             IsClean = true;
             Text = null;
             Context = null;
@@ -75,7 +77,6 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
         }
 
         public void Reuse(string text, MatchQuery context, bool isFuzzy = true) {
-            Clean();
             Text = text;
             Context = context;
             IsClean = false;
