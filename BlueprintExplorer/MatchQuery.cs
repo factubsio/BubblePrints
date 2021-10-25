@@ -143,7 +143,6 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
                 searchTextIndex++;
             }
             // continue to match the next searchTextIndex greedily in target
-            var firstSpan = 0;
             while (searchTextIndex < searchText.Length) {
                 // find the next point in target that matches searchIndex:
                 // n:bOb h:helloworldBob
@@ -162,15 +161,13 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
                     targetIndex++;
                 }
                 var span = targetIndex - spanFrom;
-                if (firstSpan == 0) {
-                    firstSpan = span;
-                    result.Bonus += span * (span + 1) / 2; // give a bonus for span size
-                }
-                if (span == searchText.Length)
-                    result.Bonus *= 2f;
                 //record the end of the span
                 result.AddSpan(spanFrom, span);
+                result.Bonus += span * (span + 1) / 2 + span; // give a bonus for span size
+                if (span == searchText.Length)
+                    result.Bonus *= 2f;
             }
+
             result.Recalculate(text);
         }
 

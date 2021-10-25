@@ -258,8 +258,17 @@ namespace BlueprintExplorer {
         public List<BlueprintHandle> SearchBlueprints(string searchText)
         {
             var query = new MatchQuery(searchText);
-            if (searchText?.Length > 0)
-                return cache.Select(h => query.Evaluate(h)).OfType<BlueprintHandle>().Where(h => h.HasMatches()).OrderByDescending(h => h.Score()).ToList();
+            if (searchText?.Length > 0) {
+                var results = new List<BlueprintHandle>() { Capacity = cache.Count };
+                foreach (var handle in cache) {
+                    query.Evaluate(handle);
+                    if (handle.HasMatches())
+                        results.Add(handle);
+                }
+                results.Sort((x, y) => y.Score().CompareTo(x.Score()));
+                return results;
+                //return cache.Select(h => query.Evaluate(h)).OfType<BlueprintHandle>().Where(h => h.HasMatches()).OrderByDescending(h => h.Score()).ToList();
+            }
             else
                 return cache;
 
