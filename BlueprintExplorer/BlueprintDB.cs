@@ -251,6 +251,8 @@ namespace BlueprintExplorer {
             types.Add(bp.Type.Substring(end + 1));
             cache.Add(bp);
             Blueprints[guid] = bp;
+            // preheat this
+            _ = bp.Matches;
         }
 
         public List<BlueprintHandle> SearchBlueprints(string searchText)

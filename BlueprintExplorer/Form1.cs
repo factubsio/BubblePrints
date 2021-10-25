@@ -63,7 +63,6 @@ namespace BlueprintExplorer {
                 bpView.Enabled = true;
                 omniSearch.Text = "";
                 omniSearch.Select();
-                GC.Collect();
             }, TaskScheduler.FromCurrentSynchronizationContext());
 
             new Thread(() => {
