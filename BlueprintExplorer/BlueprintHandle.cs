@@ -34,7 +34,7 @@ namespace BlueprintExplorer {
                 return _Providers;
             }
         }
-        public Dictionary<string, MatchResult> Matches { get; set; } = new();
+        public MatchResult[] Matches { get; set; } = null;
 
         #endregion
 

@@ -6,33 +6,7 @@ using System.Linq;
 namespace BlueprintExplorer {
     public interface ISearchable {
         Dictionary<string, Func<string>> Providers { get; }     // named functions to extract different text out of the target
-        Dictionary<string, MatchResult> Matches { get; set; }   // place to store search results
-    }
-    public static class MatchHelpers {
-        public static bool HasMatches(this ISearchable searchable) {
-            if (searchable.Matches == null)
-                return true;
-            var fuzzyCount = 0;
-            var strictFailures = 0;
-            foreach (var entry in searchable.Matches) {
-                var match = entry.Value;
-                if (match.IsFuzzy && match.Score >= 10)
-                    fuzzyCount += 1;
-                else if (!match.IsMatch)
-                    strictFailures += 1;
-            }
-            return fuzzyCount >= 1 && strictFailures == 0;
-        }
-        public static float Score(this ISearchable searchable) {
-            if (searchable.Matches == null)
-                return float.PositiveInfinity;
-            var score = 0f;
-            foreach (var entry in searchable.Matches) {
-                var match = entry.Value;
-                score += match.Score;
-            }
-            return score;
-        }
+        MatchResult[] Matches { get; set; }   // place to store search results
     }
     public class MatchResult {
         public struct Span {
@@ -47,8 +21,8 @@ namespace BlueprintExplorer {
             }
         }
 
-        public ISearchable Target;
         public string Key;
+        public ISearchable Target;
         public string Text;
         public MatchQuery Context;
         public bool IsFuzzy;
@@ -68,13 +42,16 @@ namespace BlueprintExplorer {
 
         public float Score;
 
-        public void Reuse(ISearchable target, string key, string text, MatchQuery context, bool isFuzzy = true) {
-            Target = target;
+        public MatchResult(string key, ISearchable target) {
             Key = key;
-            Text = text;
-            Context = context;
-            IsClean = false;
-            IsFuzzy = isFuzzy;
+            Target = target;
+            Clean();
+        }
+        public void Clean() {
+            IsClean = true;
+            Text = null;
+            Context = null;
+            IsFuzzy = false;
             span.Start(0);
             MatchedCharacters = 0;
             BestRun = 0;
@@ -84,6 +61,14 @@ namespace BlueprintExplorer {
             Bonus = 0f;
             TargetRatio = 0f;
             GoodRuns = 0;
+        }
+
+        public void Reuse(string text, MatchQuery context, bool isFuzzy = true) {
+            Clean();
+            Text = text;
+            Context = context;
+            IsClean = false;
+            IsFuzzy = isFuzzy;
         }
         public void AddSpan(int start, int length) {
             //update some stats that get used for scoring
@@ -97,35 +82,42 @@ namespace BlueprintExplorer {
                 GoodRuns++;
             TotalMatched += length;
         }
-        public void Recalculate() {
+        public void Recalculate(string text) {
+            TargetRatio = TotalMatched / (float)text.Length;
             Score = (TargetRatio * MatchRatio * 1.0f) + (BestRun * 4) + (GoodRuns * 2) - Penalty + Bonus;
         }
     }
     public class MatchQuery {
         public string SearchText;                                   // general search text which will be fuzzy and pass if any matches
         public Dictionary<string, string> StrictSearchTexts;        // these are specific keys such as type: and these will be evaluated with AND logic
-        private MatchResult Match(string searchText, ISearchable searchable, string key, string text, MatchResult result) {
-            result.Reuse(searchable, key, text, this, false);
-            var index = text.IndexOf(searchText);
+        private MatchResult Match(string searchText, string text, MatchResult result) {
+            result.Reuse(text, this, false);
+            if (searchText.Length == 0) {
+                // empty strict searches will select all
+                result.AddSpan(0, text.Length);
+                result.Recalculate(text);
+                return result;
+            }
+            if (searchText.Length == 1) result.Bonus = 10; // We want to let matches to single char search strings show up
+            var index =  text.IndexOf(searchText);
             if (index >= 0) {
                 result.AddSpan(index, searchText.Length);
-                result.TargetRatio = result.TotalMatched / (float)text.Length;
+                result.Recalculate(text);
             }
             return result;
         }
-        private void FuzzyMatch(ISearchable searchable, string key, string text, MatchResult result) {
-            result.Reuse(searchable, key, text, this);
+        private void FuzzyMatch(string text, MatchResult result) {
+            result.Reuse(text, this);
 
             int searchTextIndex = 0;
             int targetIndex = -1;
 
             var searchText = result.Context.SearchText;
-            var target = result.Text;
 
             // find a common prefix if any, so n:cat h:catsgrace is better than n:cat h:blahcatsgrace
-            targetIndex = target.IndexOf(searchText[searchTextIndex]);
-            if (targetIndex == 0)
-                result.Bonus = 2.0f;
+            targetIndex = text.IndexOf(searchText[searchTextIndex]);
+            if (targetIndex == 0) result.Bonus = 2.0f;
+            if (searchText.Length == 1)result.Bonus += 10; // We want to let matches to single char search strings show up
 
             // penalise matches that don't have a common prefix, while increasing searchTextIndex and targetIndex to the first match, so:
             // n:bOb  h:hellOworldbob
@@ -135,7 +127,7 @@ namespace BlueprintExplorer {
                     result.Penalty = 2;
                 else
                     result.Penalty += result.Penalty * .5f;
-                targetIndex = target.IndexOf(searchText[searchTextIndex]);
+                targetIndex = text.IndexOf(searchText[searchTextIndex]);
                 searchTextIndex++;
             }
 
@@ -144,13 +136,13 @@ namespace BlueprintExplorer {
                 // find the next point in target that matches searchIndex:
                 // n:bOb h:helloworldBob
                 //     ^             ^
-                targetIndex = target.IndexOf(searchText[searchTextIndex], targetIndex);
+                targetIndex = text.IndexOf(searchText[searchTextIndex], targetIndex);
                 if (targetIndex == -1)
                     break;
 
                 //continue matching while both are in sync
                 var spanFrom = targetIndex;
-                while (targetIndex < target.Length && searchTextIndex < searchText.Length && searchText[searchTextIndex] == target[targetIndex]) {
+                while (targetIndex < text.Length && searchTextIndex < searchText.Length && searchText[searchTextIndex] == text[targetIndex]) {
                     //if this span is rooted at the start of the word give a bonus because start is most importatn
                     if (spanFrom == 0 && searchTextIndex > 0)
                         result.Bonus += result.Bonus;
@@ -161,8 +153,7 @@ namespace BlueprintExplorer {
                 //record the end of the span
                 result.AddSpan(spanFrom, targetIndex - spanFrom);
             }
-            result.TargetRatio = result.TotalMatched / (float)target.Length;
-            result.Recalculate();
+            result.Recalculate(text);
         }
 
         public MatchQuery(string queryText) {
@@ -179,36 +170,23 @@ namespace BlueprintExplorer {
             }
             SearchText = string.Join(' ', unrestricted);
         }
-
         public ISearchable Evaluate(ISearchable searchable) {
+            var matches = searchable.CleanedMatches();
             if (SearchText?.Length > 0 || StrictSearchTexts.Count > 0) {
-                var matches = searchable.Matches;
-                if (matches == null)
-                    matches = searchable.Matches = new();
                 bool foundRestricted = false;
-                foreach (var provider in searchable.Providers) {
-                    var key = provider.Key;
-                    if (!matches.TryGetValue(key, out var matchResult)) {
-                        matchResult = new();
-                        matches[key] = matchResult;
-                    }
-                    matchResult.IsClean = true; // important to set this as it will get cleared during the matching process if it is called
-                    var text = provider.Value();
+                foreach (var match in matches) { 
+                    var key = match.Key;
+                    var text = searchable.Providers[key]();
                     foreach (var entry in StrictSearchTexts) {
                         if (key.StartsWith(entry.Key)) {
-                            Match(entry.Value, searchable, key, text, matchResult);
+                            Match(entry.Value, text, match);
                             foundRestricted = key == "name";
                             break;
                         }
                     }
                 }
                 if (!foundRestricted && SearchText?.Length > 0) {
-                    if (!matches.TryGetValue("name", out var matchResult)) {
-                        matchResult = new();
-                        matches["name"] = matchResult;
-                    }
-                    matchResult.IsClean = true; // important to set this as it will get cleared during the matching process if it is called
-                    FuzzyMatch(searchable, "name", searchable.Providers["name"](), matchResult);
+                    FuzzyMatch(searchable.Providers["name"](), matches[0]);
                 }
             }
             else
@@ -216,7 +194,48 @@ namespace BlueprintExplorer {
             return searchable;
         }
     }
-
+    public static class MatchHelpers {
+        public static bool HasMatches(this ISearchable searchable) {
+            if (searchable.Matches == null)
+                return true;
+            var fuzzyCount = 0;
+            var strictFailures = 0;
+            var strictMatches = 0;
+            foreach (var match in searchable.Matches) {
+                if (match.IsFuzzy) {
+                    if (match.Score >= 10)
+                        fuzzyCount += 1;
+                }
+                else {
+                    if (match.TotalMatched > 0)
+                        strictMatches += 1;
+                    if (!match.IsMatch)
+                        strictFailures += 1;
+                }
+            }
+            return (fuzzyCount >= 1 || strictMatches > 0) && strictFailures == 0;
+        }
+        public static float Score(this ISearchable searchable) {
+            if (searchable.Matches == null)
+                return float.PositiveInfinity;
+            var score = 0f;
+            foreach (var match in searchable.Matches) {
+                score += match.Score;
+            }
+            return score;
+        }
+        public static MatchResult[] CleanedMatches(this ISearchable searchable) {
+            var matches = searchable.Matches;
+            // create match results if needed (first time we see this searchable)
+            if (matches == null)
+                matches = searchable.Matches = searchable.Providers.Select(p => new MatchResult(p.Key, searchable)).ToArray();
+            // cleanup old match results
+            foreach (var match in matches) {
+                match.Clean();
+            }
+            return matches;
+        }
+    }
 #if false
     public static class FuzzyMatcher {
         public static IEnumerable<T> FuzzyMatch<T>(this IEnumerable<(T, string)> input, string needle, float scoreThreshold = 10) {
