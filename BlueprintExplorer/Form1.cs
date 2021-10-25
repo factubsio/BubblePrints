@@ -131,10 +131,6 @@ namespace BlueprintExplorer {
             watch.Start();
             resultsCache = db.SearchBlueprints(Search?.ToLower());
             count.Text = $"{resultsCache.Count()}";
-            watch.Stop();
-            Console.WriteLine($"After Search: {watch.ElapsedMilliseconds} msec");
-            watch.Reset();
-            watch.Start();
             var oldRowCount = resultsGrid.Rows.Count;
             var newRowCount = resultsCache.Count();
             if (newRowCount > oldRowCount)
@@ -145,7 +141,7 @@ namespace BlueprintExplorer {
                     resultsGrid.Rows.Add(newRowCount);
             }
             watch.Stop();
-            Console.WriteLine($"After dataGridView: {watch.ElapsedMilliseconds} msec");
+            Console.WriteLine($"InvalidateResults: {watch.ElapsedMilliseconds} msec");
             resultsGrid.Invalidate();
         }
         private void OmniSearch_TextChanged(object sender, EventArgs e) {
@@ -430,6 +426,9 @@ namespace BlueprintExplorer {
                     e.Value = resultsCache[row].Namespace;
                     break;
                 case 3:
+                    e.Value = resultsCache[row].Score().ToString();
+                    break;
+                case 4:
                     e.Value = resultsCache[row].GuidText;
                     break;
                 default:

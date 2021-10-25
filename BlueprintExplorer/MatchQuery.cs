@@ -36,11 +36,20 @@ namespace BlueprintExplorer {
         public int TotalMatched;
         public float Penalty;
         public float Bonus;
-        public float MatchRatio => TotalMatched / (float)Context.SearchText.Length;
+        public float MatchRatio;
         public float TargetRatio;
         public int GoodRuns;
 
         public float Score;
+        public override string ToString() {
+            //             Score = (TargetRatio * MatchRatio * TotalMatched * 4) + (BestRun * 4) + (GoodRuns * 2) - Penalty + Bonus;
+            var fuzzyText = IsFuzzy ? "F" : "";
+            var cleanText = IsClean ? "C" : "";
+            var matchText = IsMatch ? "M" : "";
+            var scoreText = $"score:{Score} = {TargetRatio * MatchRatio * TotalMatched * 4:0.00} ({TargetRatio:0.00}*{MatchRatio:0.00}*{TargetRatio:0.00}*{TotalMatched}*4) + {BestRun * 4} ({BestRun}*4) + {GoodRuns * 2}({GoodRuns}*2) - penalty({Penalty}) + bonus({Bonus})";
+var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scoreText} - key:{Key} <{string.Join("", matchText, cleanText, fuzzyText)}>";
+            return result;
+        }
 
         public MatchResult(string key, ISearchable target) {
             Key = key;
@@ -59,8 +68,10 @@ namespace BlueprintExplorer {
             TotalMatched = 0;
             Penalty = 0f;
             Bonus = 0f;
+            MatchRatio = 0f;
             TargetRatio = 0f;
             GoodRuns = 0;
+            Score = 0;
         }
 
         public void Reuse(string text, MatchQuery context, bool isFuzzy = true) {
@@ -73,7 +84,7 @@ namespace BlueprintExplorer {
         public void AddSpan(int start, int length) {
             //update some stats that get used for scoring
             if (span.Length > BestRun) {
-                BestRun = length;
+                BestRun += 1;
                 this.span.Start(start, length);
             }
             if (length == 1)
@@ -84,7 +95,8 @@ namespace BlueprintExplorer {
         }
         public void Recalculate(string text) {
             TargetRatio = TotalMatched / (float)text.Length;
-            Score = (TargetRatio * MatchRatio * 1.0f) + (BestRun * 4) + (GoodRuns * 2) - Penalty + Bonus;
+            MatchRatio = TotalMatched / (float)Context.SearchText.Length;
+            Score = (TargetRatio * MatchRatio * TotalMatched * 4) + (BestRun * 4) + (GoodRuns * 2) - Penalty + Bonus;
         }
     }
     public class MatchQuery {
@@ -130,8 +142,8 @@ namespace BlueprintExplorer {
                 targetIndex = text.IndexOf(searchText[searchTextIndex]);
                 searchTextIndex++;
             }
-
             // continue to match the next searchTextIndex greedily in target
+            var firstSpan = 0;
             while (searchTextIndex < searchText.Length) {
                 // find the next point in target that matches searchIndex:
                 // n:bOb h:helloworldBob
@@ -145,13 +157,19 @@ namespace BlueprintExplorer {
                 while (targetIndex < text.Length && searchTextIndex < searchText.Length && searchText[searchTextIndex] == text[targetIndex]) {
                     //if this span is rooted at the start of the word give a bonus because start is most importatn
                     if (spanFrom == 0 && searchTextIndex > 0)
-                        result.Bonus += result.Bonus;
+                        result.Bonus += 2 * searchTextIndex;
                     searchTextIndex++;
                     targetIndex++;
                 }
-
+                var span = targetIndex - spanFrom;
+                if (firstSpan == 0) {
+                    firstSpan = span;
+                    result.Bonus += span * (span + 1) / 2; // give a bonus for span size
+                }
+                if (span == searchText.Length)
+                    result.Bonus *= 2f;
                 //record the end of the span
-                result.AddSpan(spanFrom, targetIndex - spanFrom);
+                result.AddSpan(spanFrom, span);
             }
             result.Recalculate(text);
         }
@@ -209,7 +227,7 @@ namespace BlueprintExplorer {
                 else {
                     if (match.TotalMatched > 0)
                         strictMatches += 1;
-                    if (!match.IsMatch)
+                    else if (!match.IsClean)
                         strictFailures += 1;
                 }
             }
@@ -221,6 +239,9 @@ namespace BlueprintExplorer {
             var score = 0f;
             foreach (var match in searchable.Matches) {
                 score += match.Score;
+            //    if (match.Score > 50) {
+            //        System.Console.WriteLine($"{match}");
+            //    }
             }
             return score;
         }

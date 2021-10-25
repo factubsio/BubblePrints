@@ -37,6 +37,7 @@ namespace BlueprintExplorer
             this.BPName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.BPType = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.BPNamespace = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.Score = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.BPGuid = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.count = new System.Windows.Forms.Label();
             this.filter = new System.Windows.Forms.TextBox();
@@ -122,6 +123,7 @@ namespace BlueprintExplorer
             this.BPName,
             this.BPType,
             this.BPNamespace,
+            this.Score,
             this.BPGuid});
             this.resultsGrid.Cursor = System.Windows.Forms.Cursors.Default;
             this.resultsGrid.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -163,6 +165,14 @@ namespace BlueprintExplorer
             this.BPNamespace.ReadOnly = true;
             this.BPNamespace.Width = 500;
             // 
+            // Score
+            // 
+            this.Score.HeaderText = "Score";
+            this.Score.MinimumWidth = 11;
+            this.Score.Name = "Score";
+            this.Score.ReadOnly = true;
+            this.Score.Width = 225;
+            // 
             // BPGuid
             // 
             this.BPGuid.HeaderText = "Guid";
@@ -195,7 +205,7 @@ namespace BlueprintExplorer
             // 
             this.historyBread.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.historyBread.Location = new System.Drawing.Point(4, 1013);
+            this.historyBread.Location = new System.Drawing.Point(4, 955);
             this.historyBread.Margin = new System.Windows.Forms.Padding(4);
             this.historyBread.Name = "historyBread";
             this.historyBread.Size = new System.Drawing.Size(3254, 80);
@@ -211,7 +221,7 @@ namespace BlueprintExplorer
             this.bpView.Location = new System.Drawing.Point(4, 59);
             this.bpView.Margin = new System.Windows.Forms.Padding(4);
             this.bpView.Name = "bpView";
-            this.bpView.Size = new System.Drawing.Size(3252, 943);
+            this.bpView.Size = new System.Drawing.Size(3252, 885);
             this.bpView.TabIndex = 0;
             // 
             // Form1
@@ -246,11 +256,12 @@ namespace BlueprintExplorer
         private System.Windows.Forms.DataGridView resultsGrid;
         private System.Windows.Forms.TextBox filter;
         private System.Windows.Forms.Label SearchLabel;
+        private System.Windows.Forms.Label count;
         private System.Windows.Forms.DataGridViewTextBoxColumn BPName;
         private System.Windows.Forms.DataGridViewTextBoxColumn BPType;
         private System.Windows.Forms.DataGridViewTextBoxColumn BPNamespace;
+        private System.Windows.Forms.DataGridViewTextBoxColumn Score;
         private System.Windows.Forms.DataGridViewTextBoxColumn BPGuid;
-        private System.Windows.Forms.Label count;
     }
 }
 
