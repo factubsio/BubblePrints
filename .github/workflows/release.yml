@@ -1,0 +1,39 @@
+name: Release
+
+# on: [push]
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        dotnet-version: ['5.0.x' ]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup .NET Core SDK ${{ matrix.dotnet-version }}
+        uses: actions/setup-dotnet@v1.7.2
+        with:
+          dotnet-version: ${{ matrix.dotnet-version }}
+      - name: Install dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+      - name: list
+        run: ls -r
+      - name: Zip Release
+        uses: TheDoctor0/zip-release@0.6.0
+        with:
+          type: 'zip'
+          filename: 'bubbleprints-release.zip'
+          exclusions: '*.git* /*node_modules/* .editorconfig'
+          path: BlueprintExplorer/bin/Release
+      - name: Upload Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "bubbleprints-release.zip"
+          token: ${{ secrets.GITHUB_TOKEN }}
