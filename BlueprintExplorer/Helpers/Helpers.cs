@@ -14,8 +14,6 @@ namespace BlueprintExplorer
         {
             return obj.Substring(0, Math.Min(length, obj.Length));
         }
-
-
     }
 
 }

@@ -1,5 +1,7 @@
-﻿using System;
+﻿using ModKit;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text.Json;
@@ -8,16 +10,13 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using static BlueprintExplorer.BlueprintDB;
 
-namespace BlueprintExplorer
-{
-    public partial class Form1 : Form
-    {
+namespace BlueprintExplorer {
+    public partial class Form1 : Form {
         private BlueprintDB db => BlueprintDB.Instance;
         public static bool Dark;
         bool Good => initialize?.IsCompleted ?? false;
 
-        public Form1()
-        {
+        public Form1() {
             var env = Environment.GetEnvironmentVariable("BubbleprintsTheme");
             Dark = env?.Equals("dark") ?? false;
 
@@ -29,8 +28,7 @@ namespace BlueprintExplorer
             Color bgColor = omniSearch.BackColor;
             resultsGrid.RowHeadersVisible = false;
 
-            if (Dark)
-            {
+            if (Dark) {
                 bgColor = Color.FromArgb(50, 50, 50);
 
                 this.BackColor = bgColor;
@@ -58,35 +56,27 @@ namespace BlueprintExplorer
 
 
             initialize = BlueprintDB.Instance.TryConnect();
-            initialize.ContinueWith(b =>
-            {
+            initialize.ContinueWith(b => {
                 omniSearch.Enabled = true;
-                filter.Enabled = true;
+                filter.Enabled = false;
                 resultsGrid.Enabled = true;
                 bpView.Enabled = true;
                 omniSearch.Text = "";
                 omniSearch.Select();
-                GC.Collect();
             }, TaskScheduler.FromCurrentSynchronizationContext());
 
-            new Thread(() =>
-            {
+            new Thread(() => {
                 const string plane = "LOADING-🛬";
                 const int frames = 90;
 
-                while (true)
-                {
-                    for (int frame = 0; frame < frames; frame++)
-                    {
+                while (true) {
+                    for (int frame = 0; frame < frames; frame++) {
                         if (Good)
                             return;
 
-                        if (omniSearch.Visible)
-                        {
-                            omniSearch.Invoke(new Action(() =>
-                            {
-                                if (!Good)
-                                {
+                        if (omniSearch.Visible) {
+                            omniSearch.Invoke(new Action(() => {
+                                if (!Good) {
                                     omniSearch.Text = plane.PadLeft(plane.Length + frame);
                                 }
                             }));
@@ -99,15 +89,13 @@ namespace BlueprintExplorer
         }
 
 
-        private void ResultsGrid_CellClick(object sender, DataGridViewCellEventArgs e)
-        {
+        private void ResultsGrid_CellClick(object sender, DataGridViewCellEventArgs e) {
             ShowSelected();
         }
 
         private Stack<BlueprintHandle> history = new();
 
-        private void BpView_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
-        {
+        private void BpView_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e) {
             if (e.Node.Tag == null)
                 return;
             Guid guid = Guid.Parse(e.Node.Tag as string);
@@ -116,59 +104,50 @@ namespace BlueprintExplorer
 
             ShowBlueprint(db.Blueprints[guid], true);
         }
+        static System.Windows.Forms.Timer InvalidateTimer;
 
-        private DateTime lastSearch = DateTime.MinValue;
+        private DateTime lastChange = DateTime.MinValue;
+        private TimeSpan debounceTime = TimeSpan.FromSeconds(1.5);
 
-        private void InvalidateResults()
-        {
-            resultsGrid.RowCount = resultCache.Count;
+        private void timer1_Tick(object sender, EventArgs e) {
+            Console.WriteLine("tick");
+            lastChange = DateTime.Now;
+            resultsCache = db.SearchBlueprints(Search?.ToLower());
+            count.Text = $"{resultsCache.Count}";
+            InvalidateTimer.Stop();
+            InvalidateResults();
+        }
+        private void UpdateSearchResults(double delay) {
+            InvalidateTimer?.Stop();
+            InvalidateTimer = new System.Windows.Forms.Timer();
+            InvalidateTimer.Interval = (int)(delay * 1000);
+            InvalidateTimer.Tick += new EventHandler(timer1_Tick);
+            InvalidateTimer.Start();
+
+        }
+        private void InvalidateResults() {
+            Stopwatch watch = new Stopwatch();
+            watch.Start();
+            resultsCache = db.SearchBlueprints(Search?.ToLower());
+            count.Text = $"{resultsCache.Count()}";
+            var oldRowCount = resultsGrid.Rows.Count;
+            var newRowCount = resultsCache.Count();
+            if (newRowCount > oldRowCount)
+                resultsGrid.Rows.Add(newRowCount - oldRowCount);
+            else {
+                resultsGrid.Rows.Clear();
+                if (newRowCount > 0)
+                    resultsGrid.Rows.Add(newRowCount);
+            }
+            watch.Stop();
+            Console.WriteLine($"InvalidateResults: {watch.ElapsedMilliseconds} msec");
             resultsGrid.Invalidate();
         }
-
-        private void OmniSearch_TextChanged(object sender, EventArgs e)
-        {
+        private void OmniSearch_TextChanged(object sender, EventArgs e) {
             if (!Good)
                 return;
-
-            if (Search.Length == 0)
-            {
-                resultCache = db.GetBlueprints(null, null);
-                InvalidateResults();
-                return;
-            }
-
-            var now = DateTime.Now;
-            var elapsed = now - lastSearch;
-            //if (elapsed.TotalMilliseconds < 10)
-            //    return;
-
-            lastSearch = now;
-
-            var typePrefix = "type:";
-
-            string query = Search.Trim();
-
-            if (query.StartsWith(typePrefix))
-            {
-                var type = query.AsSpan(typePrefix.Length).Trim();
-                var sep = type.IndexOf(' ');
-                if (sep == -1)
-                {
-                    resultCache = db.GetBlueprints(null, type.ToString());
-                } 
-                else
-                {
-                    var name = type.Slice(sep + 1);
-                    type = type.Slice(0, sep);
-                    resultCache = db.GetBlueprints(name.ToString(), type.ToString());
-                }
-            }
-            else
-            {
-                resultCache = db.GetBlueprints(query, null);
-            }
-
             InvalidateResults();
+            //UpdateSearchResults(1f);
         }
 
         private string Search => omniSearch.Text;
@@ -180,11 +159,9 @@ namespace BlueprintExplorer
             '/',
             ':',
         };
-        private void KillForwardLine()
-        {
+        private void KillForwardLine() {
             var here = omniSearch.SelectionStart;
-            if (omniSearch.SelectionLength == 0)
-            {
+            if (omniSearch.SelectionLength == 0) {
                 if (here > 0)
                     omniSearch.Text = Search.Substring(0, here);
                 else
@@ -195,11 +172,9 @@ namespace BlueprintExplorer
 
         }
 
-        private void KillBackLine()
-        {
+        private void KillBackLine() {
             var here = omniSearch.SelectionStart;
-            if (omniSearch.SelectionLength == 0)
-            {
+            if (omniSearch.SelectionLength == 0) {
                 if (here < Search.Length)
                     omniSearch.Text = Search.Substring(here);
                 else
@@ -209,11 +184,9 @@ namespace BlueprintExplorer
 
         }
 
-        private void KillBackWord()
-        {
+        private void KillBackWord() {
             var here = omniSearch.SelectionStart;
-            if (omniSearch.SelectionLength == 0)
-            {
+            if (omniSearch.SelectionLength == 0) {
                 while (here > 0 && Search[here - 1] == ' ')
                     here--;
 
@@ -228,8 +201,7 @@ namespace BlueprintExplorer
                 else
                     newSearch = "";
 
-                if (here < Search.Length)
-                {
+                if (here < Search.Length) {
                     newSearch += Search.Substring(here);
                 }
 
@@ -238,12 +210,9 @@ namespace BlueprintExplorer
             }
         }
 
-        private void omniSearch_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Control)
-            {
-                switch (e.KeyCode)
-                {
+        private void omniSearch_KeyDown(object sender, KeyEventArgs e) {
+            if (e.Control) {
+                switch (e.KeyCode) {
                     case Keys.W:
                         KillBackWord();
                         break;
@@ -263,20 +232,15 @@ namespace BlueprintExplorer
                         break;
                 }
             }
-            else if (e.KeyCode == Keys.Return || e.KeyCode == Keys.Enter)
-            {
-                if (resultCache.Count > 0)
-                {
+            else if (e.KeyCode == Keys.Return || e.KeyCode == Keys.Enter) {
+                if (resultsCache.Count > 0) {
                     ShowSelected();
                 }
             }
-            else if (e.KeyCode == Keys.Up)
-            {
-                if (resultCache.Count > 1)
-                {
+            else if (e.KeyCode == Keys.Up) {
+                if (resultsCache.Count > 1) {
                     int row = SelectedRow - 1;
-                    if (row >= 0 && row < resultCache.Count)
-                    {
+                    if (row >= 0 && row < resultsCache.Count) {
                         resultsGrid.Rows[row].Selected = true;
                         resultsGrid.CurrentCell = resultsGrid[0, row];
                         resultsGrid.CurrentCell.ToolTipText = "";
@@ -285,13 +249,10 @@ namespace BlueprintExplorer
                 e.Handled = true;
                 e.SuppressKeyPress = true;
             }
-            else if (e.KeyCode == Keys.Down)
-            {
-                if (resultCache.Count > 1)
-                {
+            else if (e.KeyCode == Keys.Down) {
+                if (resultsCache.Count > 1) {
                     int row = SelectedRow + 1;
-                    if (row < resultCache.Count)
-                    {
+                    if (row < resultsCache.Count) {
                         resultsGrid.Rows[row].Selected = true;
                         resultsGrid.CurrentCell = resultsGrid[0, row];
                         resultsGrid.CurrentCell.ToolTipText = "";
@@ -303,35 +264,30 @@ namespace BlueprintExplorer
 
         }
 
-        private void ShowSelected()
-        {
+        private void ShowSelected() {
             historyBread.Controls.Clear();
             history.Clear();
 
             if (TryGetSelected(out var row))
-                ShowBlueprint(resultCache[row].Handle, true);
+                ShowBlueprint(resultsCache[row], true);
         }
 
         private int SelectedRow => resultsGrid.SelectedRows.Count > 0 ? resultsGrid.SelectedRows[0].Index : 0;
 
-        private bool TryGetSelected(out int row)
-        {
+        private bool TryGetSelected(out int row) {
             row = SelectedRow;
-            return row >= 0 && row < resultCache.Count;
+            return row >= 0 && row < resultsCache.Count;
         }
 
-        private void PopHistory(int to)
-        {
+        private void PopHistory(int to) {
             int toRemove = history.Count;
-            for (int i = to + 1; i < toRemove; i++)
-            {
+            for (int i = to + 1; i < toRemove; i++) {
                 historyBread.Controls.RemoveAt(to + 1);
                 history.Pop();
             }
         }
 
-        private void PushHistory(BlueprintHandle bp)
-        {
+        private void PushHistory(BlueprintHandle bp) {
             var button = new Button();
             if (Dark)
                 button.ForeColor = Color.White;
@@ -339,8 +295,7 @@ namespace BlueprintExplorer
             button.Text = bp.Name;
             button.AutoSize = true;
             int here = historyBread.Controls.Count;
-            button.Click += (sender, e) =>
-            {
+            button.Click += (sender, e) => {
                 PopHistory(here);
                 ShowBlueprint(bp, false);
             };
@@ -348,10 +303,8 @@ namespace BlueprintExplorer
             history.Push(bp);
         }
 
-        private void ShowBlueprint(BlueprintHandle bp, bool updateHistory)
-        {
-            if (!bp.Parsed)
-            {
+        private void ShowBlueprint(BlueprintHandle bp, bool updateHistory) {
+            if (!bp.Parsed) {
                 bp.obj = JsonSerializer.Deserialize<dynamic>(bp.Raw);
                 bp.Parsed = true;
             }
@@ -367,8 +320,7 @@ namespace BlueprintExplorer
 
             var query = filter.Text.Trim();
 
-            if (query.Length > 0)
-            {
+            if (query.Length > 0) {
                 filterPred = node => {
                     if (node.levelDelta < 0)
                         return false;
@@ -384,28 +336,23 @@ namespace BlueprintExplorer
 
             Stack<BlueprintHandle.VisitedElement> stack = new();
 
-            foreach (var e in nodeList)
-            {
-                if (e.levelDelta > 0)
-                {
+            foreach (var e in nodeList) {
+                if (e.levelDelta > 0) {
                     e.Empty = !filterPred(e);
                     stack.Push(e);
                 }
-                else if (e.levelDelta < 0)
-                {
+                else if (e.levelDelta < 0) {
                     var entry = stack.Pop();
                     e.Empty = entry.Empty;
                     if (stack.TryPeek(out var parent))
                         parent.Empty &= entry.Empty;
                 }
-                else
-                {
-                    if (!stack.Peek().Empty || filterPred(e))
-                    {
+                else {
+                    if (!stack.Peek().Empty || filterPred(e)) {
                         e.Empty = false;
                         stack.Peek().Empty = false;
-                    } else
-                    {
+                    }
+                    else {
                         e.Empty = true;
                     }
                 }
@@ -415,10 +362,8 @@ namespace BlueprintExplorer
 
             stack.Clear();
 
-            foreach (var e in nodeList)
-            {
-                if (e.levelDelta > 0)
-                {
+            foreach (var e in nodeList) {
+                if (e.levelDelta > 0) {
                     stack.Push(e);
                     if (e.Empty)
                         continue;
@@ -429,23 +374,20 @@ namespace BlueprintExplorer
                         node.Nodes.Add(next);
                     node = next;
                 }
-                else if (e.levelDelta < 0)
-                {
+                else if (e.levelDelta < 0) {
                     stack.Pop();
                     if (e.Empty)
                         continue;
                     node = node.Parent;
                 }
-                else
-                {
+                else {
                     if (stack.Peek().Empty || e.Empty)
                         continue;
 
                     var leaf = node.Nodes.Add(e.key, $"{e.key}: {e.value.Truncate(80)}");
                     leaf.ToolTipText = e.value;
                     leaf.Tag = e.link;
-                    if (e.link != null)
-                    {
+                    if (e.link != null) {
                         leaf.ForeColor = Color.Yellow;
                         leaf.BackColor = Color.Black;
                     }
@@ -460,30 +402,33 @@ namespace BlueprintExplorer
                 PushHistory(bp);
         }
 
-        private List<FuzzyMatchResult<BlueprintHandle>> resultCache = new();
+        private List<BlueprintHandle> resultsCache = new();
         private Task<bool> initialize;
 
-        private void dataGridView1_CellValueNeeded(object sender, DataGridViewCellValueEventArgs e)
-        {
+        private void dataGridView1_CellValueNeeded(object sender, DataGridViewCellValueEventArgs e) {
             var row = e.RowIndex;
-            if ((resultCache?.Count ?? 0) == 0)
-            {
+            if ((resultsCache?.Count ?? 0) == 0) {
                 e.Value = "...";
                 return;
             }
 
 
 
-            switch (e.ColumnIndex)
-            {
+            switch (e.ColumnIndex) {
                 case 0:
-                    e.Value = resultCache[row].Handle.Name;
+                    e.Value = resultsCache[row].Name;
                     break;
                 case 1:
-                    e.Value = resultCache[row].Handle.Type;
+                    e.Value = resultsCache[row].TypeName;
                     break;
                 case 2:
-                    e.Value = resultCache[row].Handle.GuidText;
+                    e.Value = resultsCache[row].Namespace;
+                    break;
+                case 3:
+                    e.Value = resultsCache[row].Score().ToString();
+                    break;
+                case 4:
+                    e.Value = resultsCache[row].GuidText;
                     break;
                 default:
                     e.Value = "<error>";
@@ -491,11 +436,22 @@ namespace BlueprintExplorer
             }
         }
 
-        private void filter_TextChanged(object sender, EventArgs e)
-        {
+        private void filter_TextChanged(object sender, EventArgs e) {
             if (history.Count == 0)
                 return;
             ShowBlueprint(history.Peek(), false);
+
+        }
+
+        private void omniSearch_TextChanged_1(object sender, EventArgs e) {
+
+        }
+
+        private void label1_Click(object sender, EventArgs e) {
+
+        }
+
+        private void resultsGrid_CellContentClick(object sender, DataGridViewCellEventArgs e) {
 
         }
     }
