@@ -23,5 +23,11 @@ jobs:
         run: dotnet restore
       - name: Build
         run: dotnet build --configuration Release --no-restore
-      - name: Release
-        uses: softprops/action-gh-release@v1
+      - name: list
+        run: dir /b /s
+      # - name: Release
+      #   uses: softprops/action-gh-release@v1
+      #   with:
+      #     files: |
+      #       Release.txt
+      #       LICENSE
