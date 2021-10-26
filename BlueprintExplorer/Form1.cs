@@ -21,7 +21,7 @@ namespace BlueprintExplorer {
 
             InitializeComponent();
             omniSearch.TextChanged += OmniSearch_TextChanged;
-            bpView.NodeMouseClick += BpView_NodeMouseClick;
+            //bpView.NodeMouseClick += BpView_NodeMouseClick;
             resultsGrid.CellClick += ResultsGrid_CellClick;
 
             InstallReadline(omniSearch);
@@ -29,6 +29,8 @@ namespace BlueprintExplorer {
 
             Color bgColor = omniSearch.BackColor;
             resultsGrid.RowHeadersVisible = false;
+            bpProps.DisabledItemForeColor = Color.Black;
+
 
             if (Dark) {
                 bgColor = Color.FromArgb(50, 50, 50);
@@ -50,25 +52,32 @@ namespace BlueprintExplorer {
                     }
                 }
 
+                bpProps.DisabledItemForeColor = Color.White;
+                bpProps.ViewForeColor = Color.White;
+                bpProps.HelpForeColor = Color.LightGray;
+                bpProps.BackColor = bgColor;
+                bpProps.ViewBackColor = bgColor;
+                bpProps.CommandsBackColor = bgColor;
+                bpProps.HelpBackColor = bgColor;
+                bpProps.CategorySplitterColor = bgColor;
                 resultsGrid.EnableHeadersVisualStyles = false;
                 this.BackColor = bgColor;
-                DarkenControls(filter, omniSearch, bpView, resultsGrid, SearchLabel, count, splitContainer1);
+                DarkenControls(filter, omniSearch, resultsGrid, count, splitContainer1);
                 DarkenStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
             }
 
             omniSearch.Enabled = false;
             filter.Enabled = false;
             resultsGrid.Enabled = false;
-            bpView.Enabled = false;
 
             omniSearch.Text = "LOADING";
+
 
 
             initialize = BlueprintDB.Instance.TryConnect();
             initialize.ContinueWith(b => {
                 omniSearch.Enabled = true;
                 resultsGrid.Enabled = true;
-                bpView.Enabled = true;
                 omniSearch.Text = "";
                 omniSearch.Select();
             }, TaskScheduler.FromCurrentSynchronizationContext());
@@ -391,96 +400,12 @@ namespace BlueprintExplorer {
                 bp.Parsed = true;
             }
 
-            bpView.BeginUpdate();
+            bpProps.SelectedObject = bp;
+            var propertiesItem = bpProps.SelectedGridItem?.Parent?.GridItems["Properties"];
+            if (propertiesItem != null && propertiesItem.Expandable)
+                propertiesItem.Expanded = true;
 
-            bpView.Nodes.Clear();
-            TreeNode node = null;
-
-            var bpRoot = (JsonElement)bp.obj;
-
-            Predicate<BlueprintHandle.VisitedElement> filterPred = _ => true;
-
-            var query = filter.Text.Trim();
-
-            if (query.Length > 0) {
-                filterPred = node => {
-                    if (node.levelDelta < 0)
-                        return false;
-                    if (node.key.Contains(filter.Text, StringComparison.OrdinalIgnoreCase))
-                        return true;
-                    if (node.value?.Contains(filter.Text, StringComparison.OrdinalIgnoreCase) ?? false)
-                        return true;
-                    return false;
-                };
-            }
-
-            var nodeList = BlueprintHandle.Visit(bpRoot, bp.Name).ToList();
-
-            Stack<BlueprintHandle.VisitedElement> stack = new();
-
-            // Iterate the nodes twice, the first time we prune empty branches, the second time we generate the TreeNodes
-            // And all because you can't hide TreeNodes...
-            foreach (var e in nodeList) {
-                if (e.levelDelta > 0) {
-                    e.Empty = !filterPred(e);
-                    stack.Push(e);
-                }
-                else if (e.levelDelta < 0) {
-                    var entry = stack.Pop();
-                    e.Empty = entry.Empty;
-                    if (stack.TryPeek(out var parent))
-                        parent.Empty &= entry.Empty;
-                }
-                else {
-                    if (!stack.Peek().Empty || filterPred(e)) {
-                        e.Empty = false;
-                        stack.Peek().Empty = false;
-                    }
-                    else {
-                        e.Empty = true;
-                    }
-                }
-            }
-
-            nodeList.First().Empty = false;
-
-            stack.Clear();
-
-            foreach (var e in nodeList) {
-                if (e.levelDelta > 0) {
-                    stack.Push(e);
-                    if (e.Empty)
-                        continue;
-                    var next = new TreeNode(e.key);
-                    if (node == null)
-                        bpView.Nodes.Add(next);
-                    else
-                        node.Nodes.Add(next);
-                    node = next;
-                }
-                else if (e.levelDelta < 0) {
-                    stack.Pop();
-                    if (e.Empty)
-                        continue;
-                    node = node.Parent;
-                }
-                else {
-                    if (stack.Peek().Empty || e.Empty)
-                        continue;
-
-                    var leaf = node.Nodes.Add(e.key, $"{e.key}: {e.value.Truncate(80)}");
-                    leaf.ToolTipText = e.value;
-                    leaf.Tag = e.link;
-                    if (e.link != null) {
-                        leaf.ForeColor = Color.Yellow;
-                        leaf.BackColor = Color.Black;
-                    }
-                }
-            }
-
-            bpView.Nodes[0].ExpandAll();
-            bpView.EndUpdate();
-            bpView.SelectedNode = bpView.Nodes[0];
+            bpProps.SetLabelColumnWidth(350);
 
             if (updateHistory)
                 PushHistory(bp);
@@ -495,8 +420,6 @@ namespace BlueprintExplorer {
                 e.Value = "...";
                 return;
             }
-
-
 
             switch (e.ColumnIndex) {
                 case 0:
@@ -536,6 +459,11 @@ namespace BlueprintExplorer {
         }
 
         private void resultsGrid_CellContentClick(object sender, DataGridViewCellEventArgs e) {
+
+        }
+
+        private void textBox1_TextChanged(object sender, EventArgs e)
+        {
 
         }
     }

@@ -29,8 +29,9 @@ namespace BlueprintExplorer
         /// </summary>
         private void InitializeComponent()
         {
-            this.omniSearch = new System.Windows.Forms.TextBox();
             this.panel1 = new System.Windows.Forms.Panel();
+            this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
+            this.omniSearch = new System.Windows.Forms.TextBox();
             this.SearchLabel = new System.Windows.Forms.Label();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.resultsGrid = new System.Windows.Forms.DataGridView();
@@ -39,11 +40,12 @@ namespace BlueprintExplorer
             this.BPNamespace = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Score = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.BPGuid = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.count = new System.Windows.Forms.Label();
             this.filter = new System.Windows.Forms.TextBox();
+            this.bpProps = new System.Windows.Forms.PropertyGrid();
+            this.count = new System.Windows.Forms.Label();
             this.historyBread = new System.Windows.Forms.FlowLayoutPanel();
-            this.bpView = new System.Windows.Forms.TreeView();
             this.panel1.SuspendLayout();
+            this.tableLayoutPanel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -51,37 +53,50 @@ namespace BlueprintExplorer
             ((System.ComponentModel.ISupportInitialize)(this.resultsGrid)).BeginInit();
             this.SuspendLayout();
             // 
-            // omniSearch
-            // 
-            this.omniSearch.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.omniSearch.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.omniSearch.Font = new System.Drawing.Font("Segoe UI", 20F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.omniSearch.Location = new System.Drawing.Point(185, 14);
-            this.omniSearch.Margin = new System.Windows.Forms.Padding(8);
-            this.omniSearch.Name = "omniSearch";
-            this.omniSearch.PlaceholderText = "enter search text...";
-            this.omniSearch.Size = new System.Drawing.Size(1970, 54);
-            this.omniSearch.TabIndex = 0;
-            this.omniSearch.TextChanged += new System.EventHandler(this.omniSearch_TextChanged_1);
-            this.omniSearch.KeyDown += new System.Windows.Forms.KeyEventHandler(this.omniSearch_KeyDown);
-            // 
             // panel1
             // 
-            this.panel1.Controls.Add(this.SearchLabel);
-            this.panel1.Controls.Add(this.omniSearch);
+            this.panel1.Controls.Add(this.tableLayoutPanel1);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel1.Location = new System.Drawing.Point(0, 0);
             this.panel1.Name = "panel1";
             this.panel1.Padding = new System.Windows.Forms.Padding(8);
-            this.panel1.Size = new System.Drawing.Size(2172, 82);
+            this.panel1.Size = new System.Drawing.Size(2175, 82);
             this.panel1.TabIndex = 1;
+            // 
+            // tableLayoutPanel1
+            // 
+            this.tableLayoutPanel1.ColumnCount = 2;
+            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel1.Controls.Add(this.omniSearch, 1, 0);
+            this.tableLayoutPanel1.Controls.Add(this.SearchLabel, 0, 0);
+            this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tableLayoutPanel1.Location = new System.Drawing.Point(8, 8);
+            this.tableLayoutPanel1.Name = "tableLayoutPanel1";
+            this.tableLayoutPanel1.RowCount = 1;
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel1.Size = new System.Drawing.Size(2159, 66);
+            this.tableLayoutPanel1.TabIndex = 2;
+            // 
+            // omniSearch
+            // 
+            this.omniSearch.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.omniSearch.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.omniSearch.Font = new System.Drawing.Font("Segoe UI", 20F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.omniSearch.Location = new System.Drawing.Point(191, 8);
+            this.omniSearch.Margin = new System.Windows.Forms.Padding(8);
+            this.omniSearch.Name = "omniSearch";
+            this.omniSearch.PlaceholderText = "enter search text...";
+            this.omniSearch.Size = new System.Drawing.Size(1960, 54);
+            this.omniSearch.TabIndex = 0;
+            this.omniSearch.TextChanged += new System.EventHandler(this.omniSearch_TextChanged_1);
+            this.omniSearch.KeyDown += new System.Windows.Forms.KeyEventHandler(this.omniSearch_KeyDown);
             // 
             // SearchLabel
             // 
             this.SearchLabel.AutoSize = true;
-            this.SearchLabel.Dock = System.Windows.Forms.DockStyle.Left;
             this.SearchLabel.Font = new System.Drawing.Font("Segoe UI", 24F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.SearchLabel.Location = new System.Drawing.Point(8, 8);
+            this.SearchLabel.Location = new System.Drawing.Point(2, 0);
             this.SearchLabel.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.SearchLabel.Name = "SearchLabel";
             this.SearchLabel.Size = new System.Drawing.Size(179, 65);
@@ -104,13 +119,13 @@ namespace BlueprintExplorer
             // 
             // splitContainer1.Panel2
             // 
-            this.splitContainer1.Panel2.Controls.Add(this.count);
             this.splitContainer1.Panel2.Controls.Add(this.filter);
+            this.splitContainer1.Panel2.Controls.Add(this.bpProps);
+            this.splitContainer1.Panel2.Controls.Add(this.count);
             this.splitContainer1.Panel2.Controls.Add(this.historyBread);
-            this.splitContainer1.Panel2.Controls.Add(this.bpView);
             this.splitContainer1.Panel2.Cursor = System.Windows.Forms.Cursors.Default;
-            this.splitContainer1.Size = new System.Drawing.Size(2172, 1203);
-            this.splitContainer1.SplitterDistance = 315;
+            this.splitContainer1.Size = new System.Drawing.Size(2175, 1167);
+            this.splitContainer1.SplitterDistance = 305;
             this.splitContainer1.SplitterWidth = 16;
             this.splitContainer1.TabIndex = 3;
             // 
@@ -134,7 +149,7 @@ namespace BlueprintExplorer
             this.resultsGrid.RowHeadersWidth = 62;
             this.resultsGrid.RowTemplate.Height = 33;
             this.resultsGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.resultsGrid.Size = new System.Drawing.Size(2172, 315);
+            this.resultsGrid.Size = new System.Drawing.Size(2175, 305);
             this.resultsGrid.TabIndex = 2;
             this.resultsGrid.VirtualMode = true;
             this.resultsGrid.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.resultsGrid_CellContentClick);
@@ -180,6 +195,26 @@ namespace BlueprintExplorer
             this.BPGuid.ReadOnly = true;
             this.BPGuid.Width = 240;
             // 
+            // filter
+            // 
+            this.filter.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.filter.Location = new System.Drawing.Point(1774, 3);
+            this.filter.Name = "filter";
+            this.filter.PlaceholderText = "Filter Blueprint...";
+            this.filter.Size = new System.Drawing.Size(398, 31);
+            this.filter.TabIndex = 2;
+            this.filter.TextChanged += new System.EventHandler(this.filter_TextChanged);
+            // 
+            // bpProps
+            // 
+            this.bpProps.CategorySplitterColor = System.Drawing.SystemColors.ControlLight;
+            this.bpProps.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.bpProps.Font = new System.Drawing.Font("Consolas", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.bpProps.Location = new System.Drawing.Point(0, 0);
+            this.bpProps.Name = "bpProps";
+            this.bpProps.Size = new System.Drawing.Size(2175, 792);
+            this.bpProps.TabIndex = 4;
+            // 
             // count
             // 
             this.count.AutoSize = true;
@@ -191,48 +226,26 @@ namespace BlueprintExplorer
             this.count.TabIndex = 3;
             this.count.Text = "        ";
             // 
-            // filter
-            // 
-            this.filter.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.filter.Location = new System.Drawing.Point(1762, 3);
-            this.filter.Name = "filter";
-            this.filter.PlaceholderText = "Filter Blueprint...";
-            this.filter.Size = new System.Drawing.Size(398, 31);
-            this.filter.TabIndex = 2;
-            this.filter.TextChanged += new System.EventHandler(this.filter_TextChanged);
-            // 
             // historyBread
             // 
-            this.historyBread.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.historyBread.Location = new System.Drawing.Point(0, 738);
+            this.historyBread.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.historyBread.Location = new System.Drawing.Point(0, 792);
             this.historyBread.Name = "historyBread";
-            this.historyBread.Size = new System.Drawing.Size(2169, 54);
+            this.historyBread.Size = new System.Drawing.Size(2175, 54);
             this.historyBread.TabIndex = 1;
-            // 
-            // bpView
-            // 
-            this.bpView.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.bpView.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.bpView.Indent = 42;
-            this.bpView.Location = new System.Drawing.Point(3, 40);
-            this.bpView.Name = "bpView";
-            this.bpView.Size = new System.Drawing.Size(2169, 692);
-            this.bpView.TabIndex = 0;
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(10F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(2172, 1285);
+            this.ClientSize = new System.Drawing.Size(2175, 1249);
             this.Controls.Add(this.splitContainer1);
             this.Controls.Add(this.panel1);
             this.Name = "Form1";
             this.Text = "BlueprintDB";
             this.panel1.ResumeLayout(false);
-            this.panel1.PerformLayout();
+            this.tableLayoutPanel1.ResumeLayout(false);
+            this.tableLayoutPanel1.PerformLayout();
             this.splitContainer1.Panel1.ResumeLayout(false);
             this.splitContainer1.Panel2.ResumeLayout(false);
             this.splitContainer1.Panel2.PerformLayout();
@@ -244,21 +257,21 @@ namespace BlueprintExplorer
         }
 
         #endregion
-
-        private System.Windows.Forms.TextBox omniSearch;
         private System.Windows.Forms.Panel panel1;
         private System.Windows.Forms.SplitContainer splitContainer1;
-        private System.Windows.Forms.TreeView bpView;
         private System.Windows.Forms.FlowLayoutPanel historyBread;
         private System.Windows.Forms.DataGridView resultsGrid;
         private System.Windows.Forms.TextBox filter;
-        private System.Windows.Forms.Label SearchLabel;
         private System.Windows.Forms.Label count;
         private System.Windows.Forms.DataGridViewTextBoxColumn BPName;
         private System.Windows.Forms.DataGridViewTextBoxColumn BPType;
         private System.Windows.Forms.DataGridViewTextBoxColumn BPNamespace;
         private System.Windows.Forms.DataGridViewTextBoxColumn Score;
         private System.Windows.Forms.DataGridViewTextBoxColumn BPGuid;
+        private System.Windows.Forms.PropertyGrid bpProps;
+        private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
+        private System.Windows.Forms.TextBox omniSearch;
+        private System.Windows.Forms.Label SearchLabel;
     }
 }
 
