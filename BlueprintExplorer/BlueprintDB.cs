@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,7 +39,30 @@ namespace BlueprintExplorer {
             public int Legnth;
         }
 
-        public Task<bool> TryConnect()
+        public enum GoingToLoad
+        {
+            FromLocalFile,
+            FromSettingsFile,
+            FromWeb,
+        }
+
+        private readonly string filenameRoot = "blueprints_raw";
+        private readonly string version = "1.1";
+        private readonly string extension = "binz";
+
+        string FileName => $"{filenameRoot}_{version}.{extension}";
+
+        public GoingToLoad GetLoadType()
+        {
+            if (File.Exists(FileName))
+                return GoingToLoad.FromLocalFile;
+            else if (File.Exists(Properties.Settings.Default.BlueprintDBPath))
+                return GoingToLoad.FromSettingsFile;
+            else
+                return GoingToLoad.FromWeb;
+        }
+
+        public async Task<bool> TryConnect()
         {
 
 #if DEBUG
@@ -49,36 +74,41 @@ namespace BlueprintExplorer {
             watch.Start();
 
             const bool generateOutput = false;
+            string fileToOpen = null;
 
-            static FileStream OpenFile()
+            switch (GetLoadType())
             {
-                var path = Properties.Settings.Default.BlueprintDBPath;
-                try {
-                    return File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-                }
-                catch {
-                    OpenFileDialog fileDialog = new OpenFileDialog();
-                    fileDialog.Title = "Please locate the blueprint database (blueprints_raw.binz)";
-                    fileDialog.InitialDirectory = "c:\\";
-                    fileDialog.Filter = "Blueprint Database (*.binz)|*.binz";
-                    fileDialog.FilterIndex = 2;
-                    fileDialog.RestoreDirectory = true;
+                case GoingToLoad.FromWeb:
+                    Console.WriteLine("Settings file does not exist, downloading");
+                    var host = "https://github.com/factubsio/BubblePrints/releases/download/";
+                    var latestVersionUrl = new Uri($"{host}/{version}/{filenameRoot}.{extension}");
 
-                    if (fileDialog.ShowDialog() == DialogResult.OK) {
-                        path = fileDialog.FileName;
-                        if (path?.Length > 0) {
-                            Properties.Settings.Default.BlueprintDBPath = path;
-                            Properties.Settings.Default.Save();
-                            return File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-                        }
-                    }
-                }
-                return null;
+                    var client = new WebClient();
+                    var userLocalFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints");
+                    if (!Directory.Exists(userLocalFolder))
+                        Directory.CreateDirectory(userLocalFolder);
+
+                    fileToOpen = Path.Combine(userLocalFolder, FileName);
+                    await client.DownloadFileTaskAsync(latestVersionUrl, fileToOpen);
+                    Properties.Settings.Default.BlueprintDBPath = fileToOpen;
+                    Properties.Settings.Default.Save();
+                    break;
+                case GoingToLoad.FromSettingsFile:
+                    fileToOpen = Properties.Settings.Default.BlueprintDBPath;
+                    break;
+                case GoingToLoad.FromLocalFile:
+                    fileToOpen = FileName;
+                    break;
+            }
+
+            FileStream OpenFile()
+            {
+                return File.Open(fileToOpen, FileMode.Open, FileAccess.Read, FileShare.Read);
             }
 
             var file = OpenFile();
             if (file == null)
-                return null;
+                return false;
             var binary = new BinaryReader(file);
 
             int count = binary.ReadInt32();
@@ -155,33 +185,27 @@ namespace BlueprintExplorer {
             }
 
 
-
             float loadTime = watch.ElapsedMilliseconds;
             Console.WriteLine($"Loaded {cache.Count} blueprints in {watch.ElapsedMilliseconds}ms");
 
             if (generateOutput)
             {
-                watch.Restart();
+#pragma warning disable CS0162 // Unreachable code detected
                 WriteBlueprints();
-                watch.Stop();
-                Console.WriteLine($"Wrote blueprints in {watch.ElapsedMilliseconds}ms");
+#pragma warning restore CS0162 // Unreachable code detected
             }
 
-            return Task.Run(() => 
+            binary.Dispose();
+            file.Dispose();
+
+            var addWatch = new Stopwatch();
+            addWatch.Start();
+            foreach (var bp in tasks.SelectMany(t => t.Result))
             {
-                Console.WriteLine("waiting...");
-                Task.WaitAll(tasks.ToArray());
-                watch.Stop();
-                binary.Dispose();
-                file.Dispose();
-
-                foreach (var bp in tasks.SelectMany(t => t.Result))
-                {
-                    AddBlueprint(bp);
-                }
-
-                return true;
-            });
+                AddBlueprint(bp);
+            }
+            Console.WriteLine($"added {cache.Count} blueprints in {addWatch.ElapsedMilliseconds}ms");
+            return true;
         }
 
         private void WriteBlueprints()

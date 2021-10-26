@@ -70,11 +70,16 @@ namespace BlueprintExplorer {
             filter.Enabled = false;
             resultsGrid.Enabled = false;
 
-            omniSearch.Text = "LOADING";
 
 
+            var loadType = BlueprintDB.Instance.GetLoadType();
 
-            initialize = BlueprintDB.Instance.TryConnect();
+            var loadString = "LOADING";
+
+            if (loadType == BlueprintDB.GoingToLoad.FromWeb)
+                loadString = "DOWNLOADING";
+
+            initialize = Task.Run(() => BlueprintDB.Instance.TryConnect());
             initialize.ContinueWith(b => {
                 omniSearch.Enabled = true;
                 resultsGrid.Enabled = true;
@@ -83,7 +88,7 @@ namespace BlueprintExplorer {
             }, TaskScheduler.FromCurrentSynchronizationContext());
 
             new Thread(() => {
-                const string plane = "LOADING-🛬";
+                string plane = $"{loadString}-🛬";
                 const int frames = 90;
 
                 while (true) {
