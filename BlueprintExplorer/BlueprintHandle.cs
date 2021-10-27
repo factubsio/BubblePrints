@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Forms.Design;
@@ -19,6 +20,21 @@ namespace BlueprintExplorer
         {
             return !elem.IsContainer();
         }
+
+        public static bool TryGetSimple(this JsonElement elem, out string str)
+        {
+            if (elem.IsContainer())
+            {
+                str = null;
+                return false;
+            }
+            else
+            {
+                str = elem.GetRawText();
+                return true;
+            }
+        }
+
         public static bool IsContainer(this JsonElement elem)
         {
             return elem.ValueKind == JsonValueKind.Object || elem.ValueKind == JsonValueKind.Array;
@@ -55,6 +71,7 @@ namespace BlueprintExplorer
             private readonly string _Category;
             private readonly object _Value;
             private readonly string _Description;
+            public bool _Empty;
 
             public NameValuePropertyDescriptor(string category, string name, object value, Type parentType, string description = "") : base(parentType, name, value.GetType())
             {
@@ -92,36 +109,52 @@ namespace BlueprintExplorer
         {
             private PropertyDescriptorCollection Collection = new(Array.Empty<PropertyDescriptor>());
             private List<string> order = new();
+            private List<string> empties = new();
 
             private static Type GetParentType(string category, Type type)
             {
                 return type ?? (category == "base" ? typeof(BlueprintHandle) : typeof(NestedProxy));
             }
 
-            private void AddInternal(string category, string name, object value, string description, Type parentType)
+            private NameValuePropertyDescriptor AddInternal(string category, string name, object value, string description, Type parentType)
             {
                 parentType = GetParentType(category, parentType);
                 order.Add(name);
-                Collection.Add(new NameValuePropertyDescriptor(category, name, value, parentType, description));
-
+                var descriptor = new NameValuePropertyDescriptor(category, name, value, parentType, description);
+                Collection.Add(descriptor);
+                return descriptor;
             }
 
             public void Add(string category, string name, string value, string description = "", Type parentType = null)
             {
-                if (value.StartsWith("\"LocalizedString:") && value != "\"LocalizedString::\"")
+                if (value.Length > 2 && value.FirstOrDefault() == '"' && value.LastOrDefault() == '"')
                 {
-                    var raw = value.Substring(54, value.Length - 55);
-                    AddInternal(category, name, new LocalisedStringProxy(raw), description, parentType);
+                    value = value.Substring(1, value.Length - 2);
                 }
+
+                NameValuePropertyDescriptor prop;
+
+                if (value.StartsWith("LocalizedString:") && value != "LocalizedString::")
+                    prop = AddInternal(category, name, new LocalisedStringProxy(value), description, parentType);
                 else
-                    AddInternal(category, name, value, description, parentType);
+                    prop = AddInternal(category, name, value, description, parentType);
+
+                if (value == "<empty>" || value == "Blueprint::NULL" || value == "LocalizedString::")
+                {
+                    prop._Empty = true;
+                    order.RemoveAt(order.Count - 1);
+                    empties.Add(name);
+                }
             }
             public void Add(string category, string name, JsonElement value, string description = "", Type parentType = null)
             {
                 AddInternal(category, name, new NestedProxy(value), description, parentType);
             }
 
-            public PropertyDescriptorCollection Build() => Collection.Sort(order.ToArray());
+            public PropertyDescriptorCollection Build()
+            {
+                return Collection.Sort(order.Concat(empties).ToArray());
+            }
 
         }
 
@@ -140,7 +173,6 @@ namespace BlueprintExplorer
             return propBuilder.Build();
         }
 
-        //[TypeConverter(typeof(LocalisedStringConverter))]
         [EditorAttribute(typeof(LocalisedStringEditor), typeof(System.Drawing.Design.UITypeEditor))]
         internal class LocalisedStringProxy
         {
@@ -148,7 +180,7 @@ namespace BlueprintExplorer
 
             public LocalisedStringProxy(string value)
             {
-                Value = value;
+                Value = value.Substring(54, value.Length - 55);
             }
 
             public override string ToString() => Value;
@@ -158,25 +190,29 @@ namespace BlueprintExplorer
         internal class NestedProxy
         {
             internal readonly JsonElement node;
+            private string _ShortValue = "";
 
-            public override string ToString() => "";
+            private static Regex ParseType = new(@".*\.(.*), (.*)");
+
+            public override string ToString() => _ShortValue;
 
             internal NestedProxy(JsonElement node)
             {
                 this.node = node;
+
+                if (node.ValueKind == JsonValueKind.Object)
+                {
+                    if (node.TryGetProperty("$type", out var typeVal))
+                    {
+                        var typeMatch = ParseType.Match(typeVal.GetString());
+                        if (typeMatch.Success)
+                            _ShortValue = $"{typeMatch.Groups[1].Value}  [{typeMatch.Groups[2].Value}]";
+                        else
+                            _ShortValue = typeVal.GetString();
+                    }
+                }
             }
 
-        }
-
-        class LocalisedStringConverter : ExpandableObjectConverter
-        {
-            public override PropertyDescriptorCollection GetProperties(ITypeDescriptorContext context, object value, Attribute[] attributes)
-            {
-                var str = value as LocalisedStringProxy;
-                return new PropertyDescriptorCollection(new NameValuePropertyDescriptor[] {
-                    new NameValuePropertyDescriptor("", "Rendered", str.Value, typeof(LocalisedStringProxy))
-                });
-            }
         }
 
         class LocalisedStringEditor : UITypeEditor
@@ -227,8 +263,11 @@ namespace BlueprintExplorer
 
                 }, (key, value) =>
                 {
-                    if (value.IsSimple())
-                        props.Add("", key, value.GetRawText());
+                    if (value.TryGetSimple(out var raw))
+                    {
+                        if (key != "$id")
+                            props.Add("", key, raw);
+                    }
                     else if (value.IsEmptyContainer())
                         props.Add("", key, "<empty>");
                     else
