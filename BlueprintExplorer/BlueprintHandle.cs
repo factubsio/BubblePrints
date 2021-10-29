@@ -124,6 +124,7 @@ namespace BlueprintExplorer
                 Collection.Add(descriptor);
                 return descriptor;
             }
+            private static Regex ParseLink = new(@"Blueprint:(.*?):");
 
             public void Add(string category, string name, string value, string description = "", Type parentType = null)
             {
@@ -133,11 +134,15 @@ namespace BlueprintExplorer
                 }
 
                 NameValuePropertyDescriptor prop;
+                var maybeLink = ParseLink.Match(value);
 
                 if (value.StartsWith("LocalizedString:") && value != "LocalizedString::")
                     prop = AddInternal(category, name, new LocalisedStringProxy(value), description, parentType);
+                else if (maybeLink.Success)
+                    prop = AddInternal(category, name, new BlueprintLink(value, maybeLink.Groups[1].Value), description, parentType);
                 else
                     prop = AddInternal(category, name, value, description, parentType);
+
 
                 if (value == "<empty>" || value == "Blueprint::NULL" || value == "LocalizedString::")
                 {
@@ -153,7 +158,7 @@ namespace BlueprintExplorer
 
             public PropertyDescriptorCollection Build()
             {
-                return Collection.Sort(order.Concat(empties).ToArray());
+                return Collection; //.Sort(order.Concat(empties).ToArray());
             }
 
         }
@@ -176,11 +181,26 @@ namespace BlueprintExplorer
         [EditorAttribute(typeof(LocalisedStringEditor), typeof(System.Drawing.Design.UITypeEditor))]
         internal class LocalisedStringProxy
         {
+            static int prefixLen = $"LocalizedString:{Guid.Empty.ToString()}:".Length;
             internal readonly string Value;
 
             public LocalisedStringProxy(string value)
             {
-                Value = value.Substring(54, value.Length - 55);
+                Value = value.Substring(prefixLen);
+            }
+
+            public override string ToString() => Value;
+        }
+
+        internal class BlueprintLink
+        {
+            internal readonly string Value;
+            internal readonly string Link;
+
+            public BlueprintLink(string value, string link)
+            {
+                Value = value;
+                Link = link;
             }
 
             public override string ToString() => Value;
@@ -196,9 +216,9 @@ namespace BlueprintExplorer
 
             public override string ToString() => _ShortValue;
 
-            internal NestedProxy(JsonElement node)
+            internal NestedProxy(JsonElement rootNode)
             {
-                this.node = node;
+                node = rootNode;
 
                 if (node.ValueKind == JsonValueKind.Object)
                 {
@@ -206,9 +226,20 @@ namespace BlueprintExplorer
                     {
                         var typeMatch = ParseType.Match(typeVal.GetString());
                         if (typeMatch.Success)
-                            _ShortValue = $"{typeMatch.Groups[1].Value}  [{typeMatch.Groups[2].Value}]";
+                        {
+                            if (typeMatch.Groups[1].Value == "ActionList")
+                                node = node.GetProperty("Actions");
+                            //if (IsActionList)
+                            //    _ShortValue = $"[{node.GetProperty("Actions").GetArrayLength()}] {typeMatch.Groups[1].Value}.Actions  [{typeMatch.Groups[2].Value}]";
+                            if (node.ValueKind == JsonValueKind.Array)
+                                _ShortValue = $"[{node.GetArrayLength()}] {typeMatch.Groups[1].Value}  [{typeMatch.Groups[2].Value}]";
+                            else
+                                _ShortValue = $"{typeMatch.Groups[1].Value}  [{typeMatch.Groups[2].Value}]";
+                        }
                         else
+                        {
                             _ShortValue = typeVal.GetString();
+                        }
                     }
                 }
             }

@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Windows.Forms.Design;
 
 namespace BlueprintExplorer {
     public partial class Form1 : Form {
@@ -30,6 +31,23 @@ namespace BlueprintExplorer {
             Color bgColor = omniSearch.BackColor;
             resultsGrid.RowHeadersVisible = false;
             bpProps.DisabledItemForeColor = Color.Black;
+
+            //bpProps.Categor
+
+            bpProps.PropertySort = PropertySort.NoSort;
+
+            ToolStrip strip = bpProps.Controls.OfType<ToolStrip>().First();
+            strip.Items.Add("expand all").Click += (sender, e) =>
+            {
+                bpProps.ExpandAllGridItems();
+            };
+            followLink = strip.Items.Add("follow link");
+            followLink.Click += (sender, e) =>
+            {
+                if (CurrentLink != null)
+                    ShowBlueprint(BlueprintDB.Instance.Blueprints[Guid.Parse(CurrentLink)], true);
+            };
+            followLink.Enabled = false;
 
 
             if (Dark) {
@@ -85,7 +103,11 @@ namespace BlueprintExplorer {
                 resultsGrid.Enabled = true;
                 omniSearch.Text = "";
                 omniSearch.Select();
+                ShowBlueprint(BlueprintDB.Instance.Blueprints.Values.First(), false);
+                bpProps.SetLabelColumnWidth(450);
             }, TaskScheduler.FromCurrentSynchronizationContext());
+
+            bpProps.SelectedGridItemChanged += BpProps_SelectedGridItemChanged;
 
             new Thread(() => {
                 string plane = $"{loadString}-🛬";
@@ -110,6 +132,17 @@ namespace BlueprintExplorer {
 
         }
 
+
+        private void BpProps_SelectedGridItemChanged(object sender, SelectedGridItemChangedEventArgs e)
+        {
+            if (e.NewSelection.Value is BlueprintPropertyConverter.BlueprintLink link)
+            {
+                CurrentLink = link.Link;
+                followLink.Enabled = true;
+            }
+            else
+                followLink.Enabled = false;
+        }
 
         private void ResultsGrid_CellClick(object sender, DataGridViewCellEventArgs e) {
             ShowSelected();
@@ -410,7 +443,6 @@ namespace BlueprintExplorer {
             if (propertiesItem != null && propertiesItem.Expandable)
                 propertiesItem.Expanded = true;
 
-            bpProps.SetLabelColumnWidth(350);
 
             if (updateHistory)
                 PushHistory(bp);
@@ -418,6 +450,8 @@ namespace BlueprintExplorer {
 
         private List<BlueprintHandle> resultsCache = new();
         private Task<bool> initialize;
+        private ToolStripItem followLink;
+        private string CurrentLink;
 
         private void dataGridView1_CellValueNeeded(object sender, DataGridViewCellValueEventArgs e) {
             var row = e.RowIndex;
