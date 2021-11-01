@@ -4,7 +4,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -36,7 +39,30 @@ namespace BlueprintExplorer {
             public int Legnth;
         }
 
-        public Task<bool> TryConnect()
+        public enum GoingToLoad
+        {
+            FromLocalFile,
+            FromSettingsFile,
+            FromWeb,
+        }
+
+        private readonly string filenameRoot = "blueprints_raw";
+        private readonly string version = "1.1";
+        private readonly string extension = "binz";
+
+        string FileName => $"{filenameRoot}_{version}.{extension}";
+
+        public GoingToLoad GetLoadType()
+        {
+            if (File.Exists(FileName))
+                return GoingToLoad.FromLocalFile;
+            else if (File.Exists(Properties.Settings.Default.BlueprintDBPath))
+                return GoingToLoad.FromSettingsFile;
+            else
+                return GoingToLoad.FromWeb;
+        }
+
+        public async Task<bool> TryConnect()
         {
 
 #if DEBUG
@@ -48,36 +74,41 @@ namespace BlueprintExplorer {
             watch.Start();
 
             const bool generateOutput = false;
+            string fileToOpen = null;
 
-            static FileStream OpenFile()
+            switch (GetLoadType())
             {
-                var path = Properties.Settings.Default.BlueprintDBPath;
-                try {
-                    return File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-                }
-                catch {
-                    OpenFileDialog fileDialog = new OpenFileDialog();
-                    fileDialog.Title = "Please locate the blueprint database (blueprints_raw.binz)";
-                    fileDialog.InitialDirectory = "c:\\";
-                    fileDialog.Filter = "Blueprint Database (*.binz)|*.binz";
-                    fileDialog.FilterIndex = 2;
-                    fileDialog.RestoreDirectory = true;
+                case GoingToLoad.FromWeb:
+                    Console.WriteLine("Settings file does not exist, downloading");
+                    var host = "https://github.com/factubsio/BubblePrints/releases/download/";
+                    var latestVersionUrl = new Uri($"{host}/{version}/{filenameRoot}.{extension}");
 
-                    if (fileDialog.ShowDialog() == DialogResult.OK) {
-                        path = fileDialog.FileName;
-                        if (path?.Length > 0) {
-                            Properties.Settings.Default.BlueprintDBPath = path;
-                            Properties.Settings.Default.Save();
-                            return File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-                        }
-                    }
-                }
-                return null;
+                    var client = new WebClient();
+                    var userLocalFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints");
+                    if (!Directory.Exists(userLocalFolder))
+                        Directory.CreateDirectory(userLocalFolder);
+
+                    fileToOpen = Path.Combine(userLocalFolder, FileName);
+                    await client.DownloadFileTaskAsync(latestVersionUrl, fileToOpen);
+                    Properties.Settings.Default.BlueprintDBPath = fileToOpen;
+                    Properties.Settings.Default.Save();
+                    break;
+                case GoingToLoad.FromSettingsFile:
+                    fileToOpen = Properties.Settings.Default.BlueprintDBPath;
+                    break;
+                case GoingToLoad.FromLocalFile:
+                    fileToOpen = FileName;
+                    break;
+            }
+
+            FileStream OpenFile()
+            {
+                return File.Open(fileToOpen, FileMode.Open, FileAccess.Read, FileShare.Read);
             }
 
             var file = OpenFile();
             if (file == null)
-                return null;
+                return false;
             var binary = new BinaryReader(file);
 
             int count = binary.ReadInt32();
@@ -154,33 +185,27 @@ namespace BlueprintExplorer {
             }
 
 
-
             float loadTime = watch.ElapsedMilliseconds;
             Console.WriteLine($"Loaded {cache.Count} blueprints in {watch.ElapsedMilliseconds}ms");
 
             if (generateOutput)
             {
-                watch.Restart();
+#pragma warning disable CS0162 // Unreachable code detected
                 WriteBlueprints();
-                watch.Stop();
-                Console.WriteLine($"Wrote blueprints in {watch.ElapsedMilliseconds}ms");
+#pragma warning restore CS0162 // Unreachable code detected
             }
 
-            return Task.Run(() => 
+            binary.Dispose();
+            file.Dispose();
+
+            var addWatch = new Stopwatch();
+            addWatch.Start();
+            foreach (var bp in tasks.SelectMany(t => t.Result))
             {
-                Console.WriteLine("waiting...");
-                Task.WaitAll(tasks.ToArray());
-                watch.Stop();
-                binary.Dispose();
-                file.Dispose();
-
-                foreach (var bp in tasks.SelectMany(t => t.Result))
-                {
-                    AddBlueprint(bp);
-                }
-
-                return true;
-            });
+                AddBlueprint(bp);
+            }
+            Console.WriteLine($"added {cache.Count} blueprints in {addWatch.ElapsedMilliseconds}ms");
+            return true;
         }
 
         private void WriteBlueprints()
@@ -252,26 +277,87 @@ namespace BlueprintExplorer {
             cache.Add(bp);
             Blueprints[guid] = bp;
             // preheat this
-            _ = bp.Matches;
+            bp.PrimeMatches(2);
         }
 
-        public List<BlueprintHandle> SearchBlueprints(string searchText)
+        public List<BlueprintHandle> SearchBlueprints(string searchText, int matchBuffer, CancellationToken cancellationToken)
         {
-            var query = new MatchQuery(searchText);
             if (searchText?.Length > 0) {
                 var results = new List<BlueprintHandle>() { Capacity = cache.Count };
+                MatchQuery query = new(searchText, BlueprintHandle.MatchProvider);
                 foreach (var handle in cache) {
-                    query.Evaluate(handle);
-                    if (handle.HasMatches())
+                    query.Evaluate(handle, matchBuffer);
+                    if (handle.HasMatches(matchBuffer))
                         results.Add(handle);
+                    cancellationToken.ThrowIfCancellationRequested();
                 }
-                results.Sort((x, y) => y.Score().CompareTo(x.Score()));
+                results.Sort((x, y) => y.Score(matchBuffer).CompareTo(x.Score(matchBuffer)));
                 return results;
                 //return cache.Select(h => query.Evaluate(h)).OfType<BlueprintHandle>().Where(h => h.HasMatches()).OrderByDescending(h => h.Score()).ToList();
             }
             else
                 return cache;
 
+        }
+
+        private static bool[] locked = new bool[2];
+
+        private static string Status(bool running)
+        {
+            return running ? "|" : " ";
+        }
+
+        public const bool debugTasks = false;
+
+        private static void LogTask(int bufferIndex, bool starting, string text)
+        {
+#if DEBUG
+            if (!debugTasks)
+                return;
+
+            if (bufferIndex == 1)
+            {
+                Console.Write(Status(locked[0]).PadRight(40));
+                Console.WriteLine(text);
+            }
+            else
+            {
+                Console.Write(text.PadRight(40));
+                Console.WriteLine(Status(locked[1]));
+            }
+#endif
+        }
+
+        public static void UnlockBuffer(int matchBuffer)
+        {
+            //Console.WriteLine($"Unlocking: {matchBuffer}");
+            locked[matchBuffer] = false;
+        }
+        public Task<List<BlueprintHandle>> SearchBlueprintsAsync(string searchText, CancellationToken cancellationToken, int matchBuffer = 0)
+        {
+            //Console.WriteLine($"Locking: {matchBuffer}");
+            locked[matchBuffer] = true;
+            LogTask(matchBuffer, true, $">>> Starting >>>");
+            return Task.Run(() =>
+            {
+                Stopwatch watch = new();
+                watch.Start();
+                try
+                {
+                    var result = SearchBlueprints(searchText, matchBuffer, cancellationToken);
+                    LogTask(matchBuffer, false, $"<<< Completed <<<");
+                    watch.Stop();
+                    Console.WriteLine($"Search completed after: {watch.ElapsedMilliseconds}ms");
+                    return result;
+                }
+                catch (OperationCanceledException)
+                {
+                    LogTask(matchBuffer, false, $"<<< Cancelled <<< ");
+                    watch.Stop();
+                    Console.WriteLine($"Search canelled after: {watch.ElapsedMilliseconds}ms");
+                    return null;
+                }
+            }, cancellationToken);
         }
     }
 }
