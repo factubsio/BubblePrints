@@ -3,7 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +23,9 @@ namespace BlueprintExplorer {
             Dark = env?.Equals("dark") ?? false;
 
             InitializeComponent();
+#if DEBUG
+            BubblePrints.SetupLogging();
+#endif
             omniSearch.TextChanged += OmniSearch_TextChanged;
             //bpView.NodeMouseClick += BpView_NodeMouseClick;
             resultsGrid.CellClick += ResultsGrid_CellClick;
@@ -49,6 +54,12 @@ namespace BlueprintExplorer {
             };
             followLink.Enabled = false;
 
+            BubblePrints.SetWrathPath();
+
+            if (BubblePrints.TryGetWrathPath(out var wrathPath))
+            {
+                BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, "Wrath_Data", "Managed", "Assembly-CSharp.dll"));
+            }
 
             if (Dark) {
                 bgColor = Color.FromArgb(50, 50, 50);

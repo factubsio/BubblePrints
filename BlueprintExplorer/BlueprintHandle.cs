@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing.Design;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -209,10 +210,31 @@ namespace BlueprintExplorer
         [TypeConverter(typeof(NestedConverter))]
         internal class NestedProxy
         {
+            private static Dictionary<string, HashSet<string>> PropertiesByType = new();
+            private static HashSet<string> empty = new();
+
+            private static HashSet<string> FindTypedProperties(string typeName)
+            {
+                if (BubblePrints.Wrath == null)
+                    return empty;
+                if (!PropertiesByType.TryGetValue(typeName, out var list))
+                {
+                    var type = BubblePrints.Wrath.GetType(typeName);
+                    if (type == null)
+                        list = new();
+                    else
+                        list = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).Select(f => f.Name).ToHashSet();
+                    PropertiesByType[typeName] = list;
+                }
+
+                return list;
+            }
+
             internal readonly JsonElement node;
             private string _ShortValue = "";
+            public HashSet<string> TypedProperties;
 
-            private static Regex ParseType = new(@".*\.(.*), (.*)");
+            private static Regex ParseType = new(@"(.*)\.(.*), (.*)");
 
             public override string ToString() => _ShortValue;
 
@@ -229,12 +251,15 @@ namespace BlueprintExplorer
                         {
                             if (typeMatch.Groups[1].Value == "ActionList")
                                 node = node.GetProperty("Actions");
+                            else
+                                TypedProperties = FindTypedProperties($"{typeMatch.Groups[1]}.{typeMatch.Groups[2]}");
+
                             //if (IsActionList)
                             //    _ShortValue = $"[{node.GetProperty("Actions").GetArrayLength()}] {typeMatch.Groups[1].Value}.Actions  [{typeMatch.Groups[2].Value}]";
                             if (node.ValueKind == JsonValueKind.Array)
-                                _ShortValue = $"[{node.GetArrayLength()}] {typeMatch.Groups[1].Value}  [{typeMatch.Groups[2].Value}]";
+                                _ShortValue = $"[{node.GetArrayLength()}] {typeMatch.Groups[2].Value}  [{typeMatch.Groups[3].Value}]";
                             else
-                                _ShortValue = $"{typeMatch.Groups[1].Value}  [{typeMatch.Groups[2].Value}]";
+                                _ShortValue = $"{typeMatch.Groups[2].Value}  [{typeMatch.Groups[3].Value}]";
                         }
                         else
                         {
@@ -283,6 +308,8 @@ namespace BlueprintExplorer
                 var proxy = value as NestedProxy;
                 var node = proxy.node;
 
+                HashSet<string> remaining = new(proxy.TypedProperties);
+
                 node.Visit((index, value) =>
                 {
                     if (value.IsSimple())
@@ -294,6 +321,7 @@ namespace BlueprintExplorer
 
                 }, (key, value) =>
                 {
+                    remaining?.Remove(key);
                     if (value.TryGetSimple(out var raw))
                     {
                         if (key != "$id")
@@ -305,6 +333,16 @@ namespace BlueprintExplorer
                         props.Add("", key, value);
 
                 }, null);
+
+                if (remaining != null)
+                {
+                    foreach (var rem in remaining)
+                    {
+                        props.Add("", rem, "<not-present>");
+                    }
+                }
+
+
 
                 return props.Build();
             }

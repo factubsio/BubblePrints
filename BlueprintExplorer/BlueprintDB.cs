@@ -14,10 +14,6 @@ using System.Windows.Forms;
 namespace BlueprintExplorer {
     public partial class BlueprintDB
     {
-        [System.Runtime.InteropServices.DllImport("kernel32.dll")]
-        private static extern bool AllocConsole();
-
-
         private static BlueprintDB _Instance;
         public static BlueprintDB Instance
         {
@@ -65,9 +61,6 @@ namespace BlueprintExplorer {
         public async Task<bool> TryConnect()
         {
 
-#if DEBUG
-            AllocConsole();
-#endif
             List<Task<List<BlueprintHandle>>> tasks = new();
 
             Stopwatch watch = new();

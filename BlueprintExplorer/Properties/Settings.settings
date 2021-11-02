@@ -5,5 +5,8 @@
     <Setting Name="BlueprintDBPath" Type="System.String" Scope="User">
       <Value Profile="(Default)">blueprints_raw.binz</Value>
     </Setting>
+    <Setting Name="WrathPath" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
   </Settings>
 </SettingsFile>
