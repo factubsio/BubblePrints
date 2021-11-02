@@ -1,3 +1,4 @@
+using BlueprintExplorer.Sound;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,6 +16,8 @@ namespace BlueprintExplorer
         [STAThread]
         static void Main()
         {
+            SoundManager.Debug();
+
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);

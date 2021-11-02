@@ -34,5 +34,17 @@ namespace BlueprintExplorer.Properties {
                 this["BlueprintDBPath"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string WrathPath {
+            get {
+                return ((string)(this["WrathPath"]));
+            }
+            set {
+                this["WrathPath"] = value;
+            }
+        }
     }
 }

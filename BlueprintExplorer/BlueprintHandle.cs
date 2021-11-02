@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BlueprintExplorer.Sound;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -151,14 +152,14 @@ namespace BlueprintExplorer
                     empties.Add(name);
                 }
             }
-            public void Add(string category, string name, JsonElement value, string description = "", Type parentType = null)
+            public void Add(string category, string name, NestedProxy parent, JsonElement value, string description = "", Type parentType = null)
             {
-                AddInternal(category, name, new NestedProxy(value), description, parentType);
+                AddInternal(category, name, new NestedProxy(value, parent), description, parentType);
             }
 
             public PropertyDescriptorCollection Build()
             {
-                return Collection; //.Sort(order.Concat(empties).ToArray());
+                return Collection.Sort(order.Concat(empties).ToArray());
             }
 
         }
@@ -173,7 +174,7 @@ namespace BlueprintExplorer
             propBuilder.Add("base", "Type", bp.TypeName, "Type of the blueprint (not including its Namespace)");
             propBuilder.Add("base", "Namespace", bp.Namespace, "Namespace that the Type exists in");
             propBuilder.Add("base", "Guid", bp.GuidText, "Unique ID for this blueprint, used to cross-reference bluescripts and to load them");
-            propBuilder.Add("base", "Properties", bp.obj, "All the good stuff!");
+            propBuilder.Add("base", "Properties", null, (JsonElement)bp.obj, "All the good stuff!");
 
             return propBuilder.Build();
         }
@@ -213,11 +214,33 @@ namespace BlueprintExplorer
             private string _ShortValue = "";
 
             private static Regex ParseType = new(@".*\.(.*), (.*)");
+            public string NodeType = "";
+            public string SoundBank;
 
-            public override string ToString() => _ShortValue;
-
-            internal NestedProxy(JsonElement rootNode)
+            public override string ToString()
             {
+                if (Wems == null)
+                    return _ShortValue;
+                else
+                    return $"{_ShortValue} -- WEMS: {Wems}";
+            }
+            public readonly NestedProxy Parent;
+
+            public string Wems;
+
+            public string SoundBankInParent
+            {
+                get
+                {
+                    if (SoundBank == null)
+                        return Parent?.SoundBankInParent;
+                    return SoundBank;
+                }
+            }
+
+            internal NestedProxy(JsonElement rootNode, NestedProxy parent)
+            {
+                Parent = parent;
                 node = rootNode;
 
                 if (node.ValueKind == JsonValueKind.Object)
@@ -227,8 +250,10 @@ namespace BlueprintExplorer
                         var typeMatch = ParseType.Match(typeVal.GetString());
                         if (typeMatch.Success)
                         {
-                            if (typeMatch.Groups[1].Value == "ActionList")
+                            NodeType = typeMatch.Groups[1].Value;
+                            if (NodeType == "ActionList")
                                 node = node.GetProperty("Actions");
+
                             //if (IsActionList)
                             //    _ShortValue = $"[{node.GetProperty("Actions").GetArrayLength()}] {typeMatch.Groups[1].Value}.Actions  [{typeMatch.Groups[2].Value}]";
                             if (node.ValueKind == JsonValueKind.Array)
@@ -283,6 +308,28 @@ namespace BlueprintExplorer
                 var proxy = value as NestedProxy;
                 var node = proxy.node;
 
+                if (proxy.NodeType == "UnitAsksComponent")
+                {
+                    proxy.SoundBank = node.GetProperty("SoundBanks")[0].GetString();
+                }
+                else if (proxy.NodeType == "UnitAsksComponent+BarkEntry")
+                {
+                    var eventName = node.GetProperty("AkEvent").GetString();
+                    var soundBankName = proxy.SoundBankInParent;
+
+                    if (SoundManager.TryGetBank(soundBankName, out var bank))
+                    {
+                        if (bank.TryGetBarks(eventName, out var barks))
+                        {
+                            proxy.Wems = string.Join(" , ", barks);
+                            Console.WriteLine($"event: {eventName}:");
+                            Console.WriteLine($"    {proxy.Wems}");
+                        }
+                    }
+                }
+
+
+
                 node.Visit((index, value) =>
                 {
                     if (value.IsSimple())
@@ -290,7 +337,7 @@ namespace BlueprintExplorer
                     else if (value.IsEmptyContainer())
                         props.Add("", $"[{index}]", "<empty>");
                     else
-                        props.Add("", $"[{index}]", value);
+                        props.Add("", $"[{index}]", proxy, value);
 
                 }, (key, value) =>
                 {
@@ -302,7 +349,7 @@ namespace BlueprintExplorer
                     else if (value.IsEmptyContainer())
                         props.Add("", key, "<empty>");
                     else
-                        props.Add("", key, value);
+                        props.Add("", key, proxy, value);
 
                 }, null);
 
@@ -346,7 +393,9 @@ namespace BlueprintExplorer
         internal static readonly MatchQuery.MatchProvider MatchProvider = new MatchQuery.MatchProvider(
                     obj => (obj as BlueprintHandle).NameLower,
                     obj => (obj as BlueprintHandle).TypeNameLower,
-                    obj => (obj as BlueprintHandle).NamespaceLower);
+                    obj => (obj as BlueprintHandle).NamespaceLower,
+                    obj => (obj as BlueprintHandle).GuidText
+                    );
 
         private MatchResult[] CreateResultArray()
         {
@@ -354,6 +403,7 @@ namespace BlueprintExplorer
                     new MatchResult("name", this),
                     new MatchResult("type", this),
                     new MatchResult("space", this),
+                    new MatchResult("guid", this),
                 };
         }
         public MatchResult[] GetMatches(int index)
