@@ -221,7 +221,10 @@ namespace BlueprintExplorer
                 {
                     var type = BubblePrints.Wrath.GetType(typeName);
                     if (type == null)
+                    {
+                        Console.WriteLine($"could not load type: {typeName}");
                         list = new();
+                    }
                     else
                         list = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).Select(f => f.Name).ToHashSet();
                     PropertiesByType[typeName] = list;
@@ -308,7 +311,9 @@ namespace BlueprintExplorer
                 var proxy = value as NestedProxy;
                 var node = proxy.node;
 
-                HashSet<string> remaining = new(proxy.TypedProperties);
+                HashSet<string> remaining = null;
+                if (proxy.TypedProperties != null)
+                    remaining = new(proxy.TypedProperties);
 
                 node.Visit((index, value) =>
                 {
