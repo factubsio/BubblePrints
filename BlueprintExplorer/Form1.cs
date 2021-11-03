@@ -27,8 +27,8 @@ namespace BlueprintExplorer {
             BubblePrints.SetupLogging();
 #endif
             omniSearch.TextChanged += OmniSearch_TextChanged;
-            //bpView.NodeMouseClick += BpView_NodeMouseClick;
             resultsGrid.CellClick += ResultsGrid_CellClick;
+            references.CellClick += references_CellClick;
 
             InstallReadline(omniSearch);
             InstallReadline(filter);
@@ -53,6 +53,7 @@ namespace BlueprintExplorer {
                     ShowBlueprint(BlueprintDB.Instance.Blueprints[Guid.Parse(CurrentLink)], true);
             };
             followLink.Enabled = false;
+
 
             BubblePrints.SetWrathPath();
 
@@ -91,8 +92,8 @@ namespace BlueprintExplorer {
                 bpProps.CategorySplitterColor = bgColor;
                 resultsGrid.EnableHeadersVisualStyles = false;
                 this.BackColor = bgColor;
-                DarkenControls(filter, omniSearch, resultsGrid, count, splitContainer1);
-                DarkenStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
+                DarkenControls(filter, omniSearch, resultsGrid, count, splitContainer1, references);
+                DarkenStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle, references.DefaultCellStyle, references.ColumnHeadersDefaultCellStyle);
             }
 
             omniSearch.Enabled = false;
@@ -159,18 +160,11 @@ namespace BlueprintExplorer {
             ShowSelected();
         }
 
-        private Stack<BlueprintHandle> history = new();
-
-        private void BpView_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
-        {
-            if (e.Node.Tag == null)
-                return;
-            Guid guid = Guid.Parse(e.Node.Tag as string);
-            if (guid == Guid.Empty)
-                return;
-
-            ShowBlueprint(db.Blueprints[guid], true);
+        private void references_CellClick(object sender, DataGridViewCellEventArgs e) {
+            ShowReferenceSelected();
         }
+
+        private Stack<BlueprintHandle> history = new();
 
         private DateTime lastChange = DateTime.MinValue;
         private TimeSpan debounceTime = TimeSpan.FromSeconds(1.5);
@@ -378,7 +372,7 @@ namespace BlueprintExplorer {
             }
             else if (e.KeyCode == Keys.Up) {
                 if (resultsCache.Count > 1) {
-                    int row = SelectedRow - 1;
+                    int row = resultsGrid.SelectedRow() - 1;
                     if (row >= 0 && row < resultsCache.Count) {
                         resultsGrid.Rows[row].Selected = true;
                         resultsGrid.CurrentCell = resultsGrid[0, row];
@@ -390,7 +384,7 @@ namespace BlueprintExplorer {
             }
             else if (e.KeyCode == Keys.Down) {
                 if (resultsCache.Count > 1) {
-                    int row = SelectedRow + 1;
+                    int row = resultsGrid.SelectedRow() + 1;
                     if (row < resultsCache.Count) {
                         resultsGrid.Rows[row].Selected = true;
                         resultsGrid.CurrentCell = resultsGrid[0, row];
@@ -408,13 +402,32 @@ namespace BlueprintExplorer {
             history.Clear();
 
             if (TryGetSelected(out var row))
+            {
+                Console.WriteLine($"results[{row}]");
                 ShowBlueprint(resultsCache[row], true);
+            }
         }
 
-        private int SelectedRow => resultsGrid.SelectedRows.Count > 0 ? resultsGrid.SelectedRows[0].Index : 0;
+        private void ShowReferenceSelected() {
+            if (CurrentView == null) return;
+            if (CurrentView.BackReferences.Count != references.RowCount) return;
+
+            if (TryReferencedSelected(out var row))
+            {
+                Console.WriteLine($"ROW: {row}");
+                ShowBlueprint(BlueprintDB.Instance.Blueprints[CurrentView.BackReferences[row]], true);
+            }
+        }
+
+        private bool TryReferencedSelected(out int row) {
+            row = -1;
+            if (CurrentView == null) return false;
+            row = references.SelectedRow();
+            return row >= 0 && row < CurrentView.BackReferences.Count;
+        }
 
         private bool TryGetSelected(out int row) {
-            row = SelectedRow;
+            row = resultsGrid.SelectedRow();
             return row >= 0 && row < resultsCache.Count;
         }
 
@@ -442,11 +455,19 @@ namespace BlueprintExplorer {
             history.Push(bp);
         }
 
+        private BlueprintHandle CurrentView = null;
+
         private void ShowBlueprint(BlueprintHandle bp, bool updateHistory) {
             filter.Enabled = true;
-            if (!bp.Parsed) {
-                bp.obj = JsonSerializer.Deserialize<dynamic>(bp.Raw);
-                bp.Parsed = true;
+            bp.EnsureParsed();
+            CurrentView = bp;
+
+            references.Rows.Clear();
+            var me = Guid.Parse(bp.GuidText);
+            foreach (var reference in bp.BackReferences)
+            {
+                if (reference != me)
+                    references.Rows.Add(BlueprintDB.Instance.Blueprints[reference].Name);
             }
 
             bpProps.SelectedObject = bp;

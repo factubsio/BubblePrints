@@ -28,7 +28,7 @@ namespace BlueprintExplorer
             blueprint.Type = Path.GetFileName(Path.GetDirectoryName(filePath));
             blueprint.Name = fileName.Substring(0, lastDot);
             blueprint.GuidText = fileName.Substring(lastDot + 1);
-            blueprint.guid = Guid.Parse(blueprint.GuidText).ToByteArray();
+            //blueprint.guid = Guid.Parse(blueprint.GuidText).ToByteArray();
 
             return blueprint;
         }

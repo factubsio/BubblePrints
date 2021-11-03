@@ -96,7 +96,10 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
         }
         public void Recalculate(string text) {
             TargetRatio = TotalMatched / (float)text.Length;
-            MatchRatio = TotalMatched / (float)Context.SearchText.Length;
+            if (Context.SearchText.Length == 0)
+                MatchRatio = 1;
+            else
+                MatchRatio = TotalMatched / (float)Context.SearchText.Length;
             Score = (TargetRatio * MatchRatio * TotalMatched * 4) + (BestRun * 4) + (GoodRuns * 2) - Penalty + Bonus;
         }
     }
@@ -114,6 +117,8 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
             if (searchText.Length == 1) result.Bonus = 10; // We want to let matches to single char search strings show up
             var index =  text.IndexOf(searchText);
             if (index >= 0) {
+                if (index == 0)
+                    result.Bonus += 100;
                 result.AddSpan(index, searchText.Length);
                 result.Recalculate(text);
             }

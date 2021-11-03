@@ -21,5 +21,8 @@ namespace BlueprintExplorer
             MethodInfo mi = view?.GetType().GetMethod("MoveSplitterTo", BindingFlags.Instance | BindingFlags.NonPublic);
             mi?.Invoke(view, new object[] { width });
         }
+
+
+        public static int SelectedRow(this DataGridView view) => view.SelectedRows.Count > 0 ? view.SelectedRows[0].Index : 0;
     }
 }

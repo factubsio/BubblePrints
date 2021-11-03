@@ -43,7 +43,7 @@ namespace BlueprintExplorer {
         }
 
         private readonly string filenameRoot = "blueprints_raw";
-        private readonly string version = "1.1";
+        private readonly string version = "1.1_bbpe1";
         private readonly string extension = "binz";
 
         string FileName => $"{filenameRoot}_{version}.{extension}";
@@ -57,6 +57,8 @@ namespace BlueprintExplorer {
             else
                 return GoingToLoad.FromWeb;
         }
+
+        private const int LatestVersion = 1;
 
         public async Task<bool> TryConnect()
         {
@@ -73,8 +75,8 @@ namespace BlueprintExplorer {
             {
                 case GoingToLoad.FromWeb:
                     Console.WriteLine("Settings file does not exist, downloading");
-                    var host = "https://github.com/factubsio/BubblePrints/releases/download/";
-                    var latestVersionUrl = new Uri($"{host}/{version}/{filenameRoot}.{extension}");
+                    var host = "https://github.com/factubsio/BubblePrintsData/releases/download/";
+                    var latestVersionUrl = new Uri($"{host}/{version}/{filenameRoot}_{version}.{extension}");
 
                     var client = new WebClient();
                     var userLocalFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints");
@@ -104,7 +106,24 @@ namespace BlueprintExplorer {
                 return false;
             var binary = new BinaryReader(file);
 
+            Console.WriteLine($"Reading binz from {fileToOpen}");
+
             int count = binary.ReadInt32();
+            int bbpeVersion;
+            if (count == 0)
+            {
+                var magic = binary.ReadChars(4);
+                Console.WriteLine(string.Join("", magic));
+                bbpeVersion = binary.ReadInt32();
+                binary.ReadUInt32(); //skip stuff?
+                count = binary.ReadInt32();
+            }
+            else
+            {
+                bbpeVersion = 0;
+            }
+            Console.WriteLine($"BBPE: {bbpeVersion}");
+
             int batchSize = binary.ReadInt32();
             cache.Capacity = count;
             int sectionCount = binary.ReadInt32();
@@ -133,6 +152,7 @@ namespace BlueprintExplorer {
                 var task = Task.Run<List<BlueprintHandle>>(() =>
                 {
                     byte[] scratchpad = new byte[10_0000_000];
+                    byte[] guid_cache = new byte[16];
                     using var batchFile = OpenFile();
                     using var batchReader = new BinaryReader(batchFile);
                     batchReader.BaseStream.Seek(section.Offset, SeekOrigin.Begin);
@@ -169,6 +189,16 @@ namespace BlueprintExplorer {
                             bp.Raw = batchReader.ReadString();
                         }
 
+                        if (bbpeVersion >= 1)
+                        {
+                            int refCount = batchReader.ReadInt32();
+                            for (int i = 0; i < refCount; i++)
+                            {
+                                batchReader.Read(guid_cache, 0, 16);
+                                bp.BackReferences.Add(new Guid(guid_cache));
+                            }
+                        }
+
                         res.Add(bp);
                     }
 
@@ -181,12 +211,6 @@ namespace BlueprintExplorer {
             float loadTime = watch.ElapsedMilliseconds;
             Console.WriteLine($"Loaded {cache.Count} blueprints in {watch.ElapsedMilliseconds}ms");
 
-            if (generateOutput)
-            {
-#pragma warning disable CS0162 // Unreachable code detected
-                WriteBlueprints();
-#pragma warning restore CS0162 // Unreachable code detected
-            }
 
             binary.Dispose();
             file.Dispose();
@@ -197,6 +221,14 @@ namespace BlueprintExplorer {
             {
                 AddBlueprint(bp);
             }
+
+
+            if (generateOutput)
+            {
+#pragma warning disable CS0162 // Unreachable code detected
+                WriteBlueprints();
+#pragma warning restore CS0162 // Unreachable code detected
+            }
             Console.WriteLine($"added {cache.Count} blueprints in {addWatch.ElapsedMilliseconds}ms");
             return true;
         }
@@ -205,10 +237,35 @@ namespace BlueprintExplorer {
         {
             int biggestString = 0;
             int biggestStringZ = 0;
+            int biggestRefList = 0;
+            string mostReferred = "";
             byte[] scratchpad = new byte[10_000_000];
-            using (var file = File.OpenWrite("blueprints_raw.binz"))
+
+            Dictionary<Guid, List<Guid>> References = new();
+
+            foreach (var bp in cache)
+            {
+                var from = Guid.Parse(bp.GuidText);
+                foreach (var forwardRef in bp.GetDirectReferences())
+                {
+                    if (!References.TryGetValue(forwardRef, out var refList))
+                    {
+                        refList = new();
+                        References[forwardRef] = refList;
+                    }
+                    refList.Add(from);
+                }
+            }
+
+
+            using (var file = File.OpenWrite("blueprints_raw_NEW.binz"))
             {
                 using var binary = new BinaryWriter(file);
+                binary.Write(0);
+                binary.Write("BBPE".AsSpan());
+                binary.Write(LatestVersion);
+                binary.Write(0);
+
                 binary.Write(cache.Count);
                 const int batchSize = 16000;
                 binary.Write(batchSize);
@@ -249,6 +306,24 @@ namespace BlueprintExplorer {
                         binary.Write(false);
                         binary.Write(c.Raw);
                     }
+
+
+                    if (References.TryGetValue(Guid.Parse(c.GuidText), out var refList))
+                    {
+                        binary.Write(refList.Count);
+                        foreach (var backRef in refList)
+                            binary.Write(backRef.ToByteArray());
+                        if (refList.Count > biggestRefList)
+                        {
+                            biggestRefList = refList.Count;
+                            mostReferred = c.Name;
+                        }
+                    }
+                    else
+                    {
+                        binary.Write(0);
+                    }
+
                 }
 
                 binary.Seek(tocAt, SeekOrigin.Begin);
@@ -256,7 +331,7 @@ namespace BlueprintExplorer {
                     binary.Write(t);
 
             }
-            Console.WriteLine($"biggestString: {biggestString}, biggestStringZ: {biggestStringZ}");
+            Console.WriteLine($"biggestString: {biggestString}, biggestStringZ: {biggestStringZ}, mostReferred: {mostReferred} ({biggestRefList})");
         }
 
         private void AddBlueprint(BlueprintHandle bp)

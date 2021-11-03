@@ -40,8 +40,11 @@ namespace BlueprintExplorer
             this.BPNamespace = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Score = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.BPGuid = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.filter = new System.Windows.Forms.TextBox();
+            this.splitContainer2 = new System.Windows.Forms.SplitContainer();
             this.bpProps = new System.Windows.Forms.PropertyGrid();
+            this.filter = new System.Windows.Forms.TextBox();
+            this.references = new System.Windows.Forms.DataGridView();
+            this.From = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.count = new System.Windows.Forms.Label();
             this.historyBread = new System.Windows.Forms.FlowLayoutPanel();
             this.panel1.SuspendLayout();
@@ -51,6 +54,11 @@ namespace BlueprintExplorer
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.resultsGrid)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).BeginInit();
+            this.splitContainer2.Panel1.SuspendLayout();
+            this.splitContainer2.Panel2.SuspendLayout();
+            this.splitContainer2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.references)).BeginInit();
             this.SuspendLayout();
             // 
             // panel1
@@ -60,7 +68,7 @@ namespace BlueprintExplorer
             this.panel1.Location = new System.Drawing.Point(0, 0);
             this.panel1.Name = "panel1";
             this.panel1.Padding = new System.Windows.Forms.Padding(8);
-            this.panel1.Size = new System.Drawing.Size(2175, 82);
+            this.panel1.Size = new System.Drawing.Size(2442, 82);
             this.panel1.TabIndex = 1;
             // 
             // tableLayoutPanel1
@@ -75,7 +83,7 @@ namespace BlueprintExplorer
             this.tableLayoutPanel1.Name = "tableLayoutPanel1";
             this.tableLayoutPanel1.RowCount = 1;
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel1.Size = new System.Drawing.Size(2159, 66);
+            this.tableLayoutPanel1.Size = new System.Drawing.Size(2426, 66);
             this.tableLayoutPanel1.TabIndex = 2;
             // 
             // omniSearch
@@ -87,7 +95,7 @@ namespace BlueprintExplorer
             this.omniSearch.Margin = new System.Windows.Forms.Padding(8);
             this.omniSearch.Name = "omniSearch";
             this.omniSearch.PlaceholderText = "enter search text...";
-            this.omniSearch.Size = new System.Drawing.Size(1960, 54);
+            this.omniSearch.Size = new System.Drawing.Size(2227, 54);
             this.omniSearch.TabIndex = 0;
             this.omniSearch.TextChanged += new System.EventHandler(this.omniSearch_TextChanged_1);
             this.omniSearch.KeyDown += new System.Windows.Forms.KeyEventHandler(this.omniSearch_KeyDown);
@@ -107,7 +115,7 @@ namespace BlueprintExplorer
             // splitContainer1
             // 
             this.splitContainer1.BackColor = System.Drawing.SystemColors.ControlLight;
-            this.splitContainer1.Cursor = System.Windows.Forms.Cursors.HSplit;
+            this.splitContainer1.Cursor = System.Windows.Forms.Cursors.Default;
             this.splitContainer1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.splitContainer1.Location = new System.Drawing.Point(0, 82);
             this.splitContainer1.Name = "splitContainer1";
@@ -119,12 +127,11 @@ namespace BlueprintExplorer
             // 
             // splitContainer1.Panel2
             // 
-            this.splitContainer1.Panel2.Controls.Add(this.filter);
-            this.splitContainer1.Panel2.Controls.Add(this.bpProps);
+            this.splitContainer1.Panel2.Controls.Add(this.splitContainer2);
             this.splitContainer1.Panel2.Controls.Add(this.count);
             this.splitContainer1.Panel2.Controls.Add(this.historyBread);
             this.splitContainer1.Panel2.Cursor = System.Windows.Forms.Cursors.Default;
-            this.splitContainer1.Size = new System.Drawing.Size(2175, 1167);
+            this.splitContainer1.Size = new System.Drawing.Size(2442, 1167);
             this.splitContainer1.SplitterDistance = 305;
             this.splitContainer1.SplitterWidth = 16;
             this.splitContainer1.TabIndex = 3;
@@ -149,7 +156,7 @@ namespace BlueprintExplorer
             this.resultsGrid.RowHeadersWidth = 62;
             this.resultsGrid.RowTemplate.Height = 33;
             this.resultsGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.resultsGrid.Size = new System.Drawing.Size(2175, 305);
+            this.resultsGrid.Size = new System.Drawing.Size(2442, 305);
             this.resultsGrid.TabIndex = 2;
             this.resultsGrid.VirtualMode = true;
             this.resultsGrid.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.resultsGrid_CellContentClick);
@@ -195,25 +202,77 @@ namespace BlueprintExplorer
             this.BPGuid.ReadOnly = true;
             this.BPGuid.Width = 240;
             // 
+            // splitContainer2
+            // 
+            this.splitContainer2.Cursor = System.Windows.Forms.Cursors.Default;
+            this.splitContainer2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainer2.Location = new System.Drawing.Point(0, 0);
+            this.splitContainer2.Name = "splitContainer2";
+            // 
+            // splitContainer2.Panel1
+            // 
+            this.splitContainer2.Panel1.Controls.Add(this.bpProps);
+            this.splitContainer2.Panel1.Controls.Add(this.filter);
+            this.splitContainer2.Panel1.Cursor = System.Windows.Forms.Cursors.Default;
+            // 
+            // splitContainer2.Panel2
+            // 
+            this.splitContainer2.Panel2.Controls.Add(this.references);
+            this.splitContainer2.Panel2.Cursor = System.Windows.Forms.Cursors.Default;
+            this.splitContainer2.Size = new System.Drawing.Size(2442, 792);
+            this.splitContainer2.SplitterDistance = 1776;
+            this.splitContainer2.TabIndex = 5;
+            // 
+            // bpProps
+            // 
+            this.bpProps.CategorySplitterColor = System.Drawing.SystemColors.ControlLight;
+            this.bpProps.Cursor = System.Windows.Forms.Cursors.Default;
+            this.bpProps.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.bpProps.Font = new System.Drawing.Font("Consolas", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.bpProps.Location = new System.Drawing.Point(0, 0);
+            this.bpProps.Name = "bpProps";
+            this.bpProps.Size = new System.Drawing.Size(1776, 792);
+            this.bpProps.TabIndex = 4;
+            // 
             // filter
             // 
             this.filter.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.filter.Location = new System.Drawing.Point(1774, 3);
+            this.filter.Location = new System.Drawing.Point(1375, 206);
             this.filter.Name = "filter";
             this.filter.PlaceholderText = "Filter Blueprint...";
             this.filter.Size = new System.Drawing.Size(398, 31);
             this.filter.TabIndex = 2;
             this.filter.TextChanged += new System.EventHandler(this.filter_TextChanged);
             // 
-            // bpProps
+            // references
             // 
-            this.bpProps.CategorySplitterColor = System.Drawing.SystemColors.ControlLight;
-            this.bpProps.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.bpProps.Font = new System.Drawing.Font("Consolas", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.bpProps.Location = new System.Drawing.Point(0, 0);
-            this.bpProps.Name = "bpProps";
-            this.bpProps.Size = new System.Drawing.Size(2175, 792);
-            this.bpProps.TabIndex = 4;
+            this.references.AllowUserToAddRows = false;
+            this.references.AllowUserToDeleteRows = false;
+            this.references.AllowUserToResizeRows = false;
+            this.references.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.references.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.From});
+            this.references.Cursor = System.Windows.Forms.Cursors.Default;
+            this.references.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.references.Location = new System.Drawing.Point(0, 0);
+            this.references.MultiSelect = false;
+            this.references.Name = "references";
+            this.references.ReadOnly = true;
+            this.references.RowHeadersVisible = false;
+            this.references.RowHeadersWidth = 62;
+            this.references.RowHeadersWidthSizeMode = System.Windows.Forms.DataGridViewRowHeadersWidthSizeMode.DisableResizing;
+            this.references.RowTemplate.Height = 33;
+            this.references.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.references.Size = new System.Drawing.Size(662, 792);
+            this.references.TabIndex = 0;
+            // 
+            // From
+            // 
+            this.From.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.From.HeaderText = "Referenced By";
+            this.From.MinimumWidth = 8;
+            this.From.Name = "From";
+            this.From.ReadOnly = true;
             // 
             // count
             // 
@@ -231,14 +290,14 @@ namespace BlueprintExplorer
             this.historyBread.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.historyBread.Location = new System.Drawing.Point(0, 792);
             this.historyBread.Name = "historyBread";
-            this.historyBread.Size = new System.Drawing.Size(2175, 54);
+            this.historyBread.Size = new System.Drawing.Size(2442, 54);
             this.historyBread.TabIndex = 1;
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(10F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(2175, 1249);
+            this.ClientSize = new System.Drawing.Size(2442, 1249);
             this.Controls.Add(this.splitContainer1);
             this.Controls.Add(this.panel1);
             this.Name = "Form1";
@@ -252,6 +311,12 @@ namespace BlueprintExplorer
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
             this.splitContainer1.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.resultsGrid)).EndInit();
+            this.splitContainer2.Panel1.ResumeLayout(false);
+            this.splitContainer2.Panel1.PerformLayout();
+            this.splitContainer2.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).EndInit();
+            this.splitContainer2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.references)).EndInit();
             this.ResumeLayout(false);
 
         }
@@ -272,6 +337,9 @@ namespace BlueprintExplorer
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
         private System.Windows.Forms.TextBox omniSearch;
         private System.Windows.Forms.Label SearchLabel;
+        private System.Windows.Forms.SplitContainer splitContainer2;
+        private System.Windows.Forms.DataGridView references;
+        private System.Windows.Forms.DataGridViewTextBoxColumn From;
     }
 }
 

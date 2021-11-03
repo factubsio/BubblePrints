@@ -358,15 +358,17 @@ namespace BlueprintExplorer
 
     [TypeConverter(typeof(BlueprintPropertyConverter))]
     public class BlueprintHandle : ISearchable {
-        public byte[] guid;
+        //public byte[] guid;
         public string GuidText { get; set; }
         public string Name { get; set; }
         public string Type { get; set; }
         public string TypeName;
         public string Namespace;
         public string Raw { get; set; }
-        public dynamic obj;
+        public JsonElement obj;
         public bool Parsed;
+
+        public List<Guid> BackReferences = new();
 
         public string NameLower;
         public string TypeNameLower;
@@ -389,7 +391,8 @@ namespace BlueprintExplorer
         internal static readonly MatchQuery.MatchProvider MatchProvider = new MatchQuery.MatchProvider(
                     obj => (obj as BlueprintHandle).NameLower,
                     obj => (obj as BlueprintHandle).TypeNameLower,
-                    obj => (obj as BlueprintHandle).NamespaceLower);
+                    obj => (obj as BlueprintHandle).NamespaceLower,
+                    obj => (obj as BlueprintHandle).GuidText);
 
         private MatchResult[] CreateResultArray()
         {
@@ -397,6 +400,7 @@ namespace BlueprintExplorer
                     new MatchResult("name", this),
                     new MatchResult("type", this),
                     new MatchResult("space", this),
+                    new MatchResult("guid", this),
                 };
         }
         public MatchResult[] GetMatches(int index)
@@ -405,7 +409,15 @@ namespace BlueprintExplorer
                 _Matches[index] = CreateResultArray();
             return _Matches[index];
         }
-        
+
+        internal void EnsureParsed()
+        {
+            if (!Parsed) {
+                obj = JsonSerializer.Deserialize<JsonElement>(Raw);
+                Parsed = true;
+            }
+        }
+
 
         #endregion
         public void PrimeMatches(int count)
@@ -413,12 +425,6 @@ namespace BlueprintExplorer
             _Matches = new MatchResult[count][];
             for (int i = 0; i < count; i++)
                 _Matches[i] = CreateResultArray();
-        }
-
-        public static bool TryGetReference(string value, out Guid guid) {
-            guid = Guid.Empty;
-
-            return false;
         }
 
         public class VisitedElement {
@@ -444,14 +450,12 @@ namespace BlueprintExplorer
 
         }
 
-        private List<VisitedElement> _Elements;
-        public List<VisitedElement> Elements
+        public IEnumerable<VisitedElement> Elements
         {
             get
             {
-                if (_Elements == null)
-                    _Elements = Visit(this.obj, Name).ToList();
-                return _Elements;
+                EnsureParsed();
+                return Visit(obj, Name);
             }
         }
 
@@ -516,16 +520,31 @@ namespace BlueprintExplorer
             }
         }
 
-        [JsonIgnore]
-        public List<BlueprintReference> DirectReferences {
-            get {
-                List<BlueprintReference> refs = new List<BlueprintReference>();
-
-                GatherBlueprints("", refs, obj);
-
-                return refs;
+        public IEnumerable<Guid> GetDirectReferences() {
+            Stack<string> path = new();
+            foreach (var element in Elements)
+            {
+                //if (element.levelDelta > 0)
+                //{
+                //    path.Push(element.key);
+                //}
+                //else if (element.levelDelta < 0)
+                //{
+                //    path.Pop();
+                //}
+                //else
+                //{
+                    if (element.link != null)
+                    {
+                        yield return Guid.Parse(element.link);
+                        //yield return new BlueprintReference
+                        //{
+                        //    path = string.Join("/", path.Reverse()),
+                        //    to = Guid.Parse(element.link)
+                        //};
+                    }
+                //}
             }
-
         }
     }
 }
