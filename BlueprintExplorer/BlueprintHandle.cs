@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Kingmaker.Blueprints;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -17,6 +18,7 @@ namespace BlueprintExplorer
 {
     static class JsonExtensions
     {
+        public static Guid Guid(this string str) => System.Guid.Parse(str);
         public static bool IsSimple(this JsonElement elem)
         {
             return !elem.IsContainer();
@@ -34,6 +36,42 @@ namespace BlueprintExplorer
                 str = elem.GetRawText();
                 return true;
             }
+        }
+
+        public static string ParseTypeString(this string str)
+        {
+            if (str == null)
+                return str;
+            return str.Substring(0, str.IndexOf(','));
+        }
+        public static string TypeString(this JsonElement elem)
+        {
+            return elem.Str("$type").ParseTypeString();
+        }
+
+        public static bool True(this JsonElement elem, string child)
+        {
+            return elem.TryGetProperty(child, out var ch) && ch.ValueKind == JsonValueKind.True;
+        }
+        public static string Str(this JsonElement elem, string child)
+        {
+            if (elem.ValueKind != JsonValueKind.Object)
+                return null;
+            if (!elem.TryGetProperty(child, out var childNode))
+                return null;
+            return childNode.GetString();
+        }
+        public static float Float(this JsonElement elem, string child)
+        {
+            if (elem.TryGetProperty(child, out var prop))
+                return (float)prop.GetDouble();
+            return 0;
+        }
+        public static int Int(this JsonElement elem, string child)
+        {
+            if (elem.TryGetProperty(child, out var prop))
+                return prop.GetInt32();
+            return 0;
         }
 
         public static bool IsContainer(this JsonElement elem)
@@ -62,6 +100,95 @@ namespace BlueprintExplorer
             {
                 valIt(elem.GetRawText());
             }
+        }
+    }
+
+    public static class Materializer
+    {
+
+
+        private static object Materialize(JsonElement json, Type hint)
+        {
+            switch (json.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    break;
+                case JsonValueKind.Undefined:
+                    return null;
+                case JsonValueKind.Array:
+                    if (hint.IsArray)
+                        return null;
+                    else if (hint == typeof(List<>))
+                        return null;
+                    else
+                        throw new Exception("Materializing array into something that is not a list|array");
+                case JsonValueKind.String:
+                    if (hint != typeof(string))
+                        return null;
+                    return json.GetString();
+                case JsonValueKind.Number:
+                    if (hint == typeof(int))
+                        return json.GetInt32();
+                    else
+                        return json.GetDouble();
+                case JsonValueKind.True:
+                    return true;
+                case JsonValueKind.False:
+                    return false;
+                case JsonValueKind.Null:
+                    return null;
+            }
+
+            if (!TryGetWrathType(json.TypeString(), out var type))
+                return null;
+
+            var obj = Activator.CreateInstance(type, true);
+
+            var gimme = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+
+            foreach (var f in type.GetFields(gimme))
+            {
+                if (json.TryGetProperty(f.Name, out var fJson))
+                {
+                    f.SetValue(obj, Materialize(fJson, f.FieldType));
+                }
+            }
+
+            return obj;
+        }
+
+
+        public static T Materialize<T>(BlueprintHandle handle) where T : SimpleBlueprint
+        {
+            try
+            {
+                return (T)Materialize(handle.obj, null);
+            } catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                Console.WriteLine(ex.StackTrace);
+            }
+            return null;
+        }
+
+        private static Dictionary<string, Type> TypesByName = new();
+        public static Type FindWrathType(string typeName)
+        {
+            if (typeName == null || BubblePrints.Wrath == null)
+                return null;
+
+            if (!TypesByName.TryGetValue(typeName, out var type))
+            {
+                type = BubblePrints.Wrath.GetType(typeName);
+                TypesByName[typeName] = type;
+            }
+            return type;
+        }
+
+        public static bool TryGetWrathType(string typeName, out Type type)
+        {
+            type = FindWrathType(typeName);
+            return type != null;
         }
     }
 
@@ -210,24 +337,19 @@ namespace BlueprintExplorer
         [TypeConverter(typeof(NestedConverter))]
         internal class NestedProxy
         {
-            private static Dictionary<string, HashSet<string>> PropertiesByType = new();
+            private static Dictionary<Type, HashSet<string>> PropertiesByType = new();
             private static HashSet<string> empty = new();
 
-            private static HashSet<string> FindTypedProperties(string typeName)
+
+            private static HashSet<string> FindTypedProperties(Type type)
             {
-                if (BubblePrints.Wrath == null)
-                    return empty;
-                if (!PropertiesByType.TryGetValue(typeName, out var list))
+                if (type == null)
+                    return new();
+
+                if (!PropertiesByType.TryGetValue(type, out var list))
                 {
-                    var type = BubblePrints.Wrath.GetType(typeName);
-                    if (type == null)
-                    {
-                        Console.WriteLine($"could not load type: {typeName}");
-                        list = new();
-                    }
-                    else
-                        list = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).Select(f => f.Name).ToHashSet();
-                    PropertiesByType[typeName] = list;
+                    list = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).Select(f => f.Name).ToHashSet();
+                    PropertiesByType[type] = list;
                 }
 
                 return list;
@@ -236,6 +358,7 @@ namespace BlueprintExplorer
             internal readonly JsonElement node;
             private string _ShortValue = "";
             public HashSet<string> TypedProperties;
+            Type BlueprintType;
 
             private static Regex ParseType = new(@"(.*)\.(.*), (.*)");
 
@@ -255,7 +378,10 @@ namespace BlueprintExplorer
                             if (typeMatch.Groups[1].Value == "ActionList")
                                 node = node.GetProperty("Actions");
                             else
-                                TypedProperties = FindTypedProperties($"{typeMatch.Groups[1]}.{typeMatch.Groups[2]}");
+                            {
+                                BlueprintType = Materializer.FindWrathType($"{typeMatch.Groups[1]}.{typeMatch.Groups[2]}");
+                                TypedProperties = FindTypedProperties(BlueprintType);
+                            }
 
                             //if (IsActionList)
                             //    _ShortValue = $"[{node.GetProperty("Actions").GetArrayLength()}] {typeMatch.Groups[1].Value}.Actions  [{typeMatch.Groups[2].Value}]";
@@ -387,7 +513,8 @@ namespace BlueprintExplorer
         //   }
         //}
         internal MatchResult[][] _Matches;
-
+        public ushort[] ComponentIndex;
+        public IEnumerable<string> ComponentsList => ComponentIndex.Select(i => BlueprintDB.Instance.ComponentTypeLookup[i]);
         internal static readonly MatchQuery.MatchProvider MatchProvider = new MatchQuery.MatchProvider(
                     obj => (obj as BlueprintHandle).NameLower,
                     obj => (obj as BlueprintHandle).TypeNameLower,
@@ -409,6 +536,15 @@ namespace BlueprintExplorer
                 _Matches[index] = CreateResultArray();
             return _Matches[index];
         }
+
+        internal JsonElement EnsureObj {
+            get
+            {
+                EnsureParsed();
+                return obj;
+            }
+        }
+
 
         internal void EnsureParsed()
         {
@@ -433,19 +569,20 @@ namespace BlueprintExplorer
             public int levelDelta;
             public bool isObj;
             public string link;
+            public string linkTarget;
             public bool Empty;
         }
 
-        private static string ParseReference(string val) {
+        public static (string link, string target) ParseReference(string val) {
             if (val.StartsWith("Blueprint:")) {
                 var components = val.Split(':');
                 if (components.Length != 3 || components[1].Length == 0 || components[1] == "NULL") {
-                    return null;
+                    return (null, null);
                 }
-                return components[1];
+                return (components[1], components[2]);
             }
             else {
-                return null;
+                return (null, null);
             }
 
         }
@@ -459,10 +596,38 @@ namespace BlueprintExplorer
             }
         }
 
+        public IEnumerable<string> Objects
+        {
+            get
+            {
+                EnsureParsed();
+                return VisitObjects(obj);
+            }
+        }
+
+        public static IEnumerable<string> VisitObjects(JsonElement node) {
+            if (node.ValueKind == JsonValueKind.Array) {
+                foreach (var elem in node.EnumerateArray()) {
+                    foreach (var n in VisitObjects(elem))
+                        yield return n;
+                }
+            }
+            else if (node.ValueKind == JsonValueKind.Object) {
+                if (node.TryGetProperty("$type", out var type))
+                    yield return type.GetString();
+                foreach (var elem in node.EnumerateObject()) {
+                    foreach (var n in VisitObjects(elem.Value))
+                        yield return n;
+                }
+            }
+
+        }
+
         public static IEnumerable<VisitedElement> Visit(JsonElement node, string name) {
             if (node.ValueKind == JsonValueKind.String) {
                 string val = node.GetString();
-                yield return new VisitedElement { key = name, value = val, link = ParseReference(val) };
+                var (link, linkTarget) = ParseReference(val);
+                yield return new VisitedElement { key = name, value = val, link = link, linkTarget = linkTarget };
             }
             else if (node.ValueKind == JsonValueKind.Number || node.ValueKind == JsonValueKind.True || node.ValueKind == JsonValueKind.False) {
                 yield return new VisitedElement { key = name, value = node.GetRawText() };
@@ -520,6 +685,28 @@ namespace BlueprintExplorer
             }
         }
 
+
+        public IEnumerable<string> GetDirectReferencesTo(string name) {
+            Stack<string> path = new();
+            foreach (var element in Elements)
+            {
+                if (element.levelDelta > 0)
+                {
+                    path.Push(element.key);
+                }
+                else if (element.levelDelta < 0)
+                {
+                    path.Pop();
+                }
+                else
+                {
+                    if (element.link != null && element.linkTarget.IndexOf(name, StringComparison.OrdinalIgnoreCase) != -1)
+                    {
+                        yield return string.Join("/", path.Reverse());
+                    }
+                }
+            }
+        }
         public IEnumerable<Guid> GetDirectReferences() {
             Stack<string> path = new();
             foreach (var element in Elements)

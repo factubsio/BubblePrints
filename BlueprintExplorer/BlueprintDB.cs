@@ -1,4 +1,5 @@
 ﻿using K4os.Compression.LZ4;
+using Kingmaker.Blueprints;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -43,7 +45,7 @@ namespace BlueprintExplorer {
         }
 
         private readonly string filenameRoot = "blueprints_raw";
-        private readonly string version = "1.1_bbpe1";
+        private readonly string version = "1.1_bbpe2";
         private readonly string extension = "binz";
 
         string FileName => $"{filenameRoot}_{version}.{extension}";
@@ -58,7 +60,9 @@ namespace BlueprintExplorer {
                 return GoingToLoad.FromWeb;
         }
 
-        private const int LatestVersion = 1;
+        private const int LatestVersion = 2;
+
+        public string[] ComponentTypeLookup;
 
         public async Task<bool> TryConnect()
         {
@@ -140,14 +144,12 @@ namespace BlueprintExplorer {
                 }
             }
 
-
             for (int i = 0; i < count; i += batchSize)
             {
                 int batchItems = Math.Min(count - i, batchSize);
                 int start = i;
                 int end = start + batchItems;
                 FileSection section = sections[i / batchSize];
-
 
                 var task = Task.Run<List<BlueprintHandle>>(() =>
                 {
@@ -168,7 +170,8 @@ namespace BlueprintExplorer {
                         var components = bp.Type.Split('.');
                         if (components.Length <= 1)
                             bp.TypeName = bp.Type;
-                        else {
+                        else
+                        {
                             bp.TypeName = components.Last();
                             bp.Namespace = string.Join('.', components.Take(components.Length - 1));
                         }
@@ -189,6 +192,8 @@ namespace BlueprintExplorer {
                             bp.Raw = batchReader.ReadString();
                         }
 
+                        bp.EnsureParsed();
+
                         if (bbpeVersion >= 1)
                         {
                             int refCount = batchReader.ReadInt32();
@@ -196,6 +201,15 @@ namespace BlueprintExplorer {
                             {
                                 batchReader.Read(guid_cache, 0, 16);
                                 bp.BackReferences.Add(new Guid(guid_cache));
+                            }
+                        }
+                        if (bbpeVersion >= 2)
+                        {
+                            int componentIndexCount = batchReader.ReadInt32();
+                            bp.ComponentIndex = new UInt16[componentIndexCount];
+                            for (int i = 0; i < componentIndexCount; i++)
+                            {
+                                bp.ComponentIndex[i] = batchReader.ReadUInt16();
                             }
                         }
 
@@ -206,6 +220,27 @@ namespace BlueprintExplorer {
                 });
                 tasks.Add(task);
             }
+
+            var loadComponentDict = Task.Run<string[]>(() =>
+            {
+                string[] componentDict;
+                using var batchFile = OpenFile();
+                using var batchReader = new BinaryReader(batchFile);
+                int offset = sections[^1].Offset;
+                Console.WriteLine($"dict offset: {offset}");
+                batchReader.BaseStream.Seek(offset, SeekOrigin.Begin);
+
+                componentDict = new string[batchReader.ReadInt32()];
+
+                for (int i =0; i < componentDict.Length; i++)
+                {
+                    string val = batchReader.ReadString();
+                    UInt16 index = batchReader.ReadUInt16();
+                    componentDict[index] = val;
+                }
+
+                return componentDict;
+            });
 
 
             float loadTime = watch.ElapsedMilliseconds;
@@ -222,6 +257,9 @@ namespace BlueprintExplorer {
                 AddBlueprint(bp);
             }
 
+            ComponentTypeLookup = loadComponentDict.Result;
+            Console.WriteLine($"loaded {ComponentTypeLookup.Length} component types");
+
 
             if (generateOutput)
             {
@@ -230,7 +268,137 @@ namespace BlueprintExplorer {
 #pragma warning restore CS0162 // Unreachable code detected
             }
             Console.WriteLine($"added {cache.Count} blueprints in {addWatch.ElapsedMilliseconds}ms");
+
+            //static int GetCR(JsonElement obj)
+            //{
+            //    var components = obj.GetProperty("Components");
+            //    var experience = components.EnumerateArray().FirstOrDefault(c => c.TypeString() == "Kingmaker.Blueprints.Classes.Experience.Experience");
+            //    if (experience.ValueKind == JsonValueKind.Undefined)
+            //        return 0;
+
+            //    int cr = experience.Int("CR");
+            //    float modifier = experience.Float("Modifier");
+            //    if (cr == 1 && Math.Abs(modifier - 0.5f) < 0.001f)
+            //        return 0;
+
+            //    return cr;
+
+            //}
+
+            //var units = cache.Where(bp => bp.EnsureObj.TypeString() == "Kingmaker.Blueprints.BlueprintUnit")
+            //                 .Select(bp => (bp, cr: GetCR(bp.obj)))
+            //                 .Where(i => i.cr > 0)
+            //                 .OrderBy(i => i.cr);
+
+            //File.WriteAllLines($"D:/units_by_cr.txt", units.Select(i => $"{i.cr,-3}    {i.bp.GuidText}    {i.bp.Name}"));
+
+            var byType = cache.ToLookup(bp => bp.EnsureObj.TypeString());
+            Dictionary<string, WeaponStuff> weaponStuffs = new();
+
+
+            foreach (var (k, v) in byType["Kingmaker.Blueprints.Items.Weapons.BlueprintItemWeapon"].Select(bp => (bp.GuidText, GetStuff(bp))))
+                weaponStuffs[k] = v;
+
+            if (Directory.Exists("vendor_tables"))
+                Directory.Delete("vendor_tables", true);
+            Directory.CreateDirectory("vendor_tables");
+
+            GatherItems("Kingmaker.Blueprints.Items.Armors.BlueprintItemArmor", "Armor");
+            GatherItems("Kingmaker.Blueprints.Items.Weapons.BlueprintItemWeapon", "Weapon", IsWeaponGood);
+            GatherItems("Kingmaker.Blueprints.Items.Shields.BlueprintItemShield", "Shield");
+            GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentBelt", "Belt");
+            GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentFeet", "Feet");
+            GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentGlasses", "Glasses");
+            GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentGloves", "Gloves");
+            GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentHand", "Hand");
+            GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentHandSimple", "HandSimple");
+            GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentHead", "Head");
+            GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentNeck", "Neck");
+            GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentRing", "Ring");
+            GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentShirt", "Shirt");
+            GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentShoulders", "Shoulders");
+            GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentSimple", "Simple");
+            GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentUsable", "Usable");
+            GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentWrist", "Wrist");
+
+
+            void GatherItems(string type, string file, params Func<BlueprintHandle, bool> []filters)
+            {
+                IEnumerable<BlueprintHandle> items = byType[type];
+                foreach (var filter in filters)
+                    items = items.Where(filter);
+
+                var byCost = items
+                    .Select(bp => (bp, cost: bp.EnsureObj.Int("m_Cost")))
+                    .Where(bp_cost => bp_cost.cost > 100)
+                    .OrderByDescending(bp_cost => bp_cost.cost);
+
+                var path = $"vendor_tables/vendortable_{file}.txt";
+
+                File.WriteAllLines(path, byCost.Select(i => $"{i.bp.Name}:{i.bp.GuidText}:{i.cost}"));
+            }
+
+            WeaponStuff GetStuff(BlueprintHandle bp)
+            {
+                WeaponStuff stuff = new();
+                if (bp.obj.TryGetProperty("m_Type", out var linkText))
+                {
+                    var (link, target) = BlueprintHandle.ParseReference(linkText.GetString());
+                    if (link == null)
+                    {
+                        Console.WriteLine($"{bp.Name} - NO m_Type on Weapon!!!");
+                        System.Windows.Forms.Application.Exit();
+                    }
+
+                    if (Blueprints.TryGetValue(link.Guid(), out var type))
+                    {
+                        if (type.EnsureObj.TryGetProperty("m_FighterGroupFlags", out var fighterGroup))
+                        {
+                            stuff.IsDouble = fighterGroup.GetString().Contains("Double");
+                            stuff.IsSecond = stuff.IsDouble && !bp.obj.True("Double");
+                        }
+                        else
+                        {
+                            stuff.IsBad = true;
+                        }
+
+                        stuff.IsNatural = type.EnsureObj.True("m_IsNatural");
+
+                    }
+                    else
+                    {
+                        stuff.IsBad = true;
+                    }
+
+
+                }
+                return stuff;
+            }
+
+            bool IsWeaponGood(BlueprintHandle bp) => weaponStuffs[bp.GuidText].Good;
+
+            //foreach (var armor in .GroupBy(bp => (int)Math.Log(bp.EnsureObj.Int("m_Cost") / 4, 11)).Where(g => g.Key >= 2).OrderByDescending(g => g.Key))
+            //{
+            //    Console.WriteLine($"Bucket: {armor.Key}");
+            //    foreach (var a in armor)
+            //    {
+            //        Console.WriteLine($"  {a.Name}  -  {a.EnsureObj.Int("m_Cost") / 4}");
+            //    }
+            //}
+
+
+
+
             return true;
+        }
+        public struct WeaponStuff
+        {
+            public bool IsNatural;
+            public bool IsBad;
+            public bool IsDouble;
+            public bool IsSecond;
+            public int Cost;
+            public bool Good => !(IsBad || IsNatural || IsSecond);
         }
 
         private void WriteBlueprints()
@@ -256,6 +424,8 @@ namespace BlueprintExplorer {
                     refList.Add(from);
                 }
             }
+
+            Dictionary<string, UInt16> uniqueComponents = new();
 
 
             using (var file = File.OpenWrite("blueprints_raw_NEW.binz"))
@@ -284,6 +454,9 @@ namespace BlueprintExplorer {
                     }
 
                     var c = cache[i];
+
+                    HashSet<string> components = new(c.Objects);
+
                     binary.Write(c.GuidText);
                     binary.Write(c.Name);
                     binary.Write(c.Type);
@@ -324,6 +497,25 @@ namespace BlueprintExplorer {
                         binary.Write(0);
                     }
 
+                    binary.Write(components.Count);
+                    foreach (var componentType in components)
+                    {
+                        if (!uniqueComponents.TryGetValue(componentType, out var index))
+                        {
+                            index = (UInt16)uniqueComponents.Count;
+                            uniqueComponents.Add(componentType, index);
+                        }
+                        binary.Write(index);
+                    }
+                }
+
+                toc[^1] = (int)binary.BaseStream.Position;
+                binary.Write(uniqueComponents.Count);
+
+                foreach (var kv in uniqueComponents)
+                {
+                    binary.Write(kv.Key);
+                    binary.Write(kv.Value);
                 }
 
                 binary.Seek(tocAt, SeekOrigin.Begin);
@@ -350,10 +542,19 @@ namespace BlueprintExplorer {
 
         public List<BlueprintHandle> SearchBlueprints(string searchText, int matchBuffer, CancellationToken cancellationToken)
         {
-            if (searchText?.Length > 0) {
+            if (searchText?.Length == 0)
+                return cache;
+            else if (searchText[0] == '?')
+            {
+                var actual = searchText[1..];
+                return cache.AsParallel().Where(b => b.ComponentsList.Any(c => c.Contains(actual, StringComparison.OrdinalIgnoreCase))).ToList();
+            }
+            else
+            {
                 var results = new List<BlueprintHandle>() { Capacity = cache.Count };
                 MatchQuery query = new(searchText, BlueprintHandle.MatchProvider);
-                foreach (var handle in cache) {
+                foreach (var handle in cache)
+                {
                     query.Evaluate(handle, matchBuffer);
                     if (handle.HasMatches(matchBuffer))
                         results.Add(handle);
@@ -363,9 +564,6 @@ namespace BlueprintExplorer {
                 return results;
                 //return cache.Select(h => query.Evaluate(h)).OfType<BlueprintHandle>().Where(h => h.HasMatches()).OrderByDescending(h => h.Score()).ToList();
             }
-            else
-                return cache;
-
         }
 
         private static bool[] locked = new bool[2];
@@ -426,6 +624,46 @@ namespace BlueprintExplorer {
                     return null;
                 }
             }, cancellationToken);
+        }
+    }
+
+    internal struct NameGuid
+    {
+        public string Name;
+        public string Guid;
+
+        public NameGuid(string name, string guid)
+        {
+            this.Name = name;
+            this.Guid = guid;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is NameGuid other &&
+                   Name == other.Name &&
+                   Guid == other.Guid;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Name, Guid);
+        }
+
+        public void Deconstruct(out string name, out string guid)
+        {
+            name = this.Name;
+            guid = this.Guid;
+        }
+
+        public static implicit operator (string name, string guid)(NameGuid value)
+        {
+            return (value.Name, value.Guid);
+        }
+
+        public static implicit operator NameGuid((string name, string guid) value)
+        {
+            return new NameGuid(value.name, value.guid);
         }
     }
 }

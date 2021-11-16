@@ -47,6 +47,8 @@ namespace BlueprintExplorer
                 {
                     if (errored)
                         folderBrowser.Description = "Could not find Wrath.exe at the selected folder";
+                    else
+                        folderBrowser.Description = "Please select the the folder containing Wrath.exe";
 
                     if (folderBrowser.ShowDialog() != DialogResult.OK)
                         return;
