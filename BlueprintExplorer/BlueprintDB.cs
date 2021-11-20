@@ -546,7 +546,9 @@ namespace BlueprintExplorer {
             else if (searchText[0] == '?')
             {
                 var actual = searchText[1..];
-                return cache.AsParallel().Where(b => b.ComponentsList.Any(c => c.Contains(actual, StringComparison.OrdinalIgnoreCase))).ToList();
+                var results = cache.AsParallel().Where(b => b.ComponentsList.Any(c => c.Contains(actual, StringComparison.OrdinalIgnoreCase))).ToList();
+                cancellationToken.ThrowIfCancellationRequested();
+                return results;
             }
             else
             {
@@ -601,6 +603,10 @@ namespace BlueprintExplorer {
         public Task<List<BlueprintHandle>> SearchBlueprintsAsync(string searchText, CancellationToken cancellationToken, int matchBuffer = 0)
         {
             //Console.WriteLine($"Locking: {matchBuffer}");
+            if (locked[matchBuffer])
+            {
+                Console.WriteLine(" ************* ERROR: BUFFER IS LOCKED");
+            }
             locked[matchBuffer] = true;
             LogTask(matchBuffer, true, $">>> Starting >>>");
             return Task.Run(() =>
@@ -610,6 +616,10 @@ namespace BlueprintExplorer {
                 try
                 {
                     var result = SearchBlueprints(searchText, matchBuffer, cancellationToken);
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return null;
+                    }
                     LogTask(matchBuffer, false, $"<<< Completed <<<");
                     watch.Stop();
                     Console.WriteLine($"Search completed after: {watch.ElapsedMilliseconds}ms");

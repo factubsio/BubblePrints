@@ -205,7 +205,7 @@ namespace BlueprintExplorer {
             if (finishingLast != null && finishingLast != finishingFirst)
             {
                 finishingLast.Cancel();
-                overlappedSearch.Wait();
+                finishingLast.Token.WaitHandle.WaitOne();
                 BlueprintDB.UnlockBuffer(1);
             }
 
@@ -221,17 +221,23 @@ namespace BlueprintExplorer {
                 matchBuffer = 1;
             }
 
-            var search = db.SearchBlueprintsAsync(Search?.ToLower(), cancellation.Token, matchBuffer);
+
+            Task<List<BlueprintHandle>> search;
 
             if (matchBuffer == 1)
-                overlappedSearch = search;
-            
+            {
+                overlappedSearch = db.SearchBlueprintsAsync(Search?.ToLower(), cancellation.Token, matchBuffer);
+                search = overlappedSearch;
+            }
+            else
+            {
+                search = db.SearchBlueprintsAsync(Search?.ToLower(), cancellation.Token, matchBuffer);
+            }
+
             search.ContinueWith(task =>
             {
-                if (cancellation.IsCancellationRequested)
-                    return;
-
-                this.Invoke((Action<List<BlueprintHandle>, CancellationTokenSource, int>)SetResults, task.Result, cancellation, matchBuffer);
+                if (!task.IsCanceled && !cancellation.IsCancellationRequested)
+                    this.Invoke((Action<List<BlueprintHandle>, CancellationTokenSource, int>)SetResults, task.Result, cancellation, matchBuffer);
             });
 
          }
