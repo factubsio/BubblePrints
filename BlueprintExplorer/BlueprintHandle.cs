@@ -1,5 +1,4 @@
-﻿using Kingmaker.Blueprints;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -157,19 +156,6 @@ namespace BlueprintExplorer
             return obj;
         }
 
-
-        public static T Materialize<T>(BlueprintHandle handle) where T : SimpleBlueprint
-        {
-            try
-            {
-                return (T)Materialize(handle.obj, null);
-            } catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-                Console.WriteLine(ex.StackTrace);
-            }
-            return null;
-        }
 
         private static Dictionary<string, Type> TypesByName = new();
         public static Type FindWrathType(string typeName)
