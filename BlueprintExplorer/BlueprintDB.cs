@@ -78,7 +78,7 @@ namespace BlueprintExplorer {
             {
                 case GoingToLoad.FromWeb:
                     Console.WriteLine("Settings file does not exist, downloading");
-                    var host = "https://github.com/factubsio/BubblePrintsData/releases/download/";
+                    var host = "https://github.com/factubsio/BubblePrintsData/releases/download";
                     var latestVersionUrl = new Uri($"{host}/{version}/{filenameRoot}_{version}.{extension}");
 
                     var client = new WebClient();
