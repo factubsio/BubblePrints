@@ -47,6 +47,9 @@ namespace BlueprintExplorer
             this.From = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.count = new System.Windows.Forms.Label();
             this.historyBread = new System.Windows.Forms.FlowLayoutPanel();
+            this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
+            this.tableLayoutPanel3 = new System.Windows.Forms.TableLayoutPanel();
+            this.settingsButton = new System.Windows.Forms.Button();
             this.panel1.SuspendLayout();
             this.tableLayoutPanel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
@@ -59,6 +62,8 @@ namespace BlueprintExplorer
             this.splitContainer2.Panel2.SuspendLayout();
             this.splitContainer2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.references)).BeginInit();
+            this.tableLayoutPanel2.SuspendLayout();
+            this.tableLayoutPanel3.SuspendLayout();
             this.SuspendLayout();
             // 
             // panel1
@@ -115,12 +120,10 @@ namespace BlueprintExplorer
             // 
             // splitContainer1
             // 
-            this.splitContainer1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
             this.splitContainer1.BackColor = System.Drawing.SystemColors.ControlLight;
             this.splitContainer1.Cursor = System.Windows.Forms.Cursors.HSplit;
-            this.splitContainer1.Location = new System.Drawing.Point(0, 0);
+            this.splitContainer1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainer1.Location = new System.Drawing.Point(3, 3);
             this.splitContainer1.Name = "splitContainer1";
             this.splitContainer1.Orientation = System.Windows.Forms.Orientation.Horizontal;
             // 
@@ -133,8 +136,8 @@ namespace BlueprintExplorer
             this.splitContainer1.Panel2.Controls.Add(this.splitContainer2);
             this.splitContainer1.Panel2.Controls.Add(this.count);
             this.splitContainer1.Panel2.Cursor = System.Windows.Forms.Cursors.Default;
-            this.splitContainer1.Size = new System.Drawing.Size(2442, 1167);
-            this.splitContainer1.SplitterDistance = 301;
+            this.splitContainer1.Size = new System.Drawing.Size(2436, 1081);
+            this.splitContainer1.SplitterDistance = 277;
             this.splitContainer1.SplitterWidth = 16;
             this.splitContainer1.TabIndex = 3;
             // 
@@ -158,7 +161,7 @@ namespace BlueprintExplorer
             this.resultsGrid.RowHeadersWidth = 62;
             this.resultsGrid.RowTemplate.Height = 33;
             this.resultsGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.resultsGrid.Size = new System.Drawing.Size(2442, 301);
+            this.resultsGrid.Size = new System.Drawing.Size(2436, 277);
             this.resultsGrid.TabIndex = 2;
             this.resultsGrid.VirtualMode = true;
             this.resultsGrid.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.resultsGrid_CellContentClick);
@@ -221,8 +224,8 @@ namespace BlueprintExplorer
             // 
             this.splitContainer2.Panel2.Controls.Add(this.references);
             this.splitContainer2.Panel2.Cursor = System.Windows.Forms.Cursors.Default;
-            this.splitContainer2.Size = new System.Drawing.Size(2442, 850);
-            this.splitContainer2.SplitterDistance = 1776;
+            this.splitContainer2.Size = new System.Drawing.Size(2436, 788);
+            this.splitContainer2.SplitterDistance = 1771;
             this.splitContainer2.TabIndex = 5;
             // 
             // bpProps
@@ -233,13 +236,13 @@ namespace BlueprintExplorer
             this.bpProps.Font = new System.Drawing.Font("Consolas", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             this.bpProps.Location = new System.Drawing.Point(0, 0);
             this.bpProps.Name = "bpProps";
-            this.bpProps.Size = new System.Drawing.Size(1776, 850);
+            this.bpProps.Size = new System.Drawing.Size(1771, 788);
             this.bpProps.TabIndex = 4;
             // 
             // filter
             // 
             this.filter.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.filter.Location = new System.Drawing.Point(1375, 206);
+            this.filter.Location = new System.Drawing.Point(1370, 206);
             this.filter.Name = "filter";
             this.filter.PlaceholderText = "Filter Blueprint...";
             this.filter.Size = new System.Drawing.Size(398, 31);
@@ -265,7 +268,7 @@ namespace BlueprintExplorer
             this.references.RowHeadersWidthSizeMode = System.Windows.Forms.DataGridViewRowHeadersWidthSizeMode.DisableResizing;
             this.references.RowTemplate.Height = 33;
             this.references.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.references.Size = new System.Drawing.Size(662, 850);
+            this.references.Size = new System.Drawing.Size(661, 788);
             this.references.TabIndex = 0;
             // 
             // From
@@ -289,20 +292,60 @@ namespace BlueprintExplorer
             // 
             // historyBread
             // 
-            this.historyBread.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.historyBread.Location = new System.Drawing.Point(0, 1173);
+            this.historyBread.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.historyBread.Location = new System.Drawing.Point(3, 3);
             this.historyBread.Name = "historyBread";
-            this.historyBread.Size = new System.Drawing.Size(2442, 76);
+            this.historyBread.Size = new System.Drawing.Size(2278, 53);
             this.historyBread.TabIndex = 1;
+            // 
+            // tableLayoutPanel2
+            // 
+            this.tableLayoutPanel2.ColumnCount = 1;
+            this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel2.Controls.Add(this.tableLayoutPanel3, 0, 2);
+            this.tableLayoutPanel2.Controls.Add(this.splitContainer1, 0, 0);
+            this.tableLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tableLayoutPanel2.Location = new System.Drawing.Point(0, 82);
+            this.tableLayoutPanel2.Name = "tableLayoutPanel2";
+            this.tableLayoutPanel2.RowCount = 3;
+            this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 15F));
+            this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 65F));
+            this.tableLayoutPanel2.Size = new System.Drawing.Size(2442, 1167);
+            this.tableLayoutPanel2.TabIndex = 5;
+            // 
+            // tableLayoutPanel3
+            // 
+            this.tableLayoutPanel3.ColumnCount = 2;
+            this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 152F));
+            this.tableLayoutPanel3.Controls.Add(this.historyBread, 0, 0);
+            this.tableLayoutPanel3.Controls.Add(this.settingsButton, 1, 0);
+            this.tableLayoutPanel3.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tableLayoutPanel3.Location = new System.Drawing.Point(3, 1105);
+            this.tableLayoutPanel3.Name = "tableLayoutPanel3";
+            this.tableLayoutPanel3.RowCount = 1;
+            this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel3.Size = new System.Drawing.Size(2436, 59);
+            this.tableLayoutPanel3.TabIndex = 0;
+            // 
+            // settingsButton
+            // 
+            this.settingsButton.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.settingsButton.Location = new System.Drawing.Point(2287, 3);
+            this.settingsButton.Name = "settingsButton";
+            this.settingsButton.Size = new System.Drawing.Size(146, 53);
+            this.settingsButton.TabIndex = 2;
+            this.settingsButton.Text = "Settings";
+            this.settingsButton.UseVisualStyleBackColor = true;
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(10F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(2442, 1249);
-            this.Controls.Add(this.splitContainer1);
+            this.Controls.Add(this.tableLayoutPanel2);
             this.Controls.Add(this.panel1);
-            this.Controls.Add(this.historyBread);
             this.Name = "Form1";
             this.Text = "BlueprintDB";
             this.panel1.ResumeLayout(false);
@@ -320,6 +363,8 @@ namespace BlueprintExplorer
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).EndInit();
             this.splitContainer2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.references)).EndInit();
+            this.tableLayoutPanel2.ResumeLayout(false);
+            this.tableLayoutPanel3.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -343,6 +388,9 @@ namespace BlueprintExplorer
         private System.Windows.Forms.SplitContainer splitContainer2;
         private System.Windows.Forms.DataGridView references;
         private System.Windows.Forms.DataGridViewTextBoxColumn From;
+        private System.Windows.Forms.TableLayoutPanel tableLayoutPanel2;
+        private System.Windows.Forms.TableLayoutPanel tableLayoutPanel3;
+        private System.Windows.Forms.Button settingsButton;
     }
 }
 

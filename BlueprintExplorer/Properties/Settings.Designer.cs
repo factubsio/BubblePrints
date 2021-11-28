@@ -46,5 +46,29 @@ namespace BlueprintExplorer.Properties {
                 this["WrathPath"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string Editor {
+            get {
+                return ((string)(this["Editor"]));
+            }
+            set {
+                this["Editor"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool AlwaysOpenInEditor {
+            get {
+                return ((bool)(this["AlwaysOpenInEditor"]));
+            }
+            set {
+                this["AlwaysOpenInEditor"] = value;
+            }
+        }
     }
 }

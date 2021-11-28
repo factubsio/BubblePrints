@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing.Design;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Windows.Forms.Design;
 
 namespace BlueprintExplorer
 {
@@ -71,5 +74,48 @@ namespace BlueprintExplorer
 
             StoredWrathPath = path;
         }
+    }
+
+    public class SettingsProxy
+    {
+        public void Sync()
+        {
+            var settings = Properties.Settings.Default;
+            foreach (var p in GetType().GetProperties())
+            {
+                string prop = p.Name;
+                settings.GetType().GetProperty(prop).SetValue(settings, p.GetValue(this));
+            }
+        }
+
+        public SettingsProxy()
+        {
+            var settings = Properties.Settings.Default;
+            foreach (var p in GetType().GetProperties())
+            {
+                string prop = p.Name;
+                p.SetValue(this, settings.GetType().GetProperty(prop).GetValue(settings));
+            }
+        }
+
+        [Description("Full path to your preferred text editor for viewing raw blueprints")]
+        [DisplayName("External Editor")]
+        [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
+        public string Editor { get; set; }
+
+        [Description("Full path to the blueprints.binz file, only edit this if you're sure what you're doing")]
+        [DisplayName("Blueprints DB")]
+        [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
+        public string BlueprintDBPath { get; set; }
+
+        [Description("Full path to your Wrath folder (i.e. the folder containing Wrath.exe")]
+        [DisplayName("Wrath Install Folder")]
+        [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
+        public string WrathPath { get; set; }
+
+        [Description("If set, clicking on a blueprint in the search results will automatically open it in the external editor")]
+        [DisplayName("Always Open Externally")]
+        public bool AlwaysOpenInEditor { get; set; }
+
     }
 }

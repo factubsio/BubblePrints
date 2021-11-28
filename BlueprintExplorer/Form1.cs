@@ -37,6 +37,11 @@ namespace BlueprintExplorer {
             resultsGrid.RowHeadersVisible = false;
             bpProps.DisabledItemForeColor = Color.Black;
 
+            settingsButton.Click += (sender, evt) =>
+            {
+                new SettingsView().ShowDialog();
+            };
+
             //bpProps.Categor
 
             bpProps.PropertySort = PropertySort.NoSort;
@@ -66,7 +71,7 @@ namespace BlueprintExplorer {
                     string fileToOpen = Path.Combine(userLocalFolder, CurrentView.Name + "_" +  CurrentView.GuidText + ".json");
                     if (!File.Exists(fileToOpen))
                         File.WriteAllText(fileToOpen, CurrentView.Raw);
-                    Process.Start(@"C:\Program Files (x86)\Vim\vim82\gvim.exe", fileToOpen);
+                    Process.Start(Properties.Settings.Default.Editor, fileToOpen);
                 }
             };
 
@@ -502,6 +507,9 @@ namespace BlueprintExplorer {
 
             if (updateHistory)
                 PushHistory(bp);
+
+            if (updateHistory && Properties.Settings.Default.AlwaysOpenInEditor)
+                openInEditor.PerformClick();
         }
 
         private List<BlueprintHandle> resultsCache = new();
