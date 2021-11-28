@@ -191,7 +191,7 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
             this.Provider = provider;
             var unrestricted = new List<string>();
             StrictSearchTexts = new();
-            var terms = queryText.Split(' ');
+            var terms = queryText.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             foreach (var term in terms) {
                 if (term.Contains(':')) {
                     var pair = term.Split(':');

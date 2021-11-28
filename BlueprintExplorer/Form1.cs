@@ -49,10 +49,26 @@ namespace BlueprintExplorer {
             followLink = strip.Items.Add("follow link");
             followLink.Click += (sender, e) =>
             {
-                if (CurrentLink != null)
+                if (CurrentView != null)
                     ShowBlueprint(BlueprintDB.Instance.Blueprints[Guid.Parse(CurrentLink)], true);
             };
             followLink.Enabled = false;
+
+            openInEditor = strip.Items.Add("open in editor");
+            openInEditor.Click += (sender, e) =>
+            {
+                if (CurrentView != null)
+                {
+                    var userLocalFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints", "cache");
+                    if (!Directory.Exists(userLocalFolder))
+                        Directory.CreateDirectory(userLocalFolder);
+
+                    string fileToOpen = Path.Combine(userLocalFolder, CurrentView.Name + "_" +  CurrentView.GuidText + ".json");
+                    if (!File.Exists(fileToOpen))
+                        File.WriteAllText(fileToOpen, CurrentView.Raw);
+                    Process.Start(@"C:\Program Files (x86)\Vim\vim82\gvim.exe", fileToOpen);
+                }
+            };
 
 
             BubblePrints.SetWrathPath();
@@ -153,7 +169,9 @@ namespace BlueprintExplorer {
                 followLink.Enabled = true;
             }
             else
+            {
                 followLink.Enabled = false;
+            }
         }
 
         private void ResultsGrid_CellClick(object sender, DataGridViewCellEventArgs e) {
@@ -226,12 +244,12 @@ namespace BlueprintExplorer {
 
             if (matchBuffer == 1)
             {
-                overlappedSearch = db.SearchBlueprintsAsync(Search?.ToLower(), cancellation.Token, matchBuffer);
+                overlappedSearch = db.SearchBlueprintsAsync(Search, cancellation.Token, matchBuffer);
                 search = overlappedSearch;
             }
             else
             {
-                search = db.SearchBlueprintsAsync(Search?.ToLower(), cancellation.Token, matchBuffer);
+                search = db.SearchBlueprintsAsync(Search, cancellation.Token, matchBuffer);
             }
 
             search.ContinueWith(task =>
@@ -490,6 +508,7 @@ namespace BlueprintExplorer {
         private Task<bool> initialize;
         private ToolStripItem followLink;
         private string CurrentLink;
+        private ToolStripItem openInEditor;
 
         private void dataGridView1_CellValueNeeded(object sender, DataGridViewCellValueEventArgs e) {
             var row = e.RowIndex;

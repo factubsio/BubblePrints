@@ -543,27 +543,90 @@ namespace BlueprintExplorer {
         {
             if (searchText?.Length == 0)
                 return cache;
-            else if (searchText[0] == '?')
+
+            List<BlueprintHandle> toSearch = cache;
+
+            List<string> passThrough = searchText.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+
+            for (int i = 0; i < passThrough.Count; i++)
             {
-                var actual = searchText[1..];
-                var results = cache.AsParallel().Where(b => b.ComponentsList.Any(c => c.Contains(actual, StringComparison.OrdinalIgnoreCase))).ToList();
+                var special = passThrough[i][1..];
+                bool remove = true;
+                switch (passThrough[i][0])
+                {
+                    case '?':
+                        Console.WriteLine($"filtering on has-type, before: {toSearch.Count}");
+                        toSearch = toSearch.Where(b => b.ComponentsList.Any(c => c.Contains(special, StringComparison.OrdinalIgnoreCase))).ToList();
+                        Console.WriteLine($"                       after: {toSearch.Count}");
+                        break;
+                    case '!':
+                        string[] path = special.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                        toSearch = toSearch.Where(b => EntryIsNotNull(b, path)).ToList();
+                        break;
+                    default:
+                        remove = false;
+                        break;
+                }
+
+                if (remove)
+                {
+                    passThrough[i] = "";
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+            }
+
+            if (passThrough.All(c => c.Length == 0))
+                return toSearch;
+
+            searchText = string.Join(" ", passThrough.Where(c => c.Length > 0)).ToLower();
+
+            var results = new List<BlueprintHandle>() { Capacity = cache.Count };
+            MatchQuery query = new(searchText, BlueprintHandle.MatchProvider);
+            foreach (var handle in toSearch)
+            {
+                query.Evaluate(handle, matchBuffer);
+                if (handle.HasMatches(matchBuffer))
+                    results.Add(handle);
                 cancellationToken.ThrowIfCancellationRequested();
-                return results;
+            }
+            results.Sort((x, y) => y.Score(matchBuffer).CompareTo(x.Score(matchBuffer)));
+            return results;
+        }
+
+        private static bool EntryIsNotNull(BlueprintHandle b, string[] path)
+        {
+            var obj = b.EnsureObj;
+            foreach (var e in path)
+            {
+                if (obj.ValueKind == JsonValueKind.Object)
+                {
+                    if (!obj.TryGetProperty(e, out obj))
+                        return false;
+                }
+                else if (obj.ValueKind == JsonValueKind.Array)
+                {
+                    if (!int.TryParse(e, out var index))
+                        return false;
+                    obj = obj[index];
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            if (obj.ValueKind == JsonValueKind.True)
+            {
+                return true;
+            }
+            else if (obj.ValueKind == JsonValueKind.False)
+            {
+                return false;
             }
             else
             {
-                var results = new List<BlueprintHandle>() { Capacity = cache.Count };
-                MatchQuery query = new(searchText, BlueprintHandle.MatchProvider);
-                foreach (var handle in cache)
-                {
-                    query.Evaluate(handle, matchBuffer);
-                    if (handle.HasMatches(matchBuffer))
-                        results.Add(handle);
-                    cancellationToken.ThrowIfCancellationRequested();
-                }
-                results.Sort((x, y) => y.Score(matchBuffer).CompareTo(x.Score(matchBuffer)));
-                return results;
-                //return cache.Select(h => query.Evaluate(h)).OfType<BlueprintHandle>().Where(h => h.HasMatches()).OrderByDescending(h => h.Score()).ToList();
+                var raw = obj.GetRawText();
+                return raw.Length > 0 && !raw.Contains("NULL", StringComparison.OrdinalIgnoreCase);
             }
         }
 
