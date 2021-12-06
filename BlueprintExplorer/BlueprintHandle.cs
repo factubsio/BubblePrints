@@ -48,6 +48,34 @@ namespace BlueprintExplorer
             return elem.Str("$type").ParseTypeString();
         }
 
+        public static (string Guid, string Name, string FullName) NewTypeStr(this JsonElement elem, string context = null, Dictionary<string, List<string>> nameToFullNames = null, Func<string, string, string, List<string>, string> manualOverride = null)
+        {
+            var raw = elem.Str("$type");
+            var comma = raw.IndexOf(',');
+            var shortName = raw[(comma + 2)..];
+            var guid = raw[0..comma];
+            var db = BlueprintDB.Instance;
+
+            if (db.GuidToFullTypeName.TryGetValue(guid, out var fullTypeName))
+                return (guid, shortName, fullTypeName);
+
+            if (nameToFullNames != null)
+            {
+                if (!nameToFullNames.TryGetValue(shortName, out var candidates))
+                    throw new Exception($"Could not get fullname candidates for type: {shortName}, context: {context}");
+
+                string fullType = null;
+                if (candidates.Count == 1)
+                    fullType = candidates[0];
+                else
+                    fullType = manualOverride(guid, shortName, context, candidates);
+                db.GuidToFullTypeName[guid] = fullType;
+                return (guid, shortName, fullType);
+            }
+
+            throw new Exception($"Cannot find type with that name: {shortName}");
+        }
+
         public static bool True(this JsonElement elem, string child)
         {
             return elem.TryGetProperty(child, out var ch) && ch.ValueKind == JsonValueKind.True;
@@ -238,7 +266,8 @@ namespace BlueprintExplorer
                 Collection.Add(descriptor);
                 return descriptor;
             }
-            private static Regex ParseLink = new(@"Blueprint:(.*?):");
+            private static readonly Regex ParseLink = new(@"Blueprint:(.*?):");
+            private static readonly Regex ParseNewLink = new(@"!bp_(.*?)");
 
             public void Add(string category, string name, string value, string description = "", Type parentType = null)
             {
@@ -252,6 +281,8 @@ namespace BlueprintExplorer
 
                 if (value.StartsWith("LocalizedString:") && value != "LocalizedString::")
                     prop = AddInternal(category, name, new LocalisedStringProxy(value), description, parentType);
+                else if (value.StartsWith("!bp_"))
+                    prop = AddInternal(category, name, new BlueprintLink(value, value[4..]), description, parentType);
                 else if (maybeLink.Success)
                     prop = AddInternal(category, name, new BlueprintLink(value, maybeLink.Groups[1].Value), description, parentType);
                 else
@@ -555,20 +586,22 @@ namespace BlueprintExplorer
             public int levelDelta;
             public bool isObj;
             public string link;
-            public string linkTarget;
+            //public string linkTarget;
             public bool Empty;
         }
 
-        public static (string link, string target) ParseReference(string val) {
-            if (val.StartsWith("Blueprint:")) {
+        public static string ParseReference(string val) {
+            if (val.StartsWith("!bp_")) {
+                return val[4..];
+            } else if (val.StartsWith("Blueprint:")) {
                 var components = val.Split(':');
                 if (components.Length != 3 || components[1].Length == 0 || components[1] == "NULL") {
-                    return (null, null);
+                    return null;
                 }
-                return (components[1], components[2]);
+                return components[1];
             }
             else {
-                return (null, null);
+                return null;
             }
 
         }
@@ -591,18 +624,20 @@ namespace BlueprintExplorer
             }
         }
 
-        public static IEnumerable<string> VisitObjects(JsonElement node) {
+        public static IEnumerable<string> VisitObjects(JsonElement node, string context = null, Dictionary<string, List<string>> nameToFullNames = null, Func<string, string, string, List<string>, string> manualOverride = null) {
             if (node.ValueKind == JsonValueKind.Array) {
+                int index = 0;
                 foreach (var elem in node.EnumerateArray()) {
-                    foreach (var n in VisitObjects(elem))
+                    foreach (var n in VisitObjects(elem, context + "/" + index.ToString(), nameToFullNames, manualOverride))
                         yield return n;
+                    index++;
                 }
             }
             else if (node.ValueKind == JsonValueKind.Object) {
-                if (node.TryGetProperty("$type", out var type))
-                    yield return type.GetString();
+                if (node.TryGetProperty("$type", out var _))
+                    yield return node.NewTypeStr(context, nameToFullNames, manualOverride).Name;
                 foreach (var elem in node.EnumerateObject()) {
-                    foreach (var n in VisitObjects(elem.Value))
+                    foreach (var n in VisitObjects(elem.Value, context + "/" + elem.Name, nameToFullNames, manualOverride))
                         yield return n;
                 }
             }
@@ -612,8 +647,8 @@ namespace BlueprintExplorer
         public static IEnumerable<VisitedElement> Visit(JsonElement node, string name) {
             if (node.ValueKind == JsonValueKind.String) {
                 string val = node.GetString();
-                var (link, linkTarget) = ParseReference(val);
-                yield return new VisitedElement { key = name, value = val, link = link, linkTarget = linkTarget };
+                var link = ParseReference(val);
+                yield return new VisitedElement { key = name, value = val, link = link };
             }
             else if (node.ValueKind == JsonValueKind.Number || node.ValueKind == JsonValueKind.True || node.ValueKind == JsonValueKind.False) {
                 yield return new VisitedElement { key = name, value = node.GetRawText() };
@@ -672,27 +707,6 @@ namespace BlueprintExplorer
         }
 
 
-        public IEnumerable<string> GetDirectReferencesTo(string name) {
-            Stack<string> path = new();
-            foreach (var element in Elements)
-            {
-                if (element.levelDelta > 0)
-                {
-                    path.Push(element.key);
-                }
-                else if (element.levelDelta < 0)
-                {
-                    path.Pop();
-                }
-                else
-                {
-                    if (element.link != null && element.linkTarget.IndexOf(name, StringComparison.OrdinalIgnoreCase) != -1)
-                    {
-                        yield return string.Join("/", path.Reverse());
-                    }
-                }
-            }
-        }
         public IEnumerable<Guid> GetDirectReferences() {
             Stack<string> path = new();
             foreach (var element in Elements)

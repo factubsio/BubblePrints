@@ -129,8 +129,12 @@ namespace BlueprintExplorer {
 
             if (loadType == BlueprintDB.GoingToLoad.FromWeb)
                 loadString = "DOWNLOADING";
+            else if (loadType == BlueprintDB.GoingToLoad.FromNewImport)
+                loadString = "IMPORTING";
 
-            initialize = Task.Run(() => BlueprintDB.Instance.TryConnect());
+            var progress = new BlueprintDB.ConnectionProgress();
+
+            initialize = Task.Run(() => BlueprintDB.Instance.TryConnect(progress));
             initialize.ContinueWith(b => {
                 omniSearch.Enabled = true;
                 resultsGrid.Enabled = true;
@@ -142,6 +146,7 @@ namespace BlueprintExplorer {
 
             bpProps.SelectedGridItemChanged += BpProps_SelectedGridItemChanged;
 
+
             new Thread(() => {
                 string plane = $"{loadString}-🛬";
                 const int frames = 90;
@@ -152,9 +157,12 @@ namespace BlueprintExplorer {
                             return;
 
                         if (omniSearch.Visible) {
+                            if (omniSearch.IsDisposed)
+                                return;
+
                             omniSearch.Invoke(new Action(() => {
                                 if (!Good) {
-                                    omniSearch.Text = plane.PadLeft(plane.Length + frame);
+                                    omniSearch.Text = plane.PadLeft(plane.Length + frame) + $"{progress.Status}";
                                 }
                             }));
                         }
@@ -524,6 +532,9 @@ namespace BlueprintExplorer {
                 e.Value = "...";
                 return;
             }
+
+            if (row >= resultsCache.Count)
+                return;
 
             switch (e.ColumnIndex) {
                 case 0:
