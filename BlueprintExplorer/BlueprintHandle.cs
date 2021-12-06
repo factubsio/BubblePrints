@@ -48,7 +48,7 @@ namespace BlueprintExplorer
             return elem.Str("$type").ParseTypeString();
         }
 
-        public static (string Guid, string Name, string FullName) NewTypeStr(this JsonElement elem, string context = null, Dictionary<string, List<string>> nameToFullNames = null, Func<string, string, string, List<string>, string> manualOverride = null)
+        public static (string Guid, string Name, string FullName) NewTypeStr(this JsonElement elem, bool strict = true)
         {
             var raw = elem.Str("$type");
             var comma = raw.IndexOf(',');
@@ -59,21 +59,10 @@ namespace BlueprintExplorer
             if (db.GuidToFullTypeName.TryGetValue(guid, out var fullTypeName))
                 return (guid, shortName, fullTypeName);
 
-            if (nameToFullNames != null)
-            {
-                if (!nameToFullNames.TryGetValue(shortName, out var candidates))
-                    throw new Exception($"Could not get fullname candidates for type: {shortName}, context: {context}");
+            if (strict)
+                throw new Exception($"Cannot find type with that name: {shortName}");
 
-                string fullType = null;
-                if (candidates.Count == 1)
-                    fullType = candidates[0];
-                else
-                    fullType = manualOverride(guid, shortName, context, candidates);
-                db.GuidToFullTypeName[guid] = fullType;
-                return (guid, shortName, fullType);
-            }
-
-            throw new Exception($"Cannot find type with that name: {shortName}");
+            return (null, null, null);
         }
 
         public static bool True(this JsonElement elem, string child)
@@ -110,22 +99,30 @@ namespace BlueprintExplorer
             return (elem.ValueKind == JsonValueKind.Array && elem.GetArrayLength() == 0) || (elem.ValueKind == JsonValueKind.Object && elem.EnumerateObject().Count() == 0);
         }
 
-        public static void Visit(this JsonElement elem, Action<int, JsonElement> arrayIt, Action<string, JsonElement> objIt, Action<string> valIt)
+        public static void Visit(this JsonElement elem, Action<int, JsonElement> arrayIt, Action<string, JsonElement> objIt, Action<string> valIt, bool autoRecurse = false)
         {
             if (elem.ValueKind == JsonValueKind.Array)
             {
                 int index = 0;
                 foreach (JsonElement entry in elem.EnumerateArray())
+                {
                     arrayIt(index++, entry);
+                    if (autoRecurse)
+                        entry.Visit(arrayIt, objIt, valIt, true);
+                }
             }
-            else if (elem.ValueKind == JsonValueKind.Object && elem.EnumerateObject().Count() > 0)
+            else if (elem.ValueKind == JsonValueKind.Object && elem.EnumerateObject().Any())
             {
                 foreach (var entry in elem.EnumerateObject())
+                {
                     objIt(entry.Name, entry.Value);
+                    if (autoRecurse)
+                        entry.Value.Visit(arrayIt, objIt, valIt, true);
+                }
             }
             else
             {
-                valIt(elem.GetRawText());
+                valIt?.Invoke(elem.GetRawText());
             }
         }
     }
@@ -234,13 +231,13 @@ namespace BlueprintExplorer
 
             public override string Description => _Description;
 
-            public override bool IsReadOnly => !(PropertyType == typeof(LocalisedStringProxy));
+            public override bool IsReadOnly => !(PropertyType == typeof(LocalisedStringProxy) || PropertyType == typeof(NestedProxyWithString));
 
             public override string Category => _Category;
 
             public override object GetEditor(Type editorBaseType)
             {
-                if (this.PropertyType == typeof(LocalisedStringProxy))
+                if (PropertyType == typeof(LocalisedStringProxy) || PropertyType == typeof(NestedProxyWithString))
                     return new LocalisedStringEditor();
                 else
                     return base.GetEditor(editorBaseType);
@@ -298,7 +295,13 @@ namespace BlueprintExplorer
             }
             public void Add(string category, string name, JsonElement value, string description = "", Type parentType = null)
             {
-                AddInternal(category, name, new NestedProxy(value), description, parentType);
+                var strValue = NestedProxy.ParseAsString(value);
+                NestedProxy proxy;
+                if (strValue == null)
+                    proxy = new NestedProxy(value);
+                else
+                    proxy = new NestedProxyWithString(value, strValue);
+                AddInternal(category, name, proxy, description, parentType);
             }
 
             public PropertyDescriptorCollection Build()
@@ -373,7 +376,7 @@ namespace BlueprintExplorer
             }
 
             internal readonly JsonElement node;
-            private string _ShortValue = "";
+            protected string _ShortValue = "";
             public HashSet<string> TypedProperties;
             Type BlueprintType;
 
@@ -381,38 +384,74 @@ namespace BlueprintExplorer
 
             public override string ToString() => _ShortValue;
 
+            public static string ParseAsString(JsonElement node)
+            {
+                if (node.ValueKind != JsonValueKind.Object)
+                    return null;
+
+                if (node.TryGetProperty("m_Key", out var strKey) && node.TryGetProperty("Shared", out var sharedString) && node.TryGetProperty("m_OwnerString", out _))
+                {
+                    var key = strKey.GetString();
+                    if (key.Length == 0 && sharedString.ValueKind == JsonValueKind.Object && sharedString.TryGetProperty("stringkey", out var sharedKey))
+                        key = sharedKey.GetString();
+
+                    if (key.Length > 0)
+                    {
+                        if (BlueprintDB.Instance.Strings.TryGetValue(key, out var str))
+                            return str;
+                        else
+                            return "<string-not-present>";
+                    }
+                    else
+                    {
+                        return "<null-string>";
+                    }
+                }
+                return null;
+            }
+
             internal NestedProxy(JsonElement rootNode)
             {
                 node = rootNode;
 
                 if (node.ValueKind == JsonValueKind.Object)
                 {
-                    if (node.TryGetProperty("$type", out var typeVal))
+                    if (node.TryGetProperty("$type", out _))
                     {
-                        var typeMatch = ParseType.Match(typeVal.GetString());
-                        if (typeMatch.Success)
+                        var type = node.NewTypeStr();
+                        if (type.Name == "ActionList")
                         {
-                            if (typeMatch.Groups[1].Value == "ActionList")
-                                node = node.GetProperty("Actions");
-                            else
-                            {
-                                BlueprintType = Materializer.FindWrathType($"{typeMatch.Groups[1]}.{typeMatch.Groups[2]}");
-                                TypedProperties = FindTypedProperties(BlueprintType);
-                            }
-
-                            //if (IsActionList)
-                            //    _ShortValue = $"[{node.GetProperty("Actions").GetArrayLength()}] {typeMatch.Groups[1].Value}.Actions  [{typeMatch.Groups[2].Value}]";
-                            if (node.ValueKind == JsonValueKind.Array)
-                                _ShortValue = $"[{node.GetArrayLength()}] {typeMatch.Groups[2].Value}  [{typeMatch.Groups[3].Value}]";
-                            else
-                                _ShortValue = $"{typeMatch.Groups[2].Value}  [{typeMatch.Groups[3].Value}]";
+                            node = node.GetProperty("Actions").GetProperty("Actions");
                         }
                         else
                         {
-                            _ShortValue = typeVal.GetString();
+                            //BlueprintType = Materializer.FindWrathType($"{typeMatch.Groups[1]}.{typeMatch.Groups[2]}");
+                            //TypedProperties = FindTypedProperties(BlueprintType);
                         }
+
+                        //if (IsActionList)
+                        //    _ShortValue = $"[{node.GetProperty("Actions").GetArrayLength()}] {typeMatch.Groups[1].Value}.Actions  [{typeMatch.Groups[2].Value}]";
+                        if (node.ValueKind == JsonValueKind.Array)
+                            _ShortValue = $"[{node.GetArrayLength()}]";
+                        else
+                            _ShortValue = $"{type.Name}";
                     }
                 }
+                else if (node.ValueKind == JsonValueKind.Array)
+                {
+                    _ShortValue = "[" + node.GetArrayLength() + "]";
+                }
+            }
+
+        }
+
+        [TypeConverter(typeof(NestedConverter))]
+        [EditorAttribute(typeof(LocalisedStringEditor), typeof(System.Drawing.Design.UITypeEditor))]
+        internal class NestedProxyWithString : NestedProxy
+        {
+            internal NestedProxyWithString(JsonElement rootNode, string value) : base(rootNode)
+            {
+                _ShortValue = value;
             }
 
         }
@@ -428,14 +467,14 @@ namespace BlueprintExplorer
 
             public override object EditValue(ITypeDescriptorContext context, IServiceProvider provider, object value)
             {
-                var proxy = value as LocalisedStringProxy;
+                var proxy = value as NestedProxyWithString;
                 IWindowsFormsEditorService edSvc = (IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService));
                 if (edSvc != null)
                 {
                     // Display an angle selection control and retrieve the value.
                     var label = new RichTextBox();
                     var output = new StringBuilder();
-                    label.Text = proxy.Value.Replace("\\n", Environment.NewLine);
+                    label.Text = proxy.ToString().Replace("\\n", Environment.NewLine);
                     label.Size = new System.Drawing.Size(400, 300);
                     edSvc.DropDownControl(label);
                 }
@@ -624,20 +663,20 @@ namespace BlueprintExplorer
             }
         }
 
-        public static IEnumerable<string> VisitObjects(JsonElement node, string context = null, Dictionary<string, List<string>> nameToFullNames = null, Func<string, string, string, List<string>, string> manualOverride = null) {
+        public static IEnumerable<string> VisitObjects(JsonElement node, string context = null) {
             if (node.ValueKind == JsonValueKind.Array) {
                 int index = 0;
                 foreach (var elem in node.EnumerateArray()) {
-                    foreach (var n in VisitObjects(elem, context + "/" + index.ToString(), nameToFullNames, manualOverride))
+                    foreach (var n in VisitObjects(elem, context + "/" + index.ToString()))
                         yield return n;
                     index++;
                 }
             }
             else if (node.ValueKind == JsonValueKind.Object) {
                 if (node.TryGetProperty("$type", out var _))
-                    yield return node.NewTypeStr(context, nameToFullNames, manualOverride).Name;
+                    yield return node.NewTypeStr().Guid;
                 foreach (var elem in node.EnumerateObject()) {
-                    foreach (var n in VisitObjects(elem.Value, context + "/" + elem.Name, nameToFullNames, manualOverride))
+                    foreach (var n in VisitObjects(elem.Value, context + "/" + elem.Name))
                         yield return n;
                 }
             }

@@ -20,6 +20,7 @@ namespace BlueprintExplorer
     {
         private static BlueprintDB _Instance;
         public static BlueprintDB Instance => _Instance ??= new();
+        public readonly Dictionary<string, string> Strings = new();
 
         public readonly Dictionary<string, string> GuidToFullTypeName = new();
 
@@ -42,8 +43,8 @@ namespace BlueprintExplorer
         }
 
         private readonly string filenameRoot = "blueprints_raw";
-        private const int LatestVersion = 3;
-        private readonly string version = "1.1.4d_bbpe3";
+        private const int LatestVersion = 4;
+        private readonly string version = "1.1.4d_bbpe4";
         private readonly string extension = "binz";
 
         string FileName => $"{filenameRoot}_{version}.{extension}";
@@ -116,8 +117,6 @@ namespace BlueprintExplorer
                         GuidToFullTypeName[guid] = type.FullName;
                     }
                 }
-
-                File.WriteAllText("all_types.json", JsonSerializer.Serialize(GuidToFullTypeName, writeOptions));
 
                 using var bpDump = ZipFile.OpenRead(@"D:\WOTR-1.1-DEBUG\blueprints.zip");
 
@@ -346,6 +345,16 @@ namespace BlueprintExplorer
                     if (bbpeVersion >= 3)
                         fullNameCount = batchReader.ReadInt32();
 
+                    if (bbpeVersion >= 4) {
+                        byte[] raw = new byte[batchReader.ReadInt32()];
+                        int compressedSize = batchReader.ReadInt32();
+                        byte[] compressed = batchReader.ReadBytes(compressedSize);
+                        LZ4Codec.Decode(compressed.AsSpan(), raw.AsSpan());
+                        var stringDictRaw = JsonSerializer.Deserialize<JsonElement>(raw).GetProperty("strings");
+                        foreach (var kv in stringDictRaw.EnumerateObject())
+                            Strings[kv.Name] = kv.Value.GetString();
+                    }
+
                     for (int i = 0; i < componentDict.Length; i++)
                     {
                         string val = batchReader.ReadString();
@@ -355,8 +364,8 @@ namespace BlueprintExplorer
 
                     for (int i = 0; i < fullNameCount; i++)
                     {
-                        string val = batchReader.ReadString();
                         string key = batchReader.ReadString();
+                        string val = batchReader.ReadString();
                         GuidToFullTypeName[key] = val;
                     }
 
@@ -366,7 +375,6 @@ namespace BlueprintExplorer
 
                 float loadTime = watch.ElapsedMilliseconds;
                 Console.WriteLine($"Loaded {cache.Count} blueprints in {watch.ElapsedMilliseconds}ms");
-
 
                 binary.Dispose();
                 file.Dispose();
@@ -616,9 +624,15 @@ namespace BlueprintExplorer
                     }
                 }
 
+                var rawLangDict = File.ReadAllBytes(@"D:\WOTR-1.1-DEBUG\Wrath_Data\StreamingAssets\Localization\enGB.json");
+                int langDictCompressed = LZ4Codec.Encode(rawLangDict.AsSpan(), scratchpad.AsSpan(), LZ4Level.L10_OPT);
+
                 toc[^1] = (int)binary.BaseStream.Position;
                 binary.Write(uniqueComponents.Count);
                 binary.Write(GuidToFullTypeName.Count);
+                binary.Write(rawLangDict.Length);
+                binary.Write(langDictCompressed);
+                binary.Write(scratchpad, 0, langDictCompressed);
 
                 foreach (var kv in uniqueComponents)
                 {
@@ -631,6 +645,8 @@ namespace BlueprintExplorer
                     binary.Write(kv.Key);
                     binary.Write(kv.Value);
                 }
+
+
 
                 binary.Seek(tocAt, SeekOrigin.Begin);
                 foreach (var t in toc)

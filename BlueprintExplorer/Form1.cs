@@ -125,12 +125,14 @@ namespace BlueprintExplorer {
 
             var loadType = BlueprintDB.Instance.GetLoadType();
 
-            var loadString = "LOADING";
-
-            if (loadType == BlueprintDB.GoingToLoad.FromWeb)
-                loadString = "DOWNLOADING";
-            else if (loadType == BlueprintDB.GoingToLoad.FromNewImport)
-                loadString = "IMPORTING";
+            var loadString = loadType switch
+            {
+                BlueprintDB.GoingToLoad.FromLocalFile => "LOADING (debug)",
+                BlueprintDB.GoingToLoad.FromSettingsFile => "LOADING (local)",
+                BlueprintDB.GoingToLoad.FromWeb => "DOWNLOADING",
+                BlueprintDB.GoingToLoad.FromNewImport => "IMPORTING",
+                _ => throw new Exception(),
+            };
 
             var progress = new BlueprintDB.ConnectionProgress();
 
