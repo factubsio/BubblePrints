@@ -48,13 +48,29 @@ namespace BlueprintExplorer
 
         string FileName => $"{filenameRoot}_{version}.{extension}";
 
+        public bool SettingsFileIsGood
+        {
+            get
+            {
+                var path = Properties.Settings.Default.BlueprintDBPath;
+
+                if (path == null)
+                    return false;
+
+                if (!File.Exists(path))
+                    return false;
+
+                return Path.GetFileName(path) == FileName;
+            }
+        }
+
         public GoingToLoad GetLoadType()
         {
             if (importNew)
                 return GoingToLoad.FromNewImport;
             else if (File.Exists(FileName))
                 return GoingToLoad.FromLocalFile;
-            else if (File.Exists(Properties.Settings.Default.BlueprintDBPath))
+            else if (SettingsFileIsGood)
                 return GoingToLoad.FromSettingsFile;
             else
                 return GoingToLoad.FromWeb;
@@ -177,6 +193,11 @@ namespace BlueprintExplorer
                             Directory.CreateDirectory(userLocalFolder);
 
                         fileToOpen = Path.Combine(userLocalFolder, FileName);
+                        progress.EstimatedTotal = 100;
+                        client.DownloadProgressChanged += (sender, e) =>
+                        {
+                            progress.Current = e.ProgressPercentage;
+                        };
                         await client.DownloadFileTaskAsync(latestVersionUrl, fileToOpen);
                         Properties.Settings.Default.BlueprintDBPath = fileToOpen;
                         Properties.Settings.Default.Save();
