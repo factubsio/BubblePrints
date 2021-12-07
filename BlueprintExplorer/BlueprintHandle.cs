@@ -627,6 +627,7 @@ namespace BlueprintExplorer
             public string link;
             //public string linkTarget;
             public bool Empty;
+            public JsonElement Node;
         }
 
         public static string ParseReference(string val) {
@@ -696,7 +697,7 @@ namespace BlueprintExplorer
                 yield return new VisitedElement { key = name, value = "null" };
             }
             else if (node.ValueKind == JsonValueKind.Array) {
-                yield return new VisitedElement { key = name, levelDelta = 1 };
+                yield return new VisitedElement { key = name, levelDelta = 1, Node = node };
                 int index = 0;
                 foreach (var elem in node.EnumerateArray()) {
                     foreach (var n in Visit(elem, index.ToString()))
@@ -706,7 +707,7 @@ namespace BlueprintExplorer
                 yield return new VisitedElement { levelDelta = -1 };
             }
             else {
-                yield return new VisitedElement { key = name, levelDelta = 1 };
+                yield return new VisitedElement { key = name, levelDelta = 1, isObj = true, Node = node };
                 foreach (var elem in node.EnumerateObject()) {
                     foreach (var n in Visit(elem.Value, elem.Name))
                         yield return n;

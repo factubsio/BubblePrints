@@ -47,7 +47,7 @@ namespace BlueprintExplorer
         private readonly string version = "1.1.4d_bbpe4";
         private readonly string extension = "binz";
 
-        string FileName => $"{filenameRoot}_{version}.{extension}";
+        public string FileName => $"{filenameRoot}_{version}.{extension}";
 
         public bool SettingsFileIsGood
         {

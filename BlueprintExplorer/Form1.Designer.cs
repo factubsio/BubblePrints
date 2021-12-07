@@ -47,7 +47,7 @@ namespace BlueprintExplorer
             this.From = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.count = new System.Windows.Forms.Label();
             this.historyBread = new System.Windows.Forms.FlowLayoutPanel();
-            this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
+            this.bottomPanel = new System.Windows.Forms.TableLayoutPanel();
             this.tableLayoutPanel3 = new System.Windows.Forms.TableLayoutPanel();
             this.settingsButton = new System.Windows.Forms.Button();
             this.panel1.SuspendLayout();
@@ -62,7 +62,7 @@ namespace BlueprintExplorer
             this.splitContainer2.Panel2.SuspendLayout();
             this.splitContainer2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.references)).BeginInit();
-            this.tableLayoutPanel2.SuspendLayout();
+            this.bottomPanel.SuspendLayout();
             this.tableLayoutPanel3.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -298,21 +298,21 @@ namespace BlueprintExplorer
             this.historyBread.Size = new System.Drawing.Size(2278, 53);
             this.historyBread.TabIndex = 1;
             // 
-            // tableLayoutPanel2
+            // bottomPanel
             // 
-            this.tableLayoutPanel2.ColumnCount = 1;
-            this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel2.Controls.Add(this.tableLayoutPanel3, 0, 2);
-            this.tableLayoutPanel2.Controls.Add(this.splitContainer1, 0, 0);
-            this.tableLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tableLayoutPanel2.Location = new System.Drawing.Point(0, 82);
-            this.tableLayoutPanel2.Name = "tableLayoutPanel2";
-            this.tableLayoutPanel2.RowCount = 3;
-            this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 15F));
-            this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 65F));
-            this.tableLayoutPanel2.Size = new System.Drawing.Size(2442, 1167);
-            this.tableLayoutPanel2.TabIndex = 5;
+            this.bottomPanel.ColumnCount = 1;
+            this.bottomPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.bottomPanel.Controls.Add(this.tableLayoutPanel3, 0, 2);
+            this.bottomPanel.Controls.Add(this.splitContainer1, 0, 0);
+            this.bottomPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.bottomPanel.Location = new System.Drawing.Point(0, 82);
+            this.bottomPanel.Name = "bottomPanel";
+            this.bottomPanel.RowCount = 3;
+            this.bottomPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.bottomPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 15F));
+            this.bottomPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 65F));
+            this.bottomPanel.Size = new System.Drawing.Size(2442, 1167);
+            this.bottomPanel.TabIndex = 5;
             // 
             // tableLayoutPanel3
             // 
@@ -344,7 +344,7 @@ namespace BlueprintExplorer
             this.AutoScaleDimensions = new System.Drawing.SizeF(10F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(2442, 1249);
-            this.Controls.Add(this.tableLayoutPanel2);
+            this.Controls.Add(this.bottomPanel);
             this.Controls.Add(this.panel1);
             this.Name = "Form1";
             this.Text = "BlueprintDB";
@@ -363,7 +363,7 @@ namespace BlueprintExplorer
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).EndInit();
             this.splitContainer2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.references)).EndInit();
-            this.tableLayoutPanel2.ResumeLayout(false);
+            this.bottomPanel.ResumeLayout(false);
             this.tableLayoutPanel3.ResumeLayout(false);
             this.ResumeLayout(false);
 
@@ -388,7 +388,7 @@ namespace BlueprintExplorer
         private System.Windows.Forms.SplitContainer splitContainer2;
         private System.Windows.Forms.DataGridView references;
         private System.Windows.Forms.DataGridViewTextBoxColumn From;
-        private System.Windows.Forms.TableLayoutPanel tableLayoutPanel2;
+        private System.Windows.Forms.TableLayoutPanel bottomPanel;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel3;
         private System.Windows.Forms.Button settingsButton;
     }

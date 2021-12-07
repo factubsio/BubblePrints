@@ -70,5 +70,41 @@ namespace BlueprintExplorer.Properties {
                 this["AlwaysOpenInEditor"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool StrictJsonForEditor {
+            get {
+                return ((bool)(this["StrictJsonForEditor"]));
+            }
+            set {
+                this["StrictJsonForEditor"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool EagerFollowLink {
+            get {
+                return ((bool)(this["EagerFollowLink"]));
+            }
+            set {
+                this["EagerFollowLink"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool EagerExpand {
+            get {
+                return ((bool)(this["EagerExpand"]));
+            }
+            set {
+                this["EagerExpand"] = value;
+            }
+        }
     }
 }

@@ -117,5 +117,17 @@ namespace BlueprintExplorer
         [DisplayName("Always Open Externally")]
         public bool AlwaysOpenInEditor { get; set; }
 
+        [Description("If set, clicking on a link in the blueprint view will automatically open the link target")]
+        [DisplayName("Follow link on click")]
+        public bool EagerFollowLink { get; set; }
+
+        [Description("If true, the external editor will display strict json. If false, the external editor will display human-friendly text")]
+        [DisplayName("Generate json for 'Open in Editor'")]
+        public bool StrictJsonForEditor { get; set; }
+
+        [Description("If true, the blueprint view will expand all fields automatically")]
+        [DisplayName("Expand all properties")]
+        public bool EagerExpand { get; set; }
+
     }
 }

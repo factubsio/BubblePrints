@@ -11,9 +11,29 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Forms.Design;
+using static BlueprintExplorer.BlueprintHandle;
+using static BlueprintExplorer.BlueprintPropertyConverter;
 
 namespace BlueprintExplorer {
     public partial class Form1 : Form {
+        
+        public static Color DarkColor = Color.FromArgb(50, 50, 50);
+        public static void DarkenStyles(params DataGridViewCellStyle []styles)
+        {
+            foreach (var style in styles)
+            {
+                style.ForeColor = Color.White;
+                style.BackColor = DarkColor;
+            }
+        }
+        public static void DarkenControls(params Control []controls)
+        {
+            foreach (var c in controls)
+            {
+                c.ForeColor = Color.White;
+                c.BackColor = DarkColor;
+            }
+        }
         private BlueprintDB db => BlueprintDB.Instance;
         public static bool Dark;
         bool Good => initialize?.IsCompleted ?? false;
@@ -60,21 +80,7 @@ namespace BlueprintExplorer {
             followLink.Enabled = false;
 
             openInEditor = strip.Items.Add("open in editor");
-            openInEditor.Click += (sender, e) =>
-            {
-                if (CurrentView != null)
-                {
-                    var userLocalFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints", "cache");
-                    if (!Directory.Exists(userLocalFolder))
-                        Directory.CreateDirectory(userLocalFolder);
-
-                    string fileToOpen = Path.Combine(userLocalFolder, CurrentView.Name + "_" +  CurrentView.GuidText + ".json");
-                    if (!File.Exists(fileToOpen))
-                        File.WriteAllText(fileToOpen, CurrentView.Raw);
-                    Process.Start(Properties.Settings.Default.Editor, fileToOpen);
-                }
-            };
-
+            openInEditor.Click += DoOpenInEditor;
 
             BubblePrints.SetWrathPath();
 
@@ -83,37 +89,11 @@ namespace BlueprintExplorer {
                 BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, "Wrath_Data", "Managed", "Assembly-CSharp.dll"));
             }
 
-            if (Dark) {
-                bgColor = Color.FromArgb(50, 50, 50);
-
-                void DarkenStyles(params DataGridViewCellStyle []styles)
-                {
-                    foreach (var style in styles)
-                    {
-                        style.ForeColor = Color.White;
-                        style.BackColor = bgColor;
-                    }
-                }
-                void DarkenControls(params Control []controls)
-                {
-                    foreach (var c in controls)
-                    {
-                        c.ForeColor = Color.White;
-                        c.BackColor = bgColor;
-                    }
-                }
-
-                bpProps.DisabledItemForeColor = Color.White;
-                bpProps.ViewForeColor = Color.White;
-                bpProps.HelpForeColor = Color.LightGray;
-                bpProps.BackColor = bgColor;
-                bpProps.ViewBackColor = bgColor;
-                bpProps.CommandsBackColor = bgColor;
-                bpProps.HelpBackColor = bgColor;
-                bpProps.CategorySplitterColor = bgColor;
+            if (Dark)
+            {
+                DarkenPropertyGrid(bpProps);
                 resultsGrid.EnableHeadersVisualStyles = false;
-                this.BackColor = bgColor;
-                DarkenControls(filter, omniSearch, resultsGrid, count, splitContainer1, references);
+                DarkenControls(filter, omniSearch, resultsGrid, count, splitContainer1, references, panel1, bottomPanel, settingsButton);
                 DarkenStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle, references.DefaultCellStyle, references.ColumnHeadersDefaultCellStyle);
             }
 
@@ -175,6 +155,184 @@ namespace BlueprintExplorer {
 
         }
 
+        public static void DarkenPropertyGrid(PropertyGrid grid)
+        {
+            grid.LineColor = Color.DimGray;
+            grid.DisabledItemForeColor = Color.White;
+            grid.ViewForeColor = Color.White;
+            grid.HelpForeColor = Color.LightGray;
+            grid.BackColor = DarkColor;
+            grid.ViewBackColor = DarkColor;
+            grid.ViewBorderColor = Color.DimGray;
+            grid.CommandsBackColor = DarkColor;
+            grid.HelpBackColor = DarkColor;
+            grid.CategorySplitterColor = DarkColor;
+        }
+
+        class ElementWriteState
+        {
+            public bool IsObj;
+            public int Children;
+        }
+
+        private void DoOpenInEditor(object sender, EventArgs e)
+        {
+            if (CurrentView != null)
+            {
+                var userLocalFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints", "cache");
+                if (!Directory.Exists(userLocalFolder))
+                    Directory.CreateDirectory(userLocalFolder);
+
+                string fileToOpen = Path.Combine(userLocalFolder, CurrentView.Name + "_" +  CurrentView.GuidText + ".json");
+
+                bool json = Properties.Settings.Default.StrictJsonForEditor;
+                if (!File.Exists(fileToOpen))
+                {
+                    using var stream = new StreamWriter(File.OpenWrite(fileToOpen));
+                    int level = 0;
+                    Stack<ElementWriteState> stack = new();
+                    stack.Push(new() { IsObj = true });
+
+                    void Quote(string str)
+                    {
+                        if (json)
+                            stream.Write('"');
+                        stream.Write(str);
+                        if (json)
+                            stream.Write('"');
+                    }
+
+                    void WriteMultiLine(string key, string value)
+                    {
+                        if (json)
+                        {
+                            WriteLine(key, value.Replace("\r\n", "\\n").Replace("\n", "\\n"), null);
+                            return;
+                        }
+                        stream.WriteLine();
+                        stream.Write("".PadLeft(level * 4));
+                        if (stack.Peek().IsObj)
+                        {
+                            stream.Write(key);
+                            stream.Write(": ");
+                        }
+
+                        int indent = level * 4 + key.Length + 2;
+
+                        var lines = value.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.None);
+
+                        for (int i = 0; i < lines.Length; i++)
+                        {
+                            if (i > 0)
+                                stream.Write("".PadLeft(indent));
+                            stream.Write(lines[i]);
+                            if (i != lines.Length - 1)
+                                stream.WriteLine();
+                        }
+                    }
+
+                    void WriteLine(string key, string value, string link)
+                    {
+                        if (json)
+                        {
+                            if (stack.Peek().Children > 1)
+                                stream.Write(',');
+                        }
+                        stream.WriteLine();
+                        stream.Write("".PadLeft(level * 4));
+                        if (stack.Peek().IsObj)
+                        {
+                            Quote(key);
+                            stream.Write(": ");
+                        }
+
+                        if (link != null)
+                        {
+                            var target = BlueprintDB.Instance.Blueprints[Guid.Parse(link)];
+
+                            value = "link: " + link + " (" + target.Name + " :" + target.TypeName + ")";
+                        }
+
+                        Quote(value);
+                    }
+
+                    void Open(string key, bool obj)
+                    {
+                        if (json)
+                        {
+                            if (stack.Peek().Children > 1)
+                                stream.Write(',');
+                            stream.WriteLine();
+                        }
+                        stream.Write("".PadLeft(level * 4));
+                        if (stack.Peek().IsObj)
+                        {
+                            Quote(key);
+                            stream.Write(": ");
+                        }
+                        if (json)
+                            stream.Write(obj ? '{' : '[');
+                    }
+                    void Close(ElementWriteState state)
+                    {
+                        if (state.Children > 0)
+                        {
+                            if (json)
+                            {
+                                stream.WriteLine();
+                                stream.Write("".PadLeft(level * 4));
+                            }
+                        }
+                        else
+                        {
+                            if (!json)
+                                stream.WriteLine(" [empty]");
+                        }
+                        if (json)
+                            stream.Write(state.IsObj ? '}' : ']');
+                    }
+
+                    if (json)
+                        stream.WriteLine("{");
+
+                    foreach (var elem in CurrentView.Elements)
+                    {
+                        if (elem.levelDelta < 0)
+                        {
+                            var closeObj = stack.Pop();
+                            level--;
+                            Close(closeObj);
+                        }
+                        else if (elem.levelDelta == 0)
+                        {
+                            stack.Peek().Children++;
+                            WriteLine(elem.key, elem.value, elem.link);
+                        }
+                        else if (elem.levelDelta > 0)
+                        {
+                            stack.Peek().Children++;
+                            Open(elem.key, elem.isObj);
+                            stack.Push(new() { IsObj = elem.isObj });
+                            level++;
+
+                            var renderedString = NestedProxy.ParseAsString(elem.Node);
+                            if (renderedString != null)
+                            {
+                                stack.Peek().Children++;
+                                WriteMultiLine("LocalisedValue", renderedString);
+                            }
+
+                        }
+
+                    }
+                    if (json)
+                        stream.WriteLine("}");
+                    //File.WriteAllText(fileToOpen, CurrentView.Raw);
+
+                }
+                Process.Start(Properties.Settings.Default.Editor, fileToOpen);
+            }
+        }
 
         private void BpProps_SelectedGridItemChanged(object sender, SelectedGridItemChangedEventArgs e)
         {
@@ -182,6 +340,8 @@ namespace BlueprintExplorer {
             {
                 CurrentLink = link.Link;
                 followLink.Enabled = true;
+                if (Properties.Settings.Default.EagerFollowLink)
+                    followLink.PerformClick();
             }
             else
             {
@@ -513,6 +673,9 @@ namespace BlueprintExplorer {
             var propertiesItem = bpProps.SelectedGridItem?.Parent?.GridItems["Properties"];
             if (propertiesItem != null && propertiesItem.Expandable)
                 propertiesItem.Expanded = true;
+            if (Properties.Settings.Default.EagerExpand)
+                bpProps.ExpandAllGridItems();
+
 
 
             if (updateHistory)
