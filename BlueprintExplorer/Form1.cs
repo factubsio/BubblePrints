@@ -327,10 +327,11 @@ namespace BlueprintExplorer {
                     }
                     if (json)
                         stream.WriteLine("}");
-                    //File.WriteAllText(fileToOpen, CurrentView.Raw);
-
                 }
-                Process.Start(Properties.Settings.Default.Editor, fileToOpen);
+                var editor = Properties.Settings.Default.Editor;
+                if (editor == null || !File.Exists(editor))
+                    editor = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "notepad.exe");
+                Process.Start(editor, fileToOpen);
             }
         }
 
