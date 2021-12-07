@@ -17,8 +17,11 @@ namespace BlueprintExplorer
         {
             InitializeComponent();
 
-            Form1.DarkenPropertyGrid(settingsPropView);
-            Form1.DarkenControls(deleteBinz, deleteEditorCache, formSave, formCancel, cacheControlButtons, formActionButtons);
+            if (Form1.Dark)
+            {
+                Form1.DarkenPropertyGrid(settingsPropView);
+                Form1.DarkenControls(deleteBinz, deleteEditorCache, formSave, formCancel, cacheControlButtons, formActionButtons);
+            }
             settingsPropView.SelectedObject = new SettingsProxy();
         }
 
