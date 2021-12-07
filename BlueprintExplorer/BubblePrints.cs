@@ -129,5 +129,8 @@ namespace BlueprintExplorer
         [DisplayName("Expand all properties")]
         public bool EagerExpand { get; set; }
 
+        [Description("If true, use a dark theme, you must restart the application for this to take effect")]
+        [DisplayName("Dark Mode (*)")]
+        public bool DarkMode { get; set; }
     }
 }

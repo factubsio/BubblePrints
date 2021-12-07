@@ -41,6 +41,9 @@ namespace BlueprintExplorer {
         public Form1() {
             var env = Environment.GetEnvironmentVariable("BubbleprintsTheme");
             Dark = env?.Equals("dark") ?? false;
+            Dark |= Properties.Settings.Default.DarkMode;
+
+            Properties.Settings.Default.PropertyChanged += Default_PropertyChanged;
 
             InitializeComponent();
 #if DEBUG
@@ -139,9 +142,6 @@ namespace BlueprintExplorer {
                             return;
 
                         if (omniSearch.Visible) {
-                            if (omniSearch.IsDisposed)
-                                return;
-
                             omniSearch.Invoke(new Action(() => {
                                 if (!Good) {
                                     omniSearch.Text = plane.PadLeft(plane.Length + frame) + $"{progress.Status}";
@@ -153,6 +153,10 @@ namespace BlueprintExplorer {
                 }
             }).Start();
 
+        }
+
+        private void Default_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
         }
 
         public static void DarkenPropertyGrid(PropertyGrid grid)
