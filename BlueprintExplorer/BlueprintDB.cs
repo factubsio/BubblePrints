@@ -44,7 +44,7 @@ namespace BlueprintExplorer
 
         private readonly string filenameRoot = "blueprints_raw";
         private const int LatestVersion = 4;
-        private readonly string version = "1.1.4d_bbpe4";
+        private readonly string version = "1.1.4f_bbpe4";
         private readonly string extension = "binz";
 
         public string FileName => $"{filenameRoot}_{version}.{extension}";
