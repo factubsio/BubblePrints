@@ -405,13 +405,14 @@ namespace BlueprintExplorer {
             }
         }
 
+        private bool noFollow = false;
         private void BpProps_SelectedGridItemChanged(object sender, SelectedGridItemChangedEventArgs e)
         {
             if (e.NewSelection.Value is BlueprintPropertyConverter.BlueprintLink link)
             {
                 CurrentLink = link.Link;
                 followLink.Enabled = true;
-                if (Properties.Settings.Default.EagerFollowLink)
+                if (Properties.Settings.Default.EagerFollowLink && !noFollow)
                     followLink.PerformClick();
             }
             else
@@ -730,6 +731,7 @@ namespace BlueprintExplorer {
         private BlueprintHandle CurrentView = null;
 
         private void ShowBlueprint(BlueprintHandle bp, bool updateHistory) {
+            noFollow = true;
             filter.Enabled = true;
             bp.EnsureParsed();
             CurrentView = bp;
@@ -743,9 +745,16 @@ namespace BlueprintExplorer {
             }
 
             bpProps.SelectedObject = bp;
-            var propertiesItem = bpProps.SelectedGridItem?.Parent?.GridItems["Properties"];
-            if (propertiesItem != null && propertiesItem.Expandable)
-                propertiesItem.Expanded = true;
+            var selected = bpProps.SelectedGridItem;
+            while (selected != null && !(selected.Parent.Value is BlueprintHandle)) 
+            {
+                selected = selected.Parent;
+            }
+            if (selected != null && selected.Expandable)
+            {
+                selected.Expanded = true;
+                bpProps.SelectedGridItem = selected;
+            }
             if (Properties.Settings.Default.EagerExpand)
                 bpProps.ExpandAllGridItems();
 
@@ -756,6 +765,8 @@ namespace BlueprintExplorer {
 
             if (updateHistory && Properties.Settings.Default.AlwaysOpenInEditor)
                 openInEditor.PerformClick();
+
+            noFollow = false;
         }
 
         private List<BlueprintHandle> resultsCache = new();
