@@ -21,9 +21,17 @@ namespace BlueprintExplorer
         private static string[] christmas = { "🎄", "❄️", "🦌", "⛄", "🎅" };
         public static string Seasonal(this string str)
         {
-            var season = christmas;
-            var index = Math.Abs(str.GetHashCode()) % season.Length;
-            return $"{season[index]} {str} {season[index]}";
+            if (!SeasonalOverlay.InSeason)
+                return str;
+
+            if (SeasonalOverlay.NearChristmas)
+            {
+                var season = christmas;
+                var index = Math.Abs(str.GetHashCode()) % season.Length;
+                return $"{season[index]} {str} {season[index]}";
+            }
+
+            return str;
         }
         public static Guid Guid(this string str) => System.Guid.Parse(str);
         public static bool IsSimple(this JsonElement elem)
