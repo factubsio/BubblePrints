@@ -17,6 +17,14 @@ namespace BlueprintExplorer
 {
     static class JsonExtensions
     {
+        private static Random rng = new();
+        private static string[] christmas = { "🎄", "❄️", "🦌", "⛄", "🎅" };
+        public static string Seasonal(this string str)
+        {
+            var season = christmas;
+            var index = Math.Abs(str.GetHashCode()) % season.Length;
+            return $"{season[index]} {str} {season[index]}";
+        }
         public static Guid Guid(this string str) => System.Guid.Parse(str);
         public static bool IsSimple(this JsonElement elem)
         {
@@ -212,7 +220,7 @@ namespace BlueprintExplorer
             private readonly string _Description;
             public bool _Empty;
 
-            public NameValuePropertyDescriptor(string category, string name, object value, Type parentType, string description = "") : base(parentType, name, value.GetType())
+            public NameValuePropertyDescriptor(string category, string name, object value, Type parentType, string description = "") : base(parentType, name.Seasonal(), value.GetType())
             {
                 _Description = description;
                 _Category = category;
@@ -383,6 +391,22 @@ namespace BlueprintExplorer
             private static Regex ParseType = new(@"(.*)\.(.*), (.*)");
 
             public override string ToString() => _ShortValue;
+
+            public static string GetStringKey(JsonElement node)
+            {
+                if (node.ValueKind != JsonValueKind.Object)
+                    return null;
+
+                if (node.TryGetProperty("m_Key", out var strKey) && node.TryGetProperty("Shared", out var sharedString) && node.TryGetProperty("m_OwnerString", out _))
+                {
+                    var key = strKey.GetString();
+                    if (key.Length == 0 && sharedString.ValueKind == JsonValueKind.Object && sharedString.TryGetProperty("stringkey", out var sharedKey))
+                        key = sharedKey.GetString();
+
+                    return key;
+                }
+                return null;
+            }
 
             public static string ParseAsString(JsonElement node)
             {
@@ -619,6 +643,29 @@ namespace BlueprintExplorer
                 _Matches[i] = CreateResultArray();
         }
 
+        public class ElementVisitor
+        {
+
+            public static IEnumerable<(VisitedElement, string)> Visit(BlueprintHandle bp)
+            {
+                Stack<string> stack = new();
+                var visitor = new ElementVisitor();
+                foreach (var elem in BlueprintHandle.Visit(bp.EnsureObj, bp.Name)) {
+                    if (elem.levelDelta > 0)
+                    {
+                        stack.Push(elem.key);
+                        yield return (elem, string.Join("/", stack.Reverse()));
+                    }
+                    else if (elem.levelDelta < 0)
+                        stack.Pop();
+                    else
+                        yield return (elem, string.Join("/", stack.Reverse()));
+
+                }
+            }
+
+        }
+
         public class VisitedElement {
             public string key;
             public string value;
@@ -771,6 +818,19 @@ namespace BlueprintExplorer
                         //};
                     }
                 //}
+            }
+        }
+
+        internal void ParseType()
+        {
+
+            var components = Type.Split('.');
+            if (components.Length <= 1)
+                TypeName = Type;
+            else
+            {
+                TypeName = components.Last();
+                Namespace = string.Join('.', components.Take(components.Length - 1));
             }
         }
     }

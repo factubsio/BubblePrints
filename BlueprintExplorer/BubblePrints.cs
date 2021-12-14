@@ -132,5 +132,17 @@ namespace BlueprintExplorer
         [Description("If true, use a dark theme, you must restart the application for this to take effect")]
         [DisplayName("Dark Mode (*)")]
         public bool DarkMode { get; set; }
+
+        [Description("If true, checks to see if there is a newer version of the application available and notifies you (does not automatically update)")]
+        [DisplayName("Check for updates")]
+        public bool CheckForUpdates { get; set; }
+
+        [Description("If true, checks to see if there is a later version of the blueprints file and automatically updates your current version")]
+        [DisplayName("Check for new blueprints")]
+        public bool CheckForNewBP { get; set; }
+
+        [Description("If true, disables any fun seasonal themes that may be in effect")]
+        [DisplayName("Disable fun themes")]
+        public bool NoSeasonalTheme { get; set; }
     }
 }

@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -25,7 +26,7 @@ namespace BlueprintExplorer
         public readonly Dictionary<string, string> GuidToFullTypeName = new();
 
         public readonly Dictionary<Guid, BlueprintHandle> Blueprints = new();
-        private List<BlueprintHandle> cache = new();
+        private readonly List<BlueprintHandle> cache = new();
         public readonly HashSet<string> types = new();
 
         public struct FileSection
@@ -37,48 +38,155 @@ namespace BlueprintExplorer
         public enum GoingToLoad
         {
             FromLocalFile,
-            FromSettingsFile,
+            FromCache,
             FromWeb,
             FromNewImport,
         }
 
+        public struct GameVersion : IComparable<GameVersion> {
+            public int Major, Minor, Patch;
+            public char Suffix;
+            public int Bubble;
+
+            public GameVersion(int major, int minor, int patch, char suffix, int bubble)
+            {
+                Major = major;
+                Minor = minor;
+                Patch = patch;
+                Suffix = suffix;
+                Bubble = bubble;
+            }
+
+            public int CompareTo(GameVersion other)
+            {
+                int c = Major.CompareTo(other.Major);
+                if (c != 0) return c;
+
+                c = Minor.CompareTo(other.Minor);
+                if (c != 0) return c;
+
+                c = Patch.CompareTo(other.Patch);
+                if (c != 0) return c;
+
+                c = Suffix.CompareTo(other.Suffix);
+                if (c != 0) return c;
+
+                return Bubble.CompareTo(other.Bubble);
+            }
+
+            public override bool Equals(object obj) => obj is GameVersion version && Major == version.Major && Minor == version.Minor && Patch == version.Patch && Suffix == version.Suffix && Bubble == version.Bubble;
+            public override int GetHashCode() => HashCode.Combine(Major, Minor, Patch, Suffix, Bubble);
+
+
+
+
+            public override string ToString() => $"{Major}.{Minor}.{Patch}{Suffix}_{Bubble}";
+
+        }
+
+
+        public List<GameVersion> Available = new() { };
+
+        private readonly GameVersion LastKnown = new(1, 1, 4, 'f', 0);
+
         private readonly string filenameRoot = "blueprints_raw";
-        private const int LatestVersion = 4;
-        private readonly string version = "1.1.4f_bbpe4";
         private readonly string extension = "binz";
 
-        public string FileName => $"{filenameRoot}_{version}.{extension}";
+        public string FileName => $"{filenameRoot}_{Latest}.{extension}";
 
-        public bool SettingsFileIsGood
-        {
-            get
-            {
-                var path = Properties.Settings.Default.BlueprintDBPath;
+        public bool InCache => File.Exists(Path.Combine(CacheDir, FileName));
 
-                if (path == null)
-                    return false;
+        bool AvailableDetected = false;
 
-                if (!File.Exists(path))
-                    return false;
+        public GameVersion Latest => Available.Last();
 
-                return Path.GetFileName(path) == FileName;
-            }
-        }
+        public static string CacheDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints");
 
         public GoingToLoad GetLoadType()
         {
             if (importNew)
                 return GoingToLoad.FromNewImport;
-            else if (File.Exists(FileName))
-                return GoingToLoad.FromLocalFile;
-            else if (SettingsFileIsGood)
-                return GoingToLoad.FromSettingsFile;
+
+            if (!AvailableDetected && forceLastKnown)
+            {
+                Available.Add(LastKnown);
+                AvailableDetected = true;
+            }
+
+
+            if (!AvailableDetected)
+            {
+                var last = Properties.Settings.Default.LastLoaded;
+                bool fromWeb = false;
+                if (Properties.Settings.Default.CheckForNewBP)
+                {
+                    try
+                    {
+                        Console.WriteLine("setting available = from web");
+                        using var web = new WebClient();
+
+                        var raw = web.DownloadString(@"https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions.json");
+                        var versions = JsonSerializer.Deserialize<JsonElement>(raw);
+
+                        foreach (var version in versions.EnumerateArray())
+                        {
+                            GameVersion gv = new()
+                            {
+                                Major = version[0].GetInt32(),
+                                Minor = version[1].GetInt32(),
+                                Patch = version[2].GetInt32(),
+                                Suffix = version[3].GetString()[0],
+                                Bubble = version[4].GetInt32(),
+                            };
+                            Available.Add(gv);
+                        }
+                        fromWeb = true;
+                    } catch (Exception) { }
+                }
+
+                if (!fromWeb)
+                {
+                    if (!string.IsNullOrWhiteSpace(last))
+                    {
+                        Console.WriteLine("setting available = last loaded");
+                        Regex regex = new(@"blueprints_raw_(\d+)\.(\d+)\.(\d+)(.)_(\d+).binz");
+                        var match = regex.Match(last);
+                        GameVersion v;
+                        v.Major = int.Parse(match.Groups[1].Value);
+                        v.Minor = int.Parse(match.Groups[2].Value);
+                        v.Patch = int.Parse(match.Groups[3].Value);
+                        v.Suffix = match.Groups[4].Value[0];
+                        v.Bubble = int.Parse(match.Groups[5].Value);
+                        Available.Add(v);
+                    }
+                    else
+                    {
+                        Console.WriteLine("setting available = known when built");
+                        Available.Add(LastKnown);
+                    }
+                }
+            }
+
+
+            GoingToLoad mode;
+            if (File.Exists(FileName))
+                mode = GoingToLoad.FromLocalFile;
+            else if (InCache)
+                mode = GoingToLoad.FromCache;
             else
-                return GoingToLoad.FromWeb;
+                mode = GoingToLoad.FromWeb;
+
+            AvailableDetected = true;
+
+            return mode;
+
         }
 
-        const bool generateOutput = false;
-        const bool importNew = false;
+        #region DEV
+        bool generateOutput = false;
+        bool importNew = false;
+        bool forceLastKnown = false;
+        #endregion
 
         public string[] ComponentTypeLookup;
 
@@ -184,14 +292,13 @@ namespace BlueprintExplorer
                     case GoingToLoad.FromWeb:
                         Console.WriteLine("Settings file does not exist, downloading");
                         var host = "https://github.com/factubsio/BubblePrintsData/releases/download";
-                        var latestVersionUrl = new Uri($"{host}/{version}/{filenameRoot}_{version}.{extension}");
+                        var latestVersionUrl = new Uri($"{host}/{Latest}/{filenameRoot}_{Latest}.{extension}");
 
                         var client = new WebClient();
-                        var userLocalFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints");
-                        if (!Directory.Exists(userLocalFolder))
-                            Directory.CreateDirectory(userLocalFolder);
+                        if (!Directory.Exists(CacheDir))
+                            Directory.CreateDirectory(CacheDir);
 
-                        fileToOpen = Path.Combine(userLocalFolder, FileName);
+                        fileToOpen = Path.Combine(CacheDir, FileName);
                         progress.EstimatedTotal = 100;
                         client.DownloadProgressChanged += (sender, e) =>
                         {
@@ -201,128 +308,69 @@ namespace BlueprintExplorer
                         Properties.Settings.Default.BlueprintDBPath = fileToOpen;
                         Properties.Settings.Default.Save();
                         break;
-                    case GoingToLoad.FromSettingsFile:
-                        fileToOpen = Properties.Settings.Default.BlueprintDBPath;
+                    case GoingToLoad.FromCache:
+                        fileToOpen = Path.Combine(CacheDir, FileName);
                         break;
                     case GoingToLoad.FromLocalFile:
                         fileToOpen = FileName;
                         break;
                 }
 
-                FileStream OpenFile()
-                {
-                    return File.Open(fileToOpen, FileMode.Open, FileAccess.Read, FileShare.Read);
-                }
+                BPFile.Reader reader = new(fileToOpen);
 
-                var file = OpenFile();
-                if (file == null)
-                    return false;
-                var binary = new BinaryReader(file);
+                var ctx = reader.CreateReadContext();
 
                 Console.WriteLine($"Reading binz from {fileToOpen}");
 
-                int count = binary.ReadInt32();
-                int bbpeVersion;
-                if (count == 0)
-                {
-                    var magic = binary.ReadChars(4);
-                    Console.WriteLine(string.Join("", magic));
-                    bbpeVersion = binary.ReadInt32();
-                    binary.ReadUInt32(); //skip stuff?
-                    count = binary.ReadInt32();
-                }
-                else
-                {
-                    bbpeVersion = 0;
-                }
-                Console.WriteLine($"BBPE: {bbpeVersion}");
+                var headerIn = ctx.Open(reader.Handle.GetChunk((ushort)ChunkTypes.Header).Chunks[0]);
 
-                int batchSize = binary.ReadInt32();
-                cache.Capacity = count;
-                int sectionCount = binary.ReadInt32();
-                FileSection[] sections = new FileSection[sectionCount];
-                for (int i = 0; i < sections.Length; i++)
+                GameVersion header;
+                int count;
+                header.Major = headerIn.ReadInt32();
+                header.Minor = headerIn.ReadInt32();
+                header.Patch = headerIn.ReadInt32();
+                header.Suffix = headerIn.ReadChar();
+                header.Bubble = 0;
+                count = headerIn.ReadInt32();
+
+                Console.WriteLine($"Reading {count} blueprints for Wrath: {header}");
+
+                foreach (var bundle in reader.Handle.GetChunks((ushort)ChunkTypes.Blueprints))
                 {
-                    int offset = binary.ReadInt32();
-                    sections[i].Offset = offset;
-
-                    if (i > 0)
-                    {
-                        int actualOffset = (offset > 0) ? offset : (int)file.Length;
-                        sections[i - 1].Legnth = actualOffset - sections[i - 1].Offset;
-                    }
-                }
-
-                for (int i = 0; i < count; i += batchSize)
-                {
-                    int batchItems = Math.Min(count - i, batchSize);
-                    int start = i;
-                    int end = start + batchItems;
-                    FileSection section = sections[i / batchSize];
-
                     var task = Task.Run<List<BlueprintHandle>>(() =>
                     {
-                        byte[] scratchpad = new byte[10_0000_000];
-                        byte[] guid_cache = new byte[16];
-                        using var batchFile = OpenFile();
-                        using var batchReader = new BinaryReader(batchFile);
-                        batchReader.BaseStream.Seek(section.Offset, SeekOrigin.Begin);
+                        using var bundleContext = reader.CreateReadContext();
+                        var res = new List<BlueprintHandle>();
 
-                        List<BlueprintHandle> res = new();
-                        res.Capacity = batchItems;
-                        for (int x = start; x < end; x++)
+                        var main = bundleContext.Open(bundle.Chunks[0]);
+
+                        while (main.BaseStream.Position < main.BaseStream.Length)
                         {
-                            BlueprintHandle bp = new();
-                            bp.GuidText = batchReader.ReadString();
-                            bp.Name = batchReader.ReadString();
-                            bp.Type = batchReader.ReadString();
-                            var components = bp.Type.Split('.');
-                            if (components.Length <= 1)
-                                bp.TypeName = bp.Type;
-                            else
+                            var bp = new BlueprintHandle
                             {
-                                bp.TypeName = components.Last();
-                                bp.Namespace = string.Join('.', components.Take(components.Length - 1));
-                            }
-                            bool rawCompressed = batchReader.ReadBoolean();
-                            if (rawCompressed)
-                            {
-                                int outLen = batchReader.ReadInt32();
-                                int inLen = batchReader.ReadInt32();
-                                int xLen = LZ4Codec.Decode(batchReader.ReadBytes(inLen), scratchpad);
-                                if (xLen != outLen)
-                                {
-                                    Console.WriteLine("decompression failure");
-                                }
-                                bp.Raw = Encoding.ASCII.GetString(scratchpad, 0, xLen);
-                            }
-                            else
-                            {
-                                bp.Raw = batchReader.ReadString();
-                            }
+                                GuidText = main.ReadString(),
+                                Name = main.ReadString(),
+                                Type = main.ReadString(),
+                                Raw = main.ReadString()
+                            };
 
-                            bp.EnsureParsed();
-
-                            if (bbpeVersion >= 1)
-                            {
-                                int refCount = batchReader.ReadInt32();
-                                for (int i = 0; i < refCount; i++)
-                                {
-                                    batchReader.Read(guid_cache, 0, 16);
-                                    bp.BackReferences.Add(new Guid(guid_cache));
-                                }
-                            }
-                            if (bbpeVersion >= 2)
-                            {
-                                int componentIndexCount = batchReader.ReadInt32();
-                                bp.ComponentIndex = new UInt16[componentIndexCount];
-                                for (int i = 0; i < componentIndexCount; i++)
-                                {
-                                    bp.ComponentIndex[i] = batchReader.ReadUInt16();
-                                }
-                            }
+                            bp.ParseType();
 
                             res.Add(bp);
+                        }
+
+                        byte[] guid_cache = new byte[16];
+                        var refs = bundleContext.Open(bundle.ForSubType((ushort)ChunkSubTypes.Blueprints.References));
+
+                        for (int i = 0; i < res.Count; i++)
+                        {
+                            int refCount = refs.ReadInt32();
+                            for (int r = 0; r < refCount; r++)
+                            {
+                                refs.Read(guid_cache);
+                                res[i].BackReferences.Add(new Guid(guid_cache));
+                            }
+
                         }
 
                         return res;
@@ -330,54 +378,26 @@ namespace BlueprintExplorer
                     tasks.Add(task);
                 }
 
-                var loadComponentDict = Task.Run<string[]>(() =>
+                var loadMeta = Task.Run(() =>
                 {
-                    string[] componentDict;
-                    using var batchFile = OpenFile();
-                    using var batchReader = new BinaryReader(batchFile);
-                    int offset = sections[^1].Offset;
-                    Console.WriteLine($"dict offset: {offset}");
-                    batchReader.BaseStream.Seek(offset, SeekOrigin.Begin);
-
-                    componentDict = new string[batchReader.ReadInt32()];
-
-                    int fullNameCount = 0;
-                    if (bbpeVersion >= 3)
-                        fullNameCount = batchReader.ReadInt32();
-
-                    if (bbpeVersion >= 4) {
-                        byte[] raw = new byte[batchReader.ReadInt32()];
-                        int compressedSize = batchReader.ReadInt32();
-                        byte[] compressed = batchReader.ReadBytes(compressedSize);
-                        LZ4Codec.Decode(compressed.AsSpan(), raw.AsSpan());
-                        var stringDictRaw = JsonSerializer.Deserialize<JsonElement>(raw).GetProperty("strings");
-                        foreach (var kv in stringDictRaw.EnumerateObject())
-                            Strings[kv.Name] = kv.Value.GetString();
-                    }
-
-                    for (int i = 0; i < componentDict.Length; i++)
+                    var types = ctx.Open(reader.Get((ushort)ChunkTypes.TypeNames).Main);
+                    int count = types.ReadInt32();
+                    for (int i = 0; i < count; i++)
                     {
-                        string val = batchReader.ReadString();
-                        UInt16 index = batchReader.ReadUInt16();
-                        componentDict[index] = val;
-                    }
-
-                    for (int i = 0; i < fullNameCount; i++)
-                    {
-                        string key = batchReader.ReadString();
-                        string val = batchReader.ReadString();
+                        string key = types.ReadString();
+                        string val = types.ReadString();
                         GuidToFullTypeName[key] = val;
                     }
 
-                    return componentDict;
-                });
+                    var strings = ctx.OpenRaw(reader.Get((ushort)ChunkTypes.Strings).Main);
 
+                    var stringDictRaw = JsonSerializer.Deserialize<JsonElement>(strings.Span).GetProperty("strings");
+                        foreach (var kv in stringDictRaw.EnumerateObject())
+                            Strings[kv.Name] = kv.Value.GetString();
+                });
 
                 float loadTime = watch.ElapsedMilliseconds;
                 Console.WriteLine($"Loaded {cache.Count} blueprints in {watch.ElapsedMilliseconds}ms");
-
-                binary.Dispose();
-                file.Dispose();
 
                 var addWatch = new Stopwatch();
                 addWatch.Start();
@@ -385,9 +405,12 @@ namespace BlueprintExplorer
                 {
                     AddBlueprint(bp);
                 }
+                loadMeta.Wait();
 
-                ComponentTypeLookup = loadComponentDict.Result;
-                Console.WriteLine($"loaded {ComponentTypeLookup.Length} component types");
+
+                Properties.Settings.Default.LastLoaded = Path.GetFileName(fileToOpen);
+                Properties.Settings.Default.Save();
+                ctx.Dispose();
 
             }
 
@@ -406,103 +429,6 @@ namespace BlueprintExplorer
                 }
 #pragma warning restore CS0162 // Unreachable code detected
             }
-
-            //var byType = cache.ToLookup(bp => bp.EnsureObj.TypeString());
-            //Dictionary<string, WeaponStuff> weaponStuffs = new();
-
-
-            //foreach (var (k, v) in byType["Kingmaker.Blueprints.Items.Weapons.BlueprintItemWeapon"].Select(bp => (bp.GuidText, GetStuff(bp))))
-            //    weaponStuffs[k] = v;
-
-            //if (Directory.Exists("vendor_tables"))
-            //    Directory.Delete("vendor_tables", true);
-            //Directory.CreateDirectory("vendor_tables");
-
-            //GatherItems("Kingmaker.Blueprints.Items.Armors.BlueprintItemArmor", "Armor");
-            //GatherItems("Kingmaker.Blueprints.Items.Weapons.BlueprintItemWeapon", "Weapon", IsWeaponGood);
-            //GatherItems("Kingmaker.Blueprints.Items.Shields.BlueprintItemShield", "Shield");
-            //GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentBelt", "Belt");
-            //GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentFeet", "Feet");
-            //GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentGlasses", "Glasses");
-            //GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentGloves", "Gloves");
-            //GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentHand", "Hand");
-            //GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentHandSimple", "HandSimple");
-            //GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentHead", "Head");
-            //GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentNeck", "Neck");
-            //GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentRing", "Ring");
-            //GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentShirt", "Shirt");
-            //GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentShoulders", "Shoulders");
-            //GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentSimple", "Simple");
-            //GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentUsable", "Usable");
-            //GatherItems("Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentWrist", "Wrist");
-
-
-            //void GatherItems(string type, string file, params Func<BlueprintHandle, bool> []filters)
-            //{
-            //    IEnumerable<BlueprintHandle> items = byType[type];
-            //    foreach (var filter in filters)
-            //        items = items.Where(filter);
-
-            //    var byCost = items
-            //        .Select(bp => (bp, cost: bp.EnsureObj.Int("m_Cost")))
-            //        .Where(bp_cost => bp_cost.cost > 100)
-            //        .OrderByDescending(bp_cost => bp_cost.cost);
-
-            //    var path = $"vendor_tables/vendortable_{file}.txt";
-
-            //    File.WriteAllLines(path, byCost.Select(i => $"{i.bp.Name}:{i.bp.GuidText}:{i.cost}"));
-            //}
-
-            //WeaponStuff GetStuff(BlueprintHandle bp)
-            //{
-            //    WeaponStuff stuff = new();
-            //    if (bp.obj.TryGetProperty("m_Type", out var linkText))
-            //    {
-            //        var (link, target) = BlueprintHandle.ParseReference(linkText.GetString());
-            //        if (link == null)
-            //        {
-            //            Console.WriteLine($"{bp.Name} - NO m_Type on Weapon!!!");
-            //            System.Windows.Forms.Application.Exit();
-            //        }
-
-            //        if (Blueprints.TryGetValue(link.Guid(), out var type))
-            //        {
-            //            if (type.EnsureObj.TryGetProperty("m_FighterGroupFlags", out var fighterGroup))
-            //            {
-            //                stuff.IsDouble = fighterGroup.GetString().Contains("Double");
-            //                stuff.IsSecond = stuff.IsDouble && !bp.obj.True("Double");
-            //            }
-            //            else
-            //            {
-            //                stuff.IsBad = true;
-            //            }
-
-            //            stuff.IsNatural = type.EnsureObj.True("m_IsNatural");
-
-            //        }
-            //        else
-            //        {
-            //            stuff.IsBad = true;
-            //        }
-
-
-            //    }
-            //    return stuff;
-            //}
-
-            //bool IsWeaponGood(BlueprintHandle bp) => weaponStuffs[bp.GuidText].Good;
-
-            //foreach (var armor in .GroupBy(bp => (int)Math.Log(bp.EnsureObj.Int("m_Cost") / 4, 11)).Where(g => g.Key >= 2).OrderByDescending(g => g.Key))
-            //{
-            //    Console.WriteLine($"Bucket: {armor.Key}");
-            //    foreach (var a in armor)
-            //    {
-            //        Console.WriteLine($"  {a.Name}  -  {a.EnsureObj.Int("m_Cost") / 4}");
-            //    }
-            //}
-
-
-
 
             return true;
         }
@@ -543,64 +469,44 @@ namespace BlueprintExplorer
             Dictionary<string, UInt16> uniqueComponents = new();
 
 
-            using (var file = File.OpenWrite("NEW_" + FileName))
+            using (var file = new BPFile.BPWriter("NEW_" + FileName))
             {
-                using var binary = new BinaryWriter(file);
-                binary.Write(0);
-                binary.Write("BBPE".AsSpan());
-                binary.Write(LatestVersion);
-                binary.Write(0);
+                using (var header = file.Begin((ushort)ChunkTypes.Header))
+                {
+                    header.Stream.Write(1);
+                    header.Stream.Write(1);
+                    header.Stream.Write(4);
+                    header.Stream.Write('d');
+                    header.Stream.Write(cache.Count);
+                }
 
-                binary.Write(cache.Count);
-                const int batchSize = 16000;
-                binary.Write(batchSize);
+                int batchSize = 16000;
 
-                int[] toc = new int[64];
-                binary.Write(toc.Length);
-                int tocAt = (int)binary.Seek(0, SeekOrigin.Current);
-                foreach (var t in toc)
-                    binary.Write(t);
-
+                BPFile.ChunkWriter current = null;
                 for (int i = 0; i < cache.Count; i++)
                 {
                     if (i % batchSize == 0)
                     {
-                        toc[i / batchSize] = (int)binary.Seek(0, SeekOrigin.Current);
+                        current?.Dispose();
+                        current = file.Begin((ushort)ChunkTypes.Blueprints);
                     }
 
                     var c = cache[i];
 
                     HashSet<string> components = new(c.Objects);
 
-                    binary.Write(c.GuidText);
-                    binary.Write(c.Name);
-                    binary.Write(c.Type);
-                    if (c.Raw.Length > 100)
-                    {
-                        binary.Write(true);
-                        var raw = Encoding.ASCII.GetBytes(c.Raw);
-                        int compressed = LZ4Codec.Encode(raw.AsSpan(), scratchpad.AsSpan(), LZ4Level.L10_OPT);
-                        binary.Write(c.Raw.Length);
-                        binary.Write(compressed);
-                        binary.Write(scratchpad, 0, compressed);
 
-                        if (c.Raw.Length > biggestString)
-                            biggestString = c.Raw.Length;
-                        if (compressed > biggestStringZ)
-                            biggestStringZ = compressed;
-                    }
-                    else
-                    {
-                        binary.Write(false);
-                        binary.Write(c.Raw);
-                    }
+                    current.Stream.Write(c.GuidText);
+                    current.Stream.Write(c.Name);
+                    current.Stream.Write(c.Type);
+                    current.Stream.Write(c.Raw);
 
-
+                    var refs = current.GetStream((ushort)ChunkSubTypes.Blueprints.Components);
                     if (References.TryGetValue(Guid.Parse(c.GuidText), out var refList))
                     {
-                        binary.Write(refList.Count);
+                        refs.Write(refList.Count);
                         foreach (var backRef in refList)
-                            binary.Write(backRef.ToByteArray());
+                            refs.Write(backRef.ToByteArray());
                         if (refList.Count > biggestRefList)
                         {
                             biggestRefList = refList.Count;
@@ -609,10 +515,11 @@ namespace BlueprintExplorer
                     }
                     else
                     {
-                        binary.Write(0);
+                        refs.Write(0);
                     }
 
-                    binary.Write(components.Count);
+                    var comps = current.GetStream((ushort)ChunkSubTypes.Blueprints.References);
+                    comps.Write(components.Count);
                     foreach (var componentType in components)
                     {
                         if (!uniqueComponents.TryGetValue(componentType, out var index))
@@ -620,37 +527,36 @@ namespace BlueprintExplorer
                             index = (UInt16)uniqueComponents.Count;
                             uniqueComponents.Add(componentType, index);
                         }
-                        binary.Write(index);
+                        comps.Write(index);
                     }
                 }
 
+                current?.Dispose();
+
+
+
                 var rawLangDict = File.ReadAllBytes(@"D:\WOTR-1.1-DEBUG\Wrath_Data\StreamingAssets\Localization\enGB.json");
-                int langDictCompressed = LZ4Codec.Encode(rawLangDict.AsSpan(), scratchpad.AsSpan(), LZ4Level.L10_OPT);
+                file.Write((ushort)ChunkTypes.Strings, 0, rawLangDict);
 
-                toc[^1] = (int)binary.BaseStream.Position;
-                binary.Write(uniqueComponents.Count);
-                binary.Write(GuidToFullTypeName.Count);
-                binary.Write(rawLangDict.Length);
-                binary.Write(langDictCompressed);
-                binary.Write(scratchpad, 0, langDictCompressed);
-
-                foreach (var kv in uniqueComponents)
+                using (var types = file.Begin((ushort)ChunkTypes.TypeNames))
                 {
-                    binary.Write(kv.Key);
-                    binary.Write(kv.Value);
+                    types.Stream.Write(GuidToFullTypeName.Count);
+                    foreach (var kv in GuidToFullTypeName)
+                    {
+                        types.Stream.Write(kv.Key);
+                        types.Stream.Write(kv.Value);
+                    }
                 }
 
-                foreach (var kv in GuidToFullTypeName)
+                using (var comps = file.Begin((ushort)ChunkTypes.TypeNames))
                 {
-                    binary.Write(kv.Key);
-                    binary.Write(kv.Value);
+                    comps.Stream.Write(uniqueComponents.Count);
+                    foreach (var kv in uniqueComponents)
+                    {
+                        comps.Stream.Write(kv.Key);
+                        comps.Stream.Write(kv.Value);
+                    }
                 }
-
-
-
-                binary.Seek(tocAt, SeekOrigin.Begin);
-                foreach (var t in toc)
-                    binary.Write(t);
 
             }
             Console.WriteLine($"biggestString: {biggestString}, biggestStringZ: {biggestStringZ}, mostReferred: {mostReferred} ({biggestRefList})");
@@ -776,6 +682,7 @@ namespace BlueprintExplorer
             if (!debugTasks)
                 return;
 
+#pragma warning disable CS0162 // Unreachable code detected
             if (bufferIndex == 1)
             {
                 Console.Write(Status(locked[0]).PadRight(40));
@@ -786,6 +693,7 @@ namespace BlueprintExplorer
                 Console.Write(text.PadRight(40));
                 Console.WriteLine(Status(locked[1]));
             }
+#pragma warning restore CS0162 // Unreachable code detected
 #endif
         }
 

@@ -17,13 +17,58 @@ using static BlueprintExplorer.BlueprintPropertyConverter;
 namespace BlueprintExplorer {
     public partial class Form1 : Form {
         
-        public static Color DarkColor = Color.FromArgb(50, 50, 50);
+        private static readonly Color RegularDarkColor = Color.FromArgb(50, 50, 50);
+        private static readonly Color ChristmasColorBG = Color.FromArgb(150, 10, 10);
+        private static readonly Color ChristmasColorFG = Color.White;
+
+
+        public static Color SeasonalFGColor
+        {
+            get
+            {
+
+                if (SeasonalOverlay.NearChristmas)
+                    return ChristmasColorFG;
+
+                return Color.Green;
+            }
+        }
+
+        public static Color SeasonalBGColor
+        {
+            get
+            {
+                if (SeasonalOverlay.NearChristmas)
+                    return ChristmasColorBG;
+
+                return Color.Black;
+            }
+        }
+
+
+        public static void SeasonStyles(params DataGridViewCellStyle []styles)
+        {
+            foreach (var style in styles)
+            {
+                style.ForeColor = SeasonalFGColor;
+                style.BackColor = SeasonalBGColor;
+            }
+        }
+        public static void SeasonControls(params Control []controls)
+        {
+            foreach (var c in controls)
+            {
+                c.ForeColor = SeasonalFGColor;
+                c.BackColor = SeasonalBGColor;
+            }
+        }
+
         public static void DarkenStyles(params DataGridViewCellStyle []styles)
         {
             foreach (var style in styles)
             {
                 style.ForeColor = Color.White;
-                style.BackColor = DarkColor;
+                style.BackColor = RegularDarkColor;
             }
         }
         public static void DarkenControls(params Control []controls)
@@ -31,11 +76,11 @@ namespace BlueprintExplorer {
             foreach (var c in controls)
             {
                 c.ForeColor = Color.White;
-                c.BackColor = DarkColor;
+                c.BackColor = RegularDarkColor;
             }
         }
         private BlueprintDB db => BlueprintDB.Instance;
-        public static bool Dark;
+        private static bool dark;
         bool Good => initialize?.IsCompleted ?? false;
 
         public Form1() {
@@ -59,6 +104,9 @@ namespace BlueprintExplorer {
             Color bgColor = omniSearch.BackColor;
             resultsGrid.RowHeadersVisible = false;
             bpProps.DisabledItemForeColor = Color.Black;
+
+            availableVersions.Enabled = false;
+
 
             settingsButton.Click += (sender, evt) =>
             {
@@ -92,26 +140,36 @@ namespace BlueprintExplorer {
                 BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, "Wrath_Data", "Managed", "Assembly-CSharp.dll"));
             }
 
+            resultsGrid.AllowUserToResizeRows = false;
+
             if (Dark)
             {
                 DarkenPropertyGrid(bpProps);
                 resultsGrid.EnableHeadersVisualStyles = false;
                 DarkenControls(filter, omniSearch, resultsGrid, count, splitContainer1, references, panel1, bottomPanel, settingsButton);
                 DarkenStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle, references.DefaultCellStyle, references.ColumnHeadersDefaultCellStyle);
+
+                Invalidate();
             }
+
 
             omniSearch.Enabled = false;
             filter.Enabled = false;
             resultsGrid.Enabled = false;
 
-
+            if (SeasonalOverlay.InSeason)
+            {
+                SeasonControls(omniSearch, filter, panel1, settingsButton, count, resultsGrid);
+                SeasonStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
+                SeasonalOverlay.Install(resultsGrid);
+            }
 
             var loadType = BlueprintDB.Instance.GetLoadType();
 
             var loadString = loadType switch
             {
                 BlueprintDB.GoingToLoad.FromLocalFile => "LOADING (debug)",
-                BlueprintDB.GoingToLoad.FromSettingsFile => "LOADING (local)",
+                BlueprintDB.GoingToLoad.FromCache => "LOADING (local)",
                 BlueprintDB.GoingToLoad.FromWeb => "DOWNLOADING",
                 BlueprintDB.GoingToLoad.FromNewImport => "IMPORTING",
                 _ => throw new Exception(),
@@ -127,6 +185,11 @@ namespace BlueprintExplorer {
                 omniSearch.Select();
                 ShowBlueprint(BlueprintDB.Instance.Blueprints.Values.First(), false);
                 bpProps.SetLabelColumnWidth(450);
+
+                foreach (var v in BlueprintDB.Instance.Available)
+                    availableVersions.Items.Add(v);
+                availableVersions.SelectedIndex = availableVersions.Items.Count - 1;
+                availableVersions.Enabled = true;
             }, TaskScheduler.FromCurrentSynchronizationContext());
 
             bpProps.SelectedGridItemChanged += BpProps_SelectedGridItemChanged;
@@ -155,6 +218,11 @@ namespace BlueprintExplorer {
 
         }
 
+        private void ResultsGrid_Paint(object sender, PaintEventArgs e)
+        {
+            e.Graphics.FillRectangle(Brushes.Yellow, 0, 0, 100, 100);
+        }
+
         private void Default_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
         }
@@ -165,13 +233,11 @@ namespace BlueprintExplorer {
             grid.DisabledItemForeColor = Color.White;
             grid.ViewForeColor = Color.White;
             grid.HelpForeColor = Color.LightGray;
-            grid.BackColor = DarkColor;
-            grid.ViewBackColor = DarkColor;
+            grid.HelpBackColor = RegularDarkColor;
+            grid.BackColor = RegularDarkColor;
+            grid.ViewBackColor = RegularDarkColor;
             grid.ViewBorderColor = Color.DimGray;
-            grid.CommandsBackColor = DarkColor;
-            grid.HelpBackColor = DarkColor;
-            grid.CategorySplitterColor = DarkColor;
-        }
+            grid.ViewBackColor = RegularDarkColor;        }
 
         class ElementWriteState
         {
@@ -446,6 +512,8 @@ namespace BlueprintExplorer {
         }
 
         private string Search => omniSearch.Text;
+
+        public static bool Dark { get => dark; set => dark = value; }
 
         private static readonly char[] wordSeparators =
         {
@@ -748,6 +816,11 @@ namespace BlueprintExplorer {
         }
 
         private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void bpProps_Click(object sender, EventArgs e)
         {
 
         }

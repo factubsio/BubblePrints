@@ -50,6 +50,7 @@ namespace BlueprintExplorer
             this.bottomPanel = new System.Windows.Forms.TableLayoutPanel();
             this.tableLayoutPanel3 = new System.Windows.Forms.TableLayoutPanel();
             this.settingsButton = new System.Windows.Forms.Button();
+            this.availableVersions = new System.Windows.Forms.ComboBox();
             this.panel1.SuspendLayout();
             this.tableLayoutPanel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
@@ -238,6 +239,7 @@ namespace BlueprintExplorer
             this.bpProps.Name = "bpProps";
             this.bpProps.Size = new System.Drawing.Size(1771, 788);
             this.bpProps.TabIndex = 4;
+            this.bpProps.Click += new System.EventHandler(this.bpProps_Click);
             // 
             // filter
             // 
@@ -295,7 +297,7 @@ namespace BlueprintExplorer
             this.historyBread.Dock = System.Windows.Forms.DockStyle.Fill;
             this.historyBread.Location = new System.Drawing.Point(3, 3);
             this.historyBread.Name = "historyBread";
-            this.historyBread.Size = new System.Drawing.Size(2278, 53);
+            this.historyBread.Size = new System.Drawing.Size(1978, 53);
             this.historyBread.TabIndex = 1;
             // 
             // bottomPanel
@@ -316,11 +318,13 @@ namespace BlueprintExplorer
             // 
             // tableLayoutPanel3
             // 
-            this.tableLayoutPanel3.ColumnCount = 2;
+            this.tableLayoutPanel3.ColumnCount = 3;
             this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 300F));
             this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 152F));
             this.tableLayoutPanel3.Controls.Add(this.historyBread, 0, 0);
-            this.tableLayoutPanel3.Controls.Add(this.settingsButton, 1, 0);
+            this.tableLayoutPanel3.Controls.Add(this.settingsButton, 2, 0);
+            this.tableLayoutPanel3.Controls.Add(this.availableVersions, 1, 0);
             this.tableLayoutPanel3.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tableLayoutPanel3.Location = new System.Drawing.Point(3, 1105);
             this.tableLayoutPanel3.Name = "tableLayoutPanel3";
@@ -338,6 +342,17 @@ namespace BlueprintExplorer
             this.settingsButton.TabIndex = 2;
             this.settingsButton.Text = "Settings";
             this.settingsButton.UseVisualStyleBackColor = true;
+            // 
+            // availableVersions
+            // 
+            this.availableVersions.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.availableVersions.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.availableVersions.FormattingEnabled = true;
+            this.availableVersions.ItemHeight = 25;
+            this.availableVersions.Location = new System.Drawing.Point(1987, 3);
+            this.availableVersions.Name = "availableVersions";
+            this.availableVersions.Size = new System.Drawing.Size(294, 33);
+            this.availableVersions.TabIndex = 3;
             // 
             // Form1
             // 
@@ -391,6 +406,7 @@ namespace BlueprintExplorer
         private System.Windows.Forms.TableLayoutPanel bottomPanel;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel3;
         private System.Windows.Forms.Button settingsButton;
+        private System.Windows.Forms.ComboBox availableVersions;
     }
 }
 

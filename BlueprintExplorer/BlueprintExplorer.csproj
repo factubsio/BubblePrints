@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\.editorconfig" Link=".editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="K4os.Compression.LZ4" Version="1.2.15" />
     <PackageReference Include="System.Data.SQLite" Version="1.0.115" />
   </ItemGroup>
