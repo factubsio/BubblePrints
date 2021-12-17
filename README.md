@@ -1,6 +1,4 @@
 
-If you want dark mode set the environment variable `BubbleprintsTheme=dark`
-
 FOLLOWING LINKS:
 
 To follow links (denoted by the exclamation point prefixing them), click the link. You can choose to open links in a new tab by ctrl + clicking them. 
