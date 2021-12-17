@@ -3,7 +3,7 @@ If you want dark mode set the environment variable `BubbleprintsTheme=dark`
 
 FOLLOWING LINKS:
 
-To follow links (denoted by the exclamation point prefixing them), click the link, and then click "follow link". You can also follow links just by clicking on them by setting "Follow link on click" in the settings to "true". 
+To follow links (denoted by the exclamation point prefixing them), click the link. You can choose to open links in a new tab by ctrl + clicking them. 
 
 SEARCHING:
 
