@@ -1,6 +1,10 @@
 
 If you want dark mode set the environment variable `BubbleprintsTheme=dark`
 
+FOLLOWING LINKS:
+
+To follow links (denoted by the exclamation point prefixing them), click the link, and then click "follow link". You can also follow links just by clicking on them by setting "Follow link on click" in the settings to "true". 
+
 SEARCHING:
 
 `glitterbuff` will search all blueprints by name and do a fuzzy match, then return the matches in the "best" order. It doesn't get it right 100% of the time, but what you're looking for should be in the top few results.
