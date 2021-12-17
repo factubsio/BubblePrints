@@ -21,4 +21,6 @@ example:
 
 `g:abcdef` will find all results that have the exact substring `abcdef` in their guid.
 
+(You can disable the seasonal theme, don't worry): 
+
 ![image](https://user-images.githubusercontent.com/65080026/146615602-b4172618-ea8f-4695-9d2f-2b746f942f56.png)
