@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static BlueprintExplorer.BlueprintViewer;
 
 namespace BlueprintExplorer
 {
@@ -24,5 +25,8 @@ namespace BlueprintExplorer
 
 
         public static int SelectedRow(this DataGridView view) => view.SelectedRows.Count > 0 ? view.SelectedRows[0].Index : 0;
+
+        public static bool UpdateHistory(this ShowFlags flags) => (flags & ShowFlags.F_UpdateHistory) != 0;
+        public static bool ClearHistory(this ShowFlags flags) => (flags & ShowFlags.F_ClearHistory) != 0;
     }
 }

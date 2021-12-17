@@ -12,15 +12,14 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Forms.Design;
 using static BlueprintExplorer.BlueprintHandle;
-using static BlueprintExplorer.BlueprintPropertyConverter;
+using static BlueprintExplorer.BlueprintViewer;
 
 namespace BlueprintExplorer {
-    public partial class Form1 : Form {
+    public partial class Form1 : BubbleprintsForm {
         
         private static readonly Color RegularDarkColor = Color.FromArgb(50, 50, 50);
         private static readonly Color ChristmasColorBG = Color.FromArgb(150, 10, 10);
         private static readonly Color ChristmasColorFG = Color.White;
-
 
         public static Color SeasonalFGColor
         {
@@ -83,6 +82,41 @@ namespace BlueprintExplorer {
         private static bool dark;
         bool Good => initialize?.IsCompleted ?? false;
 
+        public BlueprintViewer NewBlueprintViewer(int index = -1)
+        {
+            var viewer = new BlueprintViewer();
+            if (Dark)
+            {
+                DarkenControls(viewer);
+            }
+
+            viewer.View.Font = BlueprintFont;
+            viewer.View.LinkFont = LinkFont;
+            var page = new TabPage("<empty>");
+
+            viewer.OnBlueprintShown += bp =>
+            {
+                page.Text = "     " + bp.Name + "     ";
+            };
+
+            viewer.OnOpenExternally += bp =>
+            {
+                DoOpenInEditor(bp);
+            };
+
+            viewer.OnLinkOpenNewTab += bp =>
+            {
+                var viewer = NewBlueprintViewer();
+                viewer.ShowBlueprint(bp, ShowFlags.F_ClearHistory | ShowFlags.F_UpdateHistory);
+                blueprintViews.SelectedIndex = blueprintViews.TabCount - 1;
+            };
+
+            page.Controls.Add(viewer);
+            viewer.Dock = DockStyle.Fill;
+            blueprintViews.TabPages.Add(page);
+            return viewer;
+        }
+
         public Form1() {
             var env = Environment.GetEnvironmentVariable("BubbleprintsTheme");
             Dark = env?.Equals("dark") ?? false;
@@ -91,19 +125,14 @@ namespace BlueprintExplorer {
             Properties.Settings.Default.PropertyChanged += Default_PropertyChanged;
 
             InitializeComponent();
-#if DEBUG
-            BubblePrints.SetupLogging();
-#endif
+            NewBlueprintViewer();
             omniSearch.TextChanged += OmniSearch_TextChanged;
             resultsGrid.CellClick += ResultsGrid_CellClick;
-            references.CellClick += references_CellClick;
 
             InstallReadline(omniSearch);
-            InstallReadline(filter);
 
             Color bgColor = omniSearch.BackColor;
             resultsGrid.RowHeadersVisible = false;
-            bpProps.DisabledItemForeColor = Color.Black;
 
             availableVersions.Enabled = false;
 
@@ -112,26 +141,6 @@ namespace BlueprintExplorer {
             {
                 new SettingsView().ShowDialog();
             };
-
-            //bpProps.Categor
-
-            bpProps.PropertySort = PropertySort.NoSort;
-
-            ToolStrip strip = bpProps.Controls.OfType<ToolStrip>().First();
-            strip.Items.Add("expand all").Click += (sender, e) =>
-            {
-                bpProps.ExpandAllGridItems();
-            };
-            followLink = strip.Items.Add("follow link");
-            followLink.Click += (sender, e) =>
-            {
-                if (CurrentView != null)
-                    ShowBlueprint(BlueprintDB.Instance.Blueprints[Guid.Parse(CurrentLink)], true);
-            };
-            followLink.Enabled = false;
-
-            openInEditor = strip.Items.Add("open in editor");
-            openInEditor.Click += DoOpenInEditor;
 
             BubblePrints.SetWrathPath();
 
@@ -142,24 +151,37 @@ namespace BlueprintExplorer {
 
             resultsGrid.AllowUserToResizeRows = false;
 
+            blueprintViews.DrawMode = TabDrawMode.OwnerDrawFixed;
+            blueprintViews.DrawItem += (sender, e) =>
+            {
+                var g = e.Graphics;
+                g.FillRectangle(new SolidBrush(resultsGrid.BackColor), e.Bounds);
+                var textBounds = e.Bounds;
+                textBounds.Inflate(-2, -2);
+                var title = blueprintViews.TabPages[e.Index].Text;
+                int halfSize = (int)(g.MeasureString(title, Font).Width / 2);
+                int center = textBounds.Left + textBounds.Width / 2;
+                textBounds.X = center - halfSize;
+                g.DrawString(title, Font, new SolidBrush(resultsGrid.ForeColor), textBounds);
+            };
+
             if (Dark)
             {
-                DarkenPropertyGrid(bpProps);
                 resultsGrid.EnableHeadersVisualStyles = false;
-                DarkenControls(filter, omniSearch, resultsGrid, count, splitContainer1, references, panel1, bottomPanel, settingsButton);
-                DarkenStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle, references.DefaultCellStyle, references.ColumnHeadersDefaultCellStyle);
+                DarkenControls(omniSearch, resultsGrid, splitContainer1, panel1, settingsButton, blueprintViews);
+                DarkenStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
 
                 Invalidate();
             }
 
 
+
             omniSearch.Enabled = false;
-            filter.Enabled = false;
             resultsGrid.Enabled = false;
 
             if (SeasonalOverlay.InSeason)
             {
-                SeasonControls(omniSearch, filter, panel1, settingsButton, count, resultsGrid);
+                SeasonControls(omniSearch, panel1, settingsButton, resultsGrid);
                 SeasonStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
                 SeasonalOverlay.Install(resultsGrid);
             }
@@ -183,16 +205,13 @@ namespace BlueprintExplorer {
                 resultsGrid.Enabled = true;
                 omniSearch.Text = "";
                 omniSearch.Select();
-                ShowBlueprint(BlueprintDB.Instance.Blueprints.Values.First(), false);
-                bpProps.SetLabelColumnWidth(450);
+                ShowBlueprint(BlueprintDB.Instance.Blueprints.Values.First(), ShowFlags.F_UpdateHistory);
 
                 foreach (var v in BlueprintDB.Instance.Available)
                     availableVersions.Items.Add(v);
                 availableVersions.SelectedIndex = availableVersions.Items.Count - 1;
                 availableVersions.Enabled = true;
             }, TaskScheduler.FromCurrentSynchronizationContext());
-
-            bpProps.SelectedGridItemChanged += BpProps_SelectedGridItemChanged;
 
 
             new Thread(() => {
@@ -218,6 +237,11 @@ namespace BlueprintExplorer {
 
         }
 
+        private void BlueprintView_OnLinkClicked(string link)
+        {
+            throw new NotImplementedException();
+        }
+
         private void ResultsGrid_Paint(object sender, PaintEventArgs e)
         {
             e.Graphics.FillRectangle(Brushes.Yellow, 0, 0, 100, 100);
@@ -237,7 +261,8 @@ namespace BlueprintExplorer {
             grid.BackColor = RegularDarkColor;
             grid.ViewBackColor = RegularDarkColor;
             grid.ViewBorderColor = Color.DimGray;
-            grid.ViewBackColor = RegularDarkColor;        }
+            grid.ViewBackColor = RegularDarkColor;
+        }
 
         class ElementWriteState
         {
@@ -245,191 +270,169 @@ namespace BlueprintExplorer {
             public int Children;
         }
 
-        private void DoOpenInEditor(object sender, EventArgs e)
+        private void DoOpenInEditor(BlueprintHandle blueprint)
         {
-            if (CurrentView != null)
+            if (blueprint == null)
+                return;
+            var userLocalFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints", "cache");
+            if (!Directory.Exists(userLocalFolder))
+                Directory.CreateDirectory(userLocalFolder);
+
+            string fileToOpen = Path.Combine(userLocalFolder, blueprint.Name + "_" + blueprint.GuidText + ".json");
+
+            bool json = Properties.Settings.Default.StrictJsonForEditor;
+            if (!File.Exists(fileToOpen))
             {
-                var userLocalFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints", "cache");
-                if (!Directory.Exists(userLocalFolder))
-                    Directory.CreateDirectory(userLocalFolder);
+                using var stream = new StreamWriter(File.OpenWrite(fileToOpen));
+                int level = 0;
+                Stack<ElementWriteState> stack = new();
+                stack.Push(new() { IsObj = true });
 
-                string fileToOpen = Path.Combine(userLocalFolder, CurrentView.Name + "_" +  CurrentView.GuidText + ".json");
-
-                bool json = Properties.Settings.Default.StrictJsonForEditor;
-                if (!File.Exists(fileToOpen))
+                void Quote(string str)
                 {
-                    using var stream = new StreamWriter(File.OpenWrite(fileToOpen));
-                    int level = 0;
-                    Stack<ElementWriteState> stack = new();
-                    stack.Push(new() { IsObj = true });
-
-                    void Quote(string str)
-                    {
-                        if (json)
-                            stream.Write('"');
-                        stream.Write(str);
-                        if (json)
-                            stream.Write('"');
-                    }
-
-                    void WriteMultiLine(string key, string value)
-                    {
-                        if (json)
-                        {
-                            WriteLine(key, value.Replace("\r\n", "\\n").Replace("\n", "\\n"), null);
-                            return;
-                        }
-                        stream.WriteLine();
-                        stream.Write("".PadLeft(level * 4));
-                        if (stack.Peek().IsObj)
-                        {
-                            stream.Write(key);
-                            stream.Write(": ");
-                        }
-
-                        int indent = level * 4 + key.Length + 2;
-
-                        var lines = value.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.None);
-
-                        for (int i = 0; i < lines.Length; i++)
-                        {
-                            if (i > 0)
-                                stream.Write("".PadLeft(indent));
-                            stream.Write(lines[i]);
-                            if (i != lines.Length - 1)
-                                stream.WriteLine();
-                        }
-                    }
-
-                    void WriteLine(string key, string value, string link)
-                    {
-                        if (json)
-                        {
-                            if (stack.Peek().Children > 1)
-                                stream.Write(',');
-                        }
-                        stream.WriteLine();
-                        stream.Write("".PadLeft(level * 4));
-                        if (stack.Peek().IsObj)
-                        {
-                            Quote(key);
-                            stream.Write(": ");
-                        }
-
-                        if (link != null)
-                        {
-                            var target = BlueprintDB.Instance.Blueprints[Guid.Parse(link)];
-
-                            value = "link: " + link + " (" + target.Name + " :" + target.TypeName + ")";
-                        }
-
-                        Quote(value);
-                    }
-
-                    void Open(string key, bool obj)
-                    {
-                        if (json)
-                        {
-                            if (stack.Peek().Children > 1)
-                                stream.Write(',');
-                            stream.WriteLine();
-                        }
-                        stream.Write("".PadLeft(level * 4));
-                        if (stack.Peek().IsObj)
-                        {
-                            Quote(key);
-                            stream.Write(": ");
-                        }
-                        if (json)
-                            stream.Write(obj ? '{' : '[');
-                    }
-                    void Close(ElementWriteState state)
-                    {
-                        if (state.Children > 0)
-                        {
-                            if (json)
-                            {
-                                stream.WriteLine();
-                                stream.Write("".PadLeft(level * 4));
-                            }
-                        }
-                        else
-                        {
-                            if (!json)
-                                stream.WriteLine(" [empty]");
-                        }
-                        if (json)
-                            stream.Write(state.IsObj ? '}' : ']');
-                    }
-
                     if (json)
-                        stream.WriteLine("{");
-
-                    foreach (var elem in CurrentView.Elements)
-                    {
-                        if (elem.levelDelta < 0)
-                        {
-                            var closeObj = stack.Pop();
-                            level--;
-                            Close(closeObj);
-                        }
-                        else if (elem.levelDelta == 0)
-                        {
-                            stack.Peek().Children++;
-                            WriteLine(elem.key, elem.value, elem.link);
-                        }
-                        else if (elem.levelDelta > 0)
-                        {
-                            stack.Peek().Children++;
-                            Open(elem.key, elem.isObj);
-                            stack.Push(new() { IsObj = elem.isObj });
-                            level++;
-
-                            var renderedString = NestedProxy.ParseAsString(elem.Node);
-                            if (renderedString != null)
-                            {
-                                stack.Peek().Children++;
-                                WriteMultiLine("LocalisedValue", renderedString);
-                            }
-
-                        }
-
-                    }
+                        stream.Write('"');
+                    stream.Write(str);
                     if (json)
-                        stream.WriteLine("}");
+                        stream.Write('"');
                 }
-                var editor = Properties.Settings.Default.Editor;
-                if (editor == null || !File.Exists(editor))
-                    editor = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "notepad.exe");
-                Process.Start(editor, fileToOpen);
-            }
-        }
 
-        private bool noFollow = false;
-        private void BpProps_SelectedGridItemChanged(object sender, SelectedGridItemChangedEventArgs e)
-        {
-            if (e.NewSelection.Value is BlueprintPropertyConverter.BlueprintLink link)
-            {
-                CurrentLink = link.Link;
-                followLink.Enabled = true;
-                if (Properties.Settings.Default.EagerFollowLink && !noFollow)
-                    followLink.PerformClick();
+                void WriteMultiLine(string key, string value)
+                {
+                    if (json)
+                    {
+                        WriteLine(key, value.Replace("\r\n", "\\n").Replace("\n", "\\n"), null);
+                        return;
+                    }
+                    stream.WriteLine();
+                    stream.Write("".PadLeft(level * 4));
+                    if (stack.Peek().IsObj)
+                    {
+                        stream.Write(key);
+                        stream.Write(": ");
+                    }
+
+                    int indent = level * 4 + key.Length + 2;
+
+                    var lines = value.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.None);
+
+                    for (int i = 0; i < lines.Length; i++)
+                    {
+                        if (i > 0)
+                            stream.Write("".PadLeft(indent));
+                        stream.Write(lines[i]);
+                        if (i != lines.Length - 1)
+                            stream.WriteLine();
+                    }
+                }
+
+                void WriteLine(string key, string value, string link)
+                {
+                    if (json)
+                    {
+                        if (stack.Peek().Children > 1)
+                            stream.Write(',');
+                    }
+                    stream.WriteLine();
+                    stream.Write("".PadLeft(level * 4));
+                    if (stack.Peek().IsObj)
+                    {
+                        Quote(key);
+                        stream.Write(": ");
+                    }
+
+                    if (link != null)
+                    {
+                        if (BlueprintDB.Instance.Blueprints.TryGetValue(Guid.Parse(link), out var target))
+                            value = "link: " + link + " (" + target.Name + " :" + target.TypeName + ")";
+                        else
+                            value = "link: " + link + " (dead)";
+                    }
+
+                    Quote(value);
+                }
+
+                void Open(string key, bool obj)
+                {
+                    if (json)
+                    {
+                        if (stack.Peek().Children > 1)
+                            stream.Write(',');
+                        stream.WriteLine();
+                    }
+                    stream.Write("".PadLeft(level * 4));
+                    if (stack.Peek().IsObj)
+                    {
+                        Quote(key);
+                        stream.Write(": ");
+                    }
+                    if (json)
+                        stream.Write(obj ? '{' : '[');
+                }
+                void Close(ElementWriteState state)
+                {
+                    if (state.Children > 0)
+                    {
+                        if (json)
+                        {
+                            stream.WriteLine();
+                            stream.Write("".PadLeft(level * 4));
+                        }
+                    }
+                    else
+                    {
+                        if (!json)
+                            stream.WriteLine(" [empty]");
+                    }
+                    if (json)
+                        stream.Write(state.IsObj ? '}' : ']');
+                }
+
+                if (json)
+                    stream.WriteLine("{");
+
+                foreach (var elem in blueprint.Elements)
+                {
+                    if (elem.levelDelta < 0)
+                    {
+                        var closeObj = stack.Pop();
+                        level--;
+                        Close(closeObj);
+                    }
+                    else if (elem.levelDelta == 0)
+                    {
+                        stack.Peek().Children++;
+                        WriteLine(elem.key, elem.value, elem.link);
+                    }
+                    else if (elem.levelDelta > 0)
+                    {
+                        stack.Peek().Children++;
+                        Open(elem.key, elem.isObj);
+                        stack.Push(new() { IsObj = elem.isObj });
+                        level++;
+
+                        var renderedString = JsonExtensions.ParseAsString(elem.Node);
+                        if (renderedString != null)
+                        {
+                            stack.Peek().Children++;
+                            WriteMultiLine("LocalisedValue", renderedString);
+                        }
+
+                    }
+
+                }
+                if (json)
+                    stream.WriteLine("}");
             }
-            else
-            {
-                followLink.Enabled = false;
-            }
+            var editor = Properties.Settings.Default.Editor;
+            if (editor == null || !File.Exists(editor))
+                editor = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "notepad.exe");
+            Process.Start(editor, fileToOpen);
         }
 
         private void ResultsGrid_CellClick(object sender, DataGridViewCellEventArgs e) {
             ShowSelected();
         }
-
-        private void references_CellClick(object sender, DataGridViewCellEventArgs e) {
-            ShowReferenceSelected();
-        }
-
-        private Stack<BlueprintHandle> history = new();
 
         private DateTime lastChange = DateTime.MinValue;
         private TimeSpan debounceTime = TimeSpan.FromSeconds(1.5);
@@ -449,7 +452,6 @@ namespace BlueprintExplorer {
             lastFinished = matchBuffer;
             BlueprintDB.UnlockBuffer(matchBuffer);
             resultsCache = results;
-            count.Text = $"{resultsCache.Count}";
             var oldRowCount = resultsGrid.Rows.Count;
             var newRowCount = resultsCache.Count;
             if (newRowCount > oldRowCount)
@@ -671,109 +673,33 @@ namespace BlueprintExplorer {
         }
 
         private void ShowSelected() {
-            historyBread.Controls.Clear();
-            history.Clear();
-
             if (TryGetSelected(out var row))
             {
-                Console.WriteLine($"results[{row}]");
-                ShowBlueprint(resultsCache[row], true);
+                ShowBlueprint(resultsCache[row], ShowFlags.F_ClearHistory | ShowFlags.F_UpdateHistory);
             }
         }
 
-        private void ShowReferenceSelected() {
-            if (CurrentView == null) return;
-            if (CurrentView.BackReferences.Count != references.RowCount) return;
-
-            if (TryReferencedSelected(out var row))
-            {
-                Console.WriteLine($"ROW: {row}");
-                ShowBlueprint(BlueprintDB.Instance.Blueprints[CurrentView.BackReferences[row]], true);
-            }
-        }
-
-        private bool TryReferencedSelected(out int row) {
-            row = -1;
-            if (CurrentView == null) return false;
-            row = references.SelectedRow();
-            return row >= 0 && row < CurrentView.BackReferences.Count;
-        }
 
         private bool TryGetSelected(out int row) {
             row = resultsGrid.SelectedRow();
             return row >= 0 && row < resultsCache.Count;
         }
 
-        private void PopHistory(int to) {
-            int toRemove = history.Count;
-            for (int i = to + 1; i < toRemove; i++) {
-                historyBread.Controls.RemoveAt(to + 1);
-                history.Pop();
-            }
-        }
-
-        private void PushHistory(BlueprintHandle bp) {
-            var button = new Button();
-            if (Dark)
-                button.ForeColor = Color.White;
-            button.MinimumSize = new Size(10, 44);
-            button.Text = bp.Name;
-            button.AutoSize = true;
-            int here = historyBread.Controls.Count;
-            button.Click += (sender, e) => {
-                PopHistory(here);
-                ShowBlueprint(bp, false);
-            };
-            historyBread.Controls.Add(button);
-            history.Push(bp);
-        }
-
-        private BlueprintHandle CurrentView = null;
-
-        private void ShowBlueprint(BlueprintHandle bp, bool updateHistory) {
-            noFollow = true;
-            filter.Enabled = true;
-            bp.EnsureParsed();
-            CurrentView = bp;
-
-            references.Rows.Clear();
-            var me = Guid.Parse(bp.GuidText);
-            foreach (var reference in bp.BackReferences)
-            {
-                if (reference != me)
-                    references.Rows.Add(BlueprintDB.Instance.Blueprints[reference].Name);
-            }
-
-            bpProps.SelectedObject = bp;
-            var selected = bpProps.SelectedGridItem;
-            while (selected != null && !(selected.Parent.Value is BlueprintHandle)) 
-            {
-                selected = selected.Parent;
-            }
-            if (selected != null && selected.Expandable)
-            {
-                selected.Expanded = true;
-                bpProps.SelectedGridItem = selected;
-            }
-            if (Properties.Settings.Default.EagerExpand)
-                bpProps.ExpandAllGridItems();
 
 
+        private void ShowBlueprint(BlueprintHandle bp, ShowFlags flags) {
+            if (flags.UpdateHistory() && Properties.Settings.Default.AlwaysOpenInEditor)
+                DoOpenInEditor(bp);
 
-            if (updateHistory)
-                PushHistory(bp);
+            if (blueprintViews.SelectedTab.Controls[0] is BlueprintViewer bpView)
+                bpView.ShowBlueprint(bp, flags);
 
-            if (updateHistory && Properties.Settings.Default.AlwaysOpenInEditor)
-                openInEditor.PerformClick();
-
-            noFollow = false;
         }
 
         private List<BlueprintHandle> resultsCache = new();
         private Task<bool> initialize;
         private ToolStripItem followLink;
         private string CurrentLink;
-        private ToolStripItem openInEditor;
 
         private void dataGridView1_CellValueNeeded(object sender, DataGridViewCellValueEventArgs e) {
             var row = e.RowIndex;
@@ -807,12 +733,6 @@ namespace BlueprintExplorer {
             }
         }
 
-        private void filter_TextChanged(object sender, EventArgs e) {
-            if (history.Count == 0)
-                return;
-            ShowBlueprint(history.Peek(), false);
-
-        }
 
         private void omniSearch_TextChanged_1(object sender, EventArgs e) {
 

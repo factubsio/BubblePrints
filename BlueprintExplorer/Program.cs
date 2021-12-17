@@ -18,6 +18,10 @@ namespace BlueprintExplorer
         [STAThread]
         static void Main()
         {
+#if DEBUG
+            BubblePrints.SetupLogging();
+#endif
+
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
