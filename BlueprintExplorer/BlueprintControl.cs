@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,8 +15,10 @@ namespace BlueprintExplorer
     public class BlueprintControl : ScrollableControl
     {
         public delegate void LinkClickedDelegate(string link, bool newTab);
+        public delegate void PathDelegate(string path);
 
         public event LinkClickedDelegate OnLinkClicked;
+        public event PathDelegate OnPathHovered;
 
         private BlueprintHandle blueprint;
 
@@ -38,18 +41,68 @@ namespace BlueprintExplorer
         private int wantedHeight = 1;
         private List<RowElement> Elements = new();
 
+        [Flags]
+        public enum StyleFlags
+        {
+            Bold = 1,
+            Italic = 2,
+        }
+
+        public class StyledString
+        {
+
+            public StyledString(IEnumerable<StyleSpan> spans)
+            {
+                Spans = spans.ToArray();
+            }
+
+            public struct StyleSpan
+            {
+                public string Value;
+                public StyleFlags Flags;
+
+                public StyleSpan(string value, StyleFlags flags = 0) {
+                    Value = value;
+                    Flags = flags;
+                }
+
+                public bool Bold => (Flags & StyleFlags.Bold) != 0;
+                public bool Italic => (Flags & StyleFlags.Italic) != 0;
+            }
+
+            public StyleSpan[] Spans;
+        }
+
         public class RowElement
         {
+            public bool IsObj;
             public string key, value, link;
+            public StyledString ValueStyled;
             public int level;
             public bool Last;
             public bool Visible = true;
+            public bool Collapsed = false;
             public RowElement Parent;
             public string String;
             public List<string> Lines;
+            public List<RowElement> Children = new();
             public int RowCount;
             public int PrimaryRow;
             internal bool Hover = false;
+            internal bool HoverButton;
+            internal bool PreviewHover;
+            private string _Path;
+            public string Type;
+
+            internal void AllChildren(Action<RowElement> p)
+            {
+                foreach (var child  in Children)
+                {
+                    p(child);
+                    child.AllChildren(p);
+                }
+
+            }
 
             internal void AllParents(Action<RowElement> p)
             {
@@ -58,6 +111,35 @@ namespace BlueprintExplorer
                     p(Parent);
                     Parent.AllParents(p);
                 }
+            }
+
+            public string Path => _Path ??= CalculatePath();
+
+            private string PathKey
+            {
+                get
+                {
+                    var ret = key;
+                    if (Type != null)
+                    {
+                        if (IsObj)
+                            ret += "{" + Type + "}";
+                        else
+                            ret += "[" + Type + "]";
+                    }
+                    return ret;
+
+                }
+            }
+
+            public bool HasChildren => Children.Count > 0;
+
+            private string CalculatePath()
+            {
+                List<string> components = new();
+                components.Add(PathKey);
+                AllParents(p => components.Add(p.PathKey));
+                return string.Join("/", Enumerable.Reverse(components));
             }
         }
 
@@ -104,24 +186,59 @@ namespace BlueprintExplorer
 
         private void UpdateRowHoverColor()
         {
-            RowHoverColor = ControlPaint.Dark(BackColor, -0.4f);
+            RowHoverColor = new(ControlPaint.Dark(BackColor, -0.4f));
+            RowPreviewHoverColor = new(ControlPaint.Dark(BackColor, -0.41f));
         }
 
         private int Count => Remap.Count;
 
         private void ValidateFilter()
         {
+            Remap.Clear();
+            if (_Filter.Length == 0)
+            {
+                for (int i = 0; i < Elements.Count; i++)
+                    Elements[i].Visible = true;
+            }
+            else
+            {
+                for (int i = 0; i < Elements.Count; i++)
+                {
+                    if (Elements[i].key.Contains(_Filter, StringComparison.OrdinalIgnoreCase) || (Elements[i].value?.Contains(_Filter, StringComparison.OrdinalIgnoreCase) ?? false))
+                    {
+                        Elements[i].AllParents(p => p.Visible = true);
+                        Elements[i].Visible = true;
+                    }
+                    else
+                        Elements[i].Visible = false;
+                }
+            }
+
+            for (int i = 0; i < Elements.Count; i++)
+            {
+                if (Elements[i].Collapsed)
+                    Elements[i].AllChildren(ch => ch.Visible = false);
+
+                if (Elements[i].Visible)
+                {
+                    Elements[i].PrimaryRow = Remap.Count;
+                    for (int r = 0; r < Elements[i].RowCount; r++)
+                        Remap.Add(i);
+                }
+            }
             wantedHeight = Count * RowHeight;
             AutoScrollMinSize = new Size(1, wantedHeight);
             Invalidate();
         }
+
+        int StringWidthAllowed => Width - NameColumnWidth - 32;
 
         private void ValidateBlueprint()
         {
             Elements.Clear();
             var oneRow = Font.Height;
             using var g = CreateGraphics();
-            int strWidthAllowed = Width - NameColumnWidth - 32;
+            int strWidthAllowed = StringWidthAllowed;
             currentHover = -1;
             int totalRows = 0;
             if (blueprint != null)
@@ -135,7 +252,9 @@ namespace BlueprintExplorer
 
                     if (e.levelDelta < 0)
                     {
-                        stack.Pop();
+                        var prev = stack.Pop();
+                        if (!prev.IsObj)
+                            prev.value += "[" + prev.Children.Count + "]";
                         Elements.Last().Last = true;
                         level--;
                     }
@@ -153,7 +272,20 @@ namespace BlueprintExplorer
                             Parent = stack.Peek(),
                             String = JsonExtensions.ParseAsString(e.Node),
                             RowCount = 1,
+                            IsObj = e.isObj,
+                            Collapsed = totalRows != 0 && !Properties.Settings.Default.EagerExpand,
                         };
+
+                        if (row.key == "$type" && row.Parent != null)
+                        {
+                            var (typeGuid, typeName, _) = row.value.NewTypeStr();
+                            List<StyledString.StyleSpan> spans = new();
+                            spans.Add(new(typeName + "  ", StyleFlags.Bold));
+                            spans.Add(new("typeId: " + typeGuid));
+                            row.Parent.ValueStyled = new(spans);
+                            row.Parent.Type = typeName;
+                            continue;
+                        }
 
                         if (row.String != null)
                         {
@@ -190,6 +322,7 @@ namespace BlueprintExplorer
                             row.Lines = lines;
                             row.RowCount = lines.Count;
                         }
+                        stack.Peek()?.Children.Add(row);
                         row.PrimaryRow = totalRows;
                         Elements.Add(row);
                         totalRows += row.RowCount;
@@ -202,8 +335,7 @@ namespace BlueprintExplorer
                 }
             }
             AutoScroll = true;
-            //VerticalScroll.Value = 0;
-            Filter = "";
+            ValidateFilter();
         }
 
         public override Size GetPreferredSize(Size proposedSize) => new(proposedSize.Width, wantedHeight);
@@ -229,56 +361,51 @@ namespace BlueprintExplorer
             set
             {
                 _Filter = value?.Trim() ?? "";
-                Remap.Clear();
-                if (_Filter.Length == 0)
-                {
-                    Console.WriteLine("all");
-                    for (int i = 0; i < Elements.Count; i++)
-                    {
-                        Elements[i].Visible = true;
-                        Elements[i].PrimaryRow = Remap.Count;
-                        for (int r = 0; r < Elements[i].RowCount; r++)
-                            Remap.Add(i);
-                    }
-                }
-                else
-                {
-                    for (int i = 0; i < Elements.Count; i++)
-                    {
-                        if (Elements[i].key.Contains(_Filter, StringComparison.OrdinalIgnoreCase) || (Elements[i].value?.Contains(_Filter, StringComparison.OrdinalIgnoreCase) ?? false))
-                        {
-                            Elements[i].AllParents(p => p.Visible = true);
-                            Elements[i].Visible = true;
-                        }
-                        else
-                            Elements[i].Visible = false;
-                    }
-                    for (int i = 0; i < Elements.Count; i++)
-                    {
-                        if (Elements[i].Visible)
-                        {
-                            Elements[i].PrimaryRow = Remap.Count;
-                            for (int r = 0; r < Elements[i].RowCount; r++)
-                                Remap.Add(i);
-                        }
-                    }
-                }
                 ValidateFilter();
             }
         }
 
+        private ImageAttributes HoverAttribs;
+        private ImageAttributes ExpandAttribs;
+
 
         private void DrawElement(int row, DrawParams render)
         {
+            if (HoverAttribs == null)
+            {
+                HoverAttribs = new();
+                {
+                    float[][] colorMatrixElements = {
+                       new float[] {1,  0,  0,  0, 0},        // red scaling factor
+                       new float[] {0,  1,  0,  0, 0},        // green scaling factor
+                       new float[] {0,  0,  1,  0, 0},        // blue scaling factor
+                       new float[] {0,  0,  0,  1, 0},        // alpha scaling factor
+                       new float[] {0.1f, 0.4f, 0.1f, 0, 1} // translations
+                    };
+                    HoverAttribs.SetColorMatrix(new(colorMatrixElements));
+                }
+
+                ExpandAttribs = new();
+                {
+                    float[][] colorMatrixElements = {
+                       new float[] {1,  0,  0,  0, 0},        // red scaling factor
+                       new float[] {0,  1,  0,  0, 0},        // green scaling factor
+                       new float[] {0,  0,  1,  0, 0},        // blue scaling factor
+                       new float[] {0,  0,  0,  1, 0},        // alpha scaling factor
+                       new float[] {0.25f, 0.0f, 0.0f, 0, 1} // translations
+                    };
+                    ExpandAttribs.SetColorMatrix(new(colorMatrixElements));
+                }
+            }
+
             var elem = GetElement(row);
 
             var valueColor = ForeColor;
             var valueFont = render.Regular;
 
+            float xOffset = 48 + elem.level * LevelIndent;
+
             var extra = "";
-
-            string link = null;
-
             if (elem.link != null)
             {
                 if (BackColor.GetBrightness() < 0.5f)
@@ -289,10 +416,12 @@ namespace BlueprintExplorer
                 if (BlueprintDB.Instance.Blueprints.TryGetValue(Guid.Parse(elem.link), out var target))
                 {
                     extra = "  -> " + target.Name + " :" + target.TypeName;
-                    link = elem.link;
                 }
                 else
+                {
+                    valueColor = Color.Gray;
                     extra = "  -> STALE";
+                }
                 valueFont = LinkFont;
             }
             else if (elem.value is "null" or "NULL")
@@ -300,20 +429,15 @@ namespace BlueprintExplorer
 
 
             if (elem.Hover)
-                render.Graphics.FillRectangle(new SolidBrush(RowHoverColor), 0, 0, Width, RowHeight);
+                render.Graphics.FillRectangle(RowHoverColor, 0, 0, Width, RowHeight);
+            if (elem.PreviewHover)
+                render.Graphics.FillRectangle(RowPreviewHoverColor, 0, 0, Width, RowHeight);
             if (elem.level> 0)
             {
                 var lineColor = Color.Gray;
-                var outerColor = ControlPaint.Dark(lineColor, 0.2f);
 
                 var lineBrush = new SolidBrush(lineColor);
-                //var outerBrush = new SolidBrush(outerColor);
-                //for (int i = 0; i < elem.levelDelta; i++)
-                //{
-                //    float mx = i * LevelIndent - LevelIndent * 0.5f;
-                //    render.Graphics.FillRectangle(outerBrush, mx, 0, 3f, RowHeight);
-                //}
-                float x = elem.level * LevelIndent - LevelIndent * 0.5f;
+                float x = xOffset - LevelIndent * 0.5f;
                 float h = RowHeight;
                 if (elem.Last)
                     h = RowHeight / 2;
@@ -322,22 +446,49 @@ namespace BlueprintExplorer
             }
             if (elem.PrimaryRow == row)
             {
-                render.Graphics.DrawString(elem.key, render.Bold, new SolidBrush(ForeColor), new PointF(elem.level * LevelIndent, 0));
+                render.Graphics.DrawString(elem.key, render.Bold, new SolidBrush(ForeColor), new PointF(xOffset, 0));
                 if (elem.String == null)
-                    render.Graphics.DrawString(elem.value + extra, valueFont, new SolidBrush(valueColor), new PointF(NameColumnWidth, 0));
+                {
+                    var brush = new SolidBrush(valueColor);
+                    if (elem.ValueStyled == null)
+                        render.Graphics.DrawString(elem.value + extra, valueFont, brush, new PointF(NameColumnWidth, 0));
+                    else
+                    {
+                        PointF p = new(NameColumnWidth, 0);
+                        foreach (var span in elem.ValueStyled.Spans)
+                        {
+                            var font = render.Regular;
+                            if (span.Bold)
+                                font = render.Bold;
+                            var width = render.Graphics.MeasureString(span.Value, font).Width;
+                            render.Graphics.DrawString(span.Value, font, brush, p);
+                            p.X += width;
+                        }
+                    }
+                }
             }
 
             if (elem.String != null)
             {
                 string line = elem.Lines[row - elem.PrimaryRow];
-                render.Graphics.DrawString(line, valueFont, new SolidBrush(valueColor), new Rectangle(NameColumnWidth, 0, Width - NameColumnWidth - 32, 500));
+                render.Graphics.DrawString(line, valueFont, new SolidBrush(valueColor), new Rectangle(NameColumnWidth, 0, StringWidthAllowed, 500));
+            }
+
+            if (elem.HasChildren)
+            {
+                var img = elem.Collapsed ? Resources.expand : Resources.collapse;
+                int topPad = (RowHeight - 32) / 2;
+                var imgRect = new Rectangle((int)xOffset - 34 - LevelIndent / 2, topPad, 32, 32);
+                ImageAttributes attribs = null;
+                if (elem.Hover && elem.HoverButton)
+                    attribs = HoverAttribs;
+                else if (elem.Collapsed)
+                    attribs = ExpandAttribs;
+                render.Graphics.DrawImage(img, imgRect, 0, 0, img.Width, img.Height, GraphicsUnit.Pixel, attribs);
+
             }
 
         }
-
-
-        private Rectangle CopyIconRect => new(NameColumnWidth - 42, 2, RowHeight - 4, RowHeight - 4);
-
 
         public int LevelIndent { get; set; } = 20;
         public int NameColumnWidth { get; set; } = 600;
@@ -356,14 +507,29 @@ namespace BlueprintExplorer
             return false;
         }
 
-        public bool IsOverCopy(int x) => x >= CopyIconRect.Left && x <= (CopyIconRect.Right + 8);
+        protected override void OnMouseDoubleClick(MouseEventArgs e)
+        {
+
+        }
 
         protected override void OnMouseClick(MouseEventArgs e)
         {
             bool valid = GetCurrent(out var elem);
             if (e.Button == MouseButtons.Left && valid)
             {
-                if (elem.link != null)
+                if (elem.HoverButton)
+                {
+                    if (ModifierKeys.HasFlag(Keys.Control))
+                    {
+                        foreach (var child in elem.Children.Where(ch => ch.HasChildren))
+                            child.Collapsed = !child.Collapsed;
+                    }
+                    else
+                        elem.Collapsed = !elem.Collapsed;
+
+                    ValidateFilter();
+                }
+                else if (elem.link != null)
                 {
                     OnLinkClicked?.Invoke(elem.link, ModifierKeys.HasFlag(Keys.Control));
                 }
@@ -413,22 +579,24 @@ namespace BlueprintExplorer
         }
         private List<Toast> Toasts = new();
 
+        private void Invalidate(RowElement elem)
+        {
+            Invalidate(new Rectangle(0, elem.PrimaryRow * RowHeight - VerticalScroll.Value, Width, elem.RowCount * RowHeight));
+        }
+
         protected override void OnMouseMove(MouseEventArgs e)
         {
             int y = (e.Y + VerticalScroll.Value) / RowHeight;
+            bool invalidateChildren = false;
             RowElement elem = null;
             if (y >= 0 && y < Count)
             {
-                elem = GetElement(y);
-                if (elem.link != null)
-                {
-                    if (IsOverCopy(e.X))
-                    {
-                        Cursor = Cursors.Help;
-                    }
-                    else
-                        Cursor = Cursors.Hand;
-                }
+                elem  = GetElement(y);
+                bool onButton = elem.HasChildren && e.X < (LevelIndent * elem.level + 48 - LevelIndent / 2);
+                invalidateChildren = onButton != elem.HoverButton;
+                elem.HoverButton = onButton;
+                if (!elem.HoverButton && elem.link != null)
+                    Cursor = Cursors.Hand;
                 else
                     Cursor = Cursors.Default;
             }
@@ -438,16 +606,32 @@ namespace BlueprintExplorer
                 if (GetCurrent(out var oldCurrent))
                 {
                     oldCurrent.Hover = false;
-                    Invalidate(new Rectangle(0, oldCurrent.PrimaryRow * RowHeight - VerticalScroll.Value, Width, oldCurrent.RowCount * RowHeight));
+                    Invalidate(oldCurrent);
+                    if (oldCurrent.HoverButton)
+                        oldCurrent.AllChildren(ch =>
+                        {
+                            ch.PreviewHover = false;
+                            Invalidate(ch);
+                        });
+                    oldCurrent.HoverButton = false;
                 }
 
                 currentHover = y;
 
-                if (GetCurrent(out var newCurrent))
-                {
-                    newCurrent.Hover = true;
-                    Invalidate(new Rectangle(0, newCurrent.PrimaryRow * RowHeight - VerticalScroll.Value, Width, newCurrent.RowCount * RowHeight));
-                }
+                OnPathHovered?.Invoke(elem?.Path);
+
+            }
+            if (elem != null)
+            {
+                elem.Hover = true;
+                Invalidate(elem);
+                if (invalidateChildren)
+                    elem.AllChildren(ch =>
+                    {
+                        ch.PreviewHover = elem.HoverButton;
+                        Invalidate(ch);
+                    });
+                    
             }
         }
 
@@ -494,7 +678,8 @@ namespace BlueprintExplorer
         }
 
         public Font LinkFont { get => linkFont ?? Font; set => linkFont = value; }
-        private Color RowHoverColor;
+        private SolidBrush RowHoverColor;
+        private SolidBrush RowPreviewHoverColor;
 
         public class DrawParams
         {

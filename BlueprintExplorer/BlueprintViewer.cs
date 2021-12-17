@@ -16,6 +16,7 @@ namespace BlueprintExplorer
         public event BlueprintHandleDelegate OnLinkOpenNewTab;
         public event BlueprintHandleDelegate OnBlueprintShown;
         public event BlueprintHandleDelegate OnOpenExternally;
+        public event Action OnClose;
 
         public BlueprintViewer()
         {
@@ -29,14 +30,18 @@ namespace BlueprintExplorer
                         OnLinkOpenNewTab?.Invoke(bp);
                     else
                         ShowBlueprint(bp, ShowFlags.F_UpdateHistory);
-
                 }
+            };
+
+            view.OnPathHovered += path =>
+            {
+                currentPath.Text = path ?? "-";
             };
 
             filter.TextChanged += (sender, e) => view.Filter = filter.Text;
             if (Form1.Dark)
             {
-                Form1.DarkenControls(view, filter, references, openExternal);
+                Form1.DarkenControls(view, filter, references, openExternal, currentPath);
                 Form1.DarkenStyles(references.DefaultCellStyle, references.ColumnHeadersDefaultCellStyle);
             }
 
@@ -114,5 +119,7 @@ namespace BlueprintExplorer
             F_UpdateHistory = 1,
             F_ClearHistory = 2,
         }
+
+        private void close_Click(object sender, EventArgs e) => OnClose?.Invoke();
     }
 }

@@ -31,6 +31,7 @@ namespace BlueprintExplorer
         {
             this.panel1 = new System.Windows.Forms.Panel();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
+            this.helpButton = new System.Windows.Forms.Button();
             this.settingsButton = new System.Windows.Forms.Button();
             this.omniSearch = new System.Windows.Forms.TextBox();
             this.SearchLabel = new System.Windows.Forms.Label();
@@ -67,11 +68,13 @@ namespace BlueprintExplorer
             // 
             // tableLayoutPanel1
             // 
-            this.tableLayoutPanel1.ColumnCount = 4;
+            this.tableLayoutPanel1.ColumnCount = 5;
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 200F));
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 100F));
+            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 100F));
+            this.tableLayoutPanel1.Controls.Add(this.helpButton, 4, 0);
             this.tableLayoutPanel1.Controls.Add(this.settingsButton, 3, 0);
             this.tableLayoutPanel1.Controls.Add(this.omniSearch, 1, 0);
             this.tableLayoutPanel1.Controls.Add(this.SearchLabel, 0, 0);
@@ -84,10 +87,21 @@ namespace BlueprintExplorer
             this.tableLayoutPanel1.Size = new System.Drawing.Size(2426, 66);
             this.tableLayoutPanel1.TabIndex = 2;
             // 
+            // helpButton
+            // 
+            this.helpButton.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.helpButton.Location = new System.Drawing.Point(2329, 3);
+            this.helpButton.Name = "helpButton";
+            this.helpButton.Size = new System.Drawing.Size(94, 60);
+            this.helpButton.TabIndex = 4;
+            this.helpButton.Text = "Help";
+            this.helpButton.UseVisualStyleBackColor = true;
+            this.helpButton.Click += new System.EventHandler(this.helpButton_Click);
+            // 
             // settingsButton
             // 
             this.settingsButton.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.settingsButton.Location = new System.Drawing.Point(2329, 3);
+            this.settingsButton.Location = new System.Drawing.Point(2229, 3);
             this.settingsButton.Name = "settingsButton";
             this.settingsButton.Size = new System.Drawing.Size(94, 60);
             this.settingsButton.TabIndex = 2;
@@ -103,7 +117,7 @@ namespace BlueprintExplorer
             this.omniSearch.Margin = new System.Windows.Forms.Padding(8);
             this.omniSearch.Name = "omniSearch";
             this.omniSearch.PlaceholderText = "enter search text...";
-            this.omniSearch.Size = new System.Drawing.Size(1927, 54);
+            this.omniSearch.Size = new System.Drawing.Size(1827, 54);
             this.omniSearch.TabIndex = 0;
             this.omniSearch.TextChanged += new System.EventHandler(this.omniSearch_TextChanged_1);
             this.omniSearch.KeyDown += new System.Windows.Forms.KeyEventHandler(this.omniSearch_KeyDown);
@@ -128,7 +142,7 @@ namespace BlueprintExplorer
             this.availableVersions.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.availableVersions.FormattingEnabled = true;
             this.availableVersions.ItemHeight = 25;
-            this.availableVersions.Location = new System.Drawing.Point(2129, 3);
+            this.availableVersions.Location = new System.Drawing.Point(2029, 3);
             this.availableVersions.Name = "availableVersions";
             this.availableVersions.Size = new System.Drawing.Size(194, 33);
             this.availableVersions.TabIndex = 3;
@@ -290,6 +304,7 @@ namespace BlueprintExplorer
         private System.Windows.Forms.Button settingsButton;
         private System.Windows.Forms.ComboBox availableVersions;
         private System.Windows.Forms.TabControl blueprintViews;
+        private System.Windows.Forms.Button helpButton;
     }
 }
 

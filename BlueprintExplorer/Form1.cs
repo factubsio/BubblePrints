@@ -1,20 +1,17 @@
-﻿using ModKit;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Windows.Forms.Design;
-using static BlueprintExplorer.BlueprintHandle;
 using static BlueprintExplorer.BlueprintViewer;
 
-namespace BlueprintExplorer {
+namespace BlueprintExplorer
+{
     public partial class Form1 : BubbleprintsForm {
         
         private static readonly Color RegularDarkColor = Color.FromArgb(50, 50, 50);
@@ -111,6 +108,12 @@ namespace BlueprintExplorer {
                 blueprintViews.SelectedIndex = blueprintViews.TabCount - 1;
             };
 
+            viewer.OnClose += () =>
+            {
+                if (blueprintViews.TabCount > 1)
+                    blueprintViews.TabPages.Remove(page);
+            };
+
             page.Controls.Add(viewer);
             viewer.Dock = DockStyle.Fill;
             blueprintViews.TabPages.Add(page);
@@ -168,7 +171,7 @@ namespace BlueprintExplorer {
             if (Dark)
             {
                 resultsGrid.EnableHeadersVisualStyles = false;
-                DarkenControls(omniSearch, resultsGrid, splitContainer1, panel1, settingsButton, blueprintViews);
+                DarkenControls(omniSearch, resultsGrid, splitContainer1, panel1, settingsButton, blueprintViews, helpButton);
                 DarkenStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
 
                 Invalidate();
@@ -181,7 +184,7 @@ namespace BlueprintExplorer {
 
             if (SeasonalOverlay.InSeason)
             {
-                SeasonControls(omniSearch, panel1, settingsButton, resultsGrid);
+                SeasonControls(omniSearch, panel1, settingsButton, resultsGrid, helpButton);
                 SeasonStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
                 SeasonalOverlay.Install(resultsGrid);
             }
@@ -698,8 +701,6 @@ namespace BlueprintExplorer {
 
         private List<BlueprintHandle> resultsCache = new();
         private Task<bool> initialize;
-        private ToolStripItem followLink;
-        private string CurrentLink;
 
         private void dataGridView1_CellValueNeeded(object sender, DataGridViewCellValueEventArgs e) {
             var row = e.RowIndex;
@@ -751,9 +752,16 @@ namespace BlueprintExplorer {
 
         }
 
-        private void bpProps_Click(object sender, EventArgs e)
-        {
+        private HelpView helpView;
 
+        private void helpButton_Click(object sender, EventArgs e)
+        {
+            helpView ??= new();
+            helpView.Disposed += (sender, e) => helpView = null;
+            if (helpView.Visible)
+                helpView.BringToFront();
+            else
+                helpView.Show();
         }
     }
 }
