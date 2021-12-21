@@ -23,7 +23,7 @@ jobs:
         run: dotnet restore
       - name: Build
         run: |
-          $appversion = {{github.ref_name}}.substring(1)
+          $appversion = "${{ github.ref_name }}".substring(1)
           echo $appversion
           dotnet build --configuration Release --no-restore /p:Version=$appversion
       - name: list
