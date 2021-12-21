@@ -38,5 +38,8 @@
     <Setting Name="NoSeasonalTheme" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
+    <Setting Name="ExternalEditorTemplate" Type="System.String" Scope="User">
+      <Value Profile="(Default)">{blueprint}</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

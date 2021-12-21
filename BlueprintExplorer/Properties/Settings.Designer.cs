@@ -166,5 +166,17 @@ namespace BlueprintExplorer.Properties {
                 this["NoSeasonalTheme"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("{blueprint}")]
+        public string ExternalEditorTemplate {
+            get {
+                return ((string)(this["ExternalEditorTemplate"]));
+            }
+            set {
+                this["ExternalEditorTemplate"] = value;
+            }
+        }
     }
 }

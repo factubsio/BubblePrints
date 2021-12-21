@@ -267,11 +267,6 @@ namespace BlueprintExplorer
             grid.ViewBackColor = RegularDarkColor;
         }
 
-        class ElementWriteState
-        {
-            public bool IsObj;
-            public int Children;
-        }
 
         private void DoOpenInEditor(BlueprintHandle blueprint)
         {
@@ -283,154 +278,21 @@ namespace BlueprintExplorer
 
             string fileToOpen = Path.Combine(userLocalFolder, blueprint.Name + "_" + blueprint.GuidText + ".json");
 
-            bool json = Properties.Settings.Default.StrictJsonForEditor;
-            if (!File.Exists(fileToOpen))
+            //if (!File.Exists(fileToOpen))
             {
-                using var stream = new StreamWriter(File.OpenWrite(fileToOpen));
-                int level = 0;
-                Stack<ElementWriteState> stack = new();
-                stack.Push(new() { IsObj = true });
-
-                void Quote(string str)
-                {
-                    if (json)
-                        stream.Write('"');
-                    stream.Write(str);
-                    if (json)
-                        stream.Write('"');
-                }
-
-                void WriteMultiLine(string key, string value)
-                {
-                    if (json)
-                    {
-                        WriteLine(key, value.Replace("\r\n", "\\n").Replace("\n", "\\n"), null);
-                        return;
-                    }
-                    stream.WriteLine();
-                    stream.Write("".PadLeft(level * 4));
-                    if (stack.Peek().IsObj)
-                    {
-                        stream.Write(key);
-                        stream.Write(": ");
-                    }
-
-                    int indent = level * 4 + key.Length + 2;
-
-                    var lines = value.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.None);
-
-                    for (int i = 0; i < lines.Length; i++)
-                    {
-                        if (i > 0)
-                            stream.Write("".PadLeft(indent));
-                        stream.Write(lines[i]);
-                        if (i != lines.Length - 1)
-                            stream.WriteLine();
-                    }
-                }
-
-                void WriteLine(string key, string value, string link)
-                {
-                    if (json)
-                    {
-                        if (stack.Peek().Children > 1)
-                            stream.Write(',');
-                    }
-                    stream.WriteLine();
-                    stream.Write("".PadLeft(level * 4));
-                    if (stack.Peek().IsObj)
-                    {
-                        Quote(key);
-                        stream.Write(": ");
-                    }
-
-                    if (link != null)
-                    {
-                        if (BlueprintDB.Instance.Blueprints.TryGetValue(Guid.Parse(link), out var target))
-                            value = "link: " + link + " (" + target.Name + " :" + target.TypeName + ")";
-                        else
-                            value = "link: " + link + " (dead)";
-                    }
-
-                    Quote(value);
-                }
-
-                void Open(string key, bool obj)
-                {
-                    if (json)
-                    {
-                        if (stack.Peek().Children > 1)
-                            stream.Write(',');
-                        stream.WriteLine();
-                    }
-                    stream.Write("".PadLeft(level * 4));
-                    if (stack.Peek().IsObj)
-                    {
-                        Quote(key);
-                        stream.Write(": ");
-                    }
-                    if (json)
-                        stream.Write(obj ? '{' : '[');
-                }
-                void Close(ElementWriteState state)
-                {
-                    if (state.Children > 0)
-                    {
-                        if (json)
-                        {
-                            stream.WriteLine();
-                            stream.Write("".PadLeft(level * 4));
-                        }
-                    }
-                    else
-                    {
-                        if (!json)
-                            stream.WriteLine(" [empty]");
-                    }
-                    if (json)
-                        stream.Write(state.IsObj ? '}' : ']');
-                }
-
-                if (json)
-                    stream.WriteLine("{");
-
-                foreach (var elem in blueprint.Elements)
-                {
-                    if (elem.levelDelta < 0)
-                    {
-                        var closeObj = stack.Pop();
-                        level--;
-                        Close(closeObj);
-                    }
-                    else if (elem.levelDelta == 0)
-                    {
-                        stack.Peek().Children++;
-                        WriteLine(elem.key, elem.value, elem.link);
-                    }
-                    else if (elem.levelDelta > 0)
-                    {
-                        stack.Peek().Children++;
-                        Open(elem.key, elem.isObj);
-                        stack.Push(new() { IsObj = elem.isObj });
-                        level++;
-
-                        var renderedString = JsonExtensions.ParseAsString(elem.Node);
-                        if (renderedString != null)
-                        {
-                            stack.Peek().Children++;
-                            WriteMultiLine("LocalisedValue", renderedString);
-                        }
-
-                    }
-
-                }
-                if (json)
-                    stream.WriteLine("}");
+                using var stream = File.CreateText(fileToOpen);
+                TextExporter.Export(stream, blueprint);
             }
             var editor = Properties.Settings.Default.Editor;
             if (editor == null || !File.Exists(editor))
                 editor = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "notepad.exe");
-            Process.Start(editor, fileToOpen);
+            string[] args = Properties.Settings.Default.ExternalEditorTemplate.Split(' ');
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] == "{blueprint}")
+                    args[i] = fileToOpen;
+            }
+            Process.Start(editor, args);
         }
 
         private void ResultsGrid_CellClick(object sender, DataGridViewCellEventArgs e) {
@@ -547,7 +409,7 @@ namespace BlueprintExplorer
             string Search = box.Text;
             if (box.SelectionLength == 0) {
                 if (here < Search.Length)
-                    box.Text = Search.Substring(here);
+                    box.Text = Search[here..];
                 else
                     box.Text = "";
 
@@ -577,7 +439,7 @@ namespace BlueprintExplorer
                     newSearch = "";
 
                 if (here < Search.Length) {
-                    newSearch += Search.Substring(here);
+                    newSearch += Search[here..];
                 }
 
                 box.Text = newSearch;
@@ -712,26 +574,15 @@ namespace BlueprintExplorer
             if (row >= resultsCache.Count)
                 return;
 
-            switch (e.ColumnIndex) {
-                case 0:
-                    e.Value = resultsCache[row].Name;
-                    break;
-                case 1:
-                    e.Value = resultsCache[row].TypeName;
-                    break;
-                case 2:
-                    e.Value = resultsCache[row].Namespace;
-                    break;
-                case 3:
-                    e.Value = resultsCache[row].Score(lastFinished).ToString();
-                    break;
-                case 4:
-                    e.Value = resultsCache[row].GuidText;
-                    break;
-                default:
-                    e.Value = "<error>";
-                    break;
-            }
+            e.Value = e.ColumnIndex switch
+            {
+                0 => resultsCache[row].Name,
+                1 => resultsCache[row].TypeName,
+                2 => resultsCache[row].Namespace,
+                3 => resultsCache[row].Score(lastFinished).ToString(),
+                4 => resultsCache[row].GuidText,
+                _ => "<error>",
+            };
         }
 
 

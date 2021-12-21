@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Reflection;
-using System.Linq;
 
-namespace BlueprintExplorer {
+namespace BlueprintExplorer
+{
     public interface ISearchable {
         //Dictionary<string, Func<string>> Providers { get; }     // named functions to extract different text out of the target
         MatchResult[] GetMatches(int index);
@@ -128,7 +127,7 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
             result.Reuse(text, this);
 
             int searchTextIndex = 0;
-            int targetIndex = -1;
+            int targetIndex;
 
             var searchText = result.Context.SearchText;
 

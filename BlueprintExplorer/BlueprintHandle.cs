@@ -17,31 +17,32 @@ namespace BlueprintExplorer
 {
     static class JsonExtensions
     {
-            public static string ParseAsString(JsonElement node)
-            {
-                if (node.ValueKind != JsonValueKind.Object)
-                    return null;
-
-                if (node.TryGetProperty("m_Key", out var strKey) && node.TryGetProperty("Shared", out var sharedString) && node.TryGetProperty("m_OwnerString", out _))
-                {
-                    var key = strKey.GetString();
-                    if (key.Length == 0 && sharedString.ValueKind == JsonValueKind.Object && sharedString.TryGetProperty("stringkey", out var sharedKey))
-                        key = sharedKey.GetString();
-
-                    if (key.Length > 0)
-                    {
-                        if (BlueprintDB.Instance.Strings.TryGetValue(key, out var str))
-                            return str;
-                        else
-                            return "<string-not-present>";
-                    }
-                    else
-                    {
-                        return "<null-string>";
-                    }
-                }
+        public static bool ContainsIgnoreCase(this string haystack, string needle) => haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
+        public static string ParseAsString(JsonElement node)
+        {
+            if (node.ValueKind != JsonValueKind.Object)
                 return null;
+
+            if (node.TryGetProperty("m_Key", out var strKey) && node.TryGetProperty("Shared", out var sharedString) && node.TryGetProperty("m_OwnerString", out _))
+            {
+                var key = strKey.GetString();
+                if (key.Length == 0 && sharedString.ValueKind == JsonValueKind.Object && sharedString.TryGetProperty("stringkey", out var sharedKey))
+                    key = sharedKey.GetString();
+
+                if (key.Length > 0)
+                {
+                    if (BlueprintDB.Instance.Strings.TryGetValue(key, out var str))
+                        return str;
+                    else
+                        return "<string-not-present>";
+                }
+                else
+                {
+                    return "<null-string>";
+                }
             }
+            return null;
+        }
 
         private static Random rng = new();
         private static string[] christmas = { "🎄", "❄️", "🦌", "⛄", "🎅" };
@@ -142,7 +143,7 @@ namespace BlueprintExplorer
         }
         public static bool IsEmptyContainer(this JsonElement elem)
         {
-            return (elem.ValueKind == JsonValueKind.Array && elem.GetArrayLength() == 0) || (elem.ValueKind == JsonValueKind.Object && elem.EnumerateObject().Count() == 0);
+            return (elem.ValueKind == JsonValueKind.Array && elem.GetArrayLength() == 0) || (elem.ValueKind == JsonValueKind.Object && !elem.EnumerateObject().Any());
         }
 
         public static void Visit(this JsonElement elem, Action<int, JsonElement> arrayIt, Action<string, JsonElement> objIt, Action<string> valIt, bool autoRecurse = false)
@@ -206,7 +207,7 @@ namespace BlueprintExplorer
         internal MatchResult[][] _Matches;
         public ushort[] ComponentIndex;
         public IEnumerable<string> ComponentsList => ComponentIndex.Select(i => BlueprintDB.Instance.ComponentTypeLookup[i]);
-        internal static readonly MatchQuery.MatchProvider MatchProvider = new MatchQuery.MatchProvider(
+        internal static readonly MatchQuery.MatchProvider MatchProvider = new(
                     obj => (obj as BlueprintHandle).NameLower,
                     obj => (obj as BlueprintHandle).TypeNameLower,
                     obj => (obj as BlueprintHandle).NamespaceLower,
@@ -262,7 +263,6 @@ namespace BlueprintExplorer
             public static IEnumerable<(VisitedElement, string)> Visit(BlueprintHandle bp)
             {
                 Stack<string> stack = new();
-                var visitor = new ElementVisitor();
                 foreach (var elem in BlueprintHandle.Visit(bp.EnsureObj, bp.Name))
                 {
                     if (elem.levelDelta > 0)

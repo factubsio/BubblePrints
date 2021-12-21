@@ -6,9 +6,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using static BlueprintExplorer.BlueprintHandle;
 
 namespace BlueprintExplorer
 {
@@ -71,6 +69,8 @@ namespace BlueprintExplorer
             }
 
             public StyleSpan[] Spans;
+
+            public String Raw => string.Join("", Spans.Select(s => s.Value));
         }
 
         public class RowElement
@@ -104,6 +104,17 @@ namespace BlueprintExplorer
 
             }
 
+            internal bool AnyParent(Predicate<RowElement> p, bool self = false)
+            {
+                if (self && p(this)) return true;
+
+                if (Parent != null)
+                {
+                    return p(Parent) || Parent.AnyParent(p);
+                }
+                return false;
+            }
+
             internal void AllParents(Action<RowElement> p)
             {
                 if (Parent != null)
@@ -133,6 +144,8 @@ namespace BlueprintExplorer
             }
 
             public bool HasChildren => Children.Count > 0;
+
+            public string SearchableValue => value ?? ValueStyled?.Raw ?? "";
 
             private string CalculatePath()
             {
@@ -202,9 +215,23 @@ namespace BlueprintExplorer
             }
             else
             {
+                var filter = _Filter;
+                bool inParents = false;
+                if (filter[^1] == '/')
+                {
+                    filter = filter[..^1];
+                    inParents = true;
+                }
+
+                bool matches(RowElement r) => r.key.ContainsIgnoreCase(filter) || r.SearchableValue.ContainsIgnoreCase(filter);
                 for (int i = 0; i < Elements.Count; i++)
                 {
-                    if (Elements[i].key.Contains(_Filter, StringComparison.OrdinalIgnoreCase) || (Elements[i].value?.Contains(_Filter, StringComparison.OrdinalIgnoreCase) ?? false))
+                    bool good = false;
+                    if (inParents)
+                        good = Elements[i].AnyParent(matches, true);
+                    else
+                        good = matches(Elements[i]);
+                    if (good)
                     {
                         Elements[i].AllParents(p => p.Visible = true);
                         Elements[i].Visible = true;
@@ -222,8 +249,10 @@ namespace BlueprintExplorer
                 if (Elements[i].Visible)
                 {
                     Elements[i].PrimaryRow = Remap.Count;
-                    for (int r = 0; r < Elements[i].RowCount; r++)
-                        Remap.Add(i);
+                    Remap.Add(i);
+                    if (!Elements[i].Collapsed)
+                        for (int r = 1; r < Elements[i].RowCount; r++)
+                            Remap.Add(i);
                 }
             }
             wantedHeight = Count * RowHeight;
@@ -243,6 +272,20 @@ namespace BlueprintExplorer
             int totalRows = 0;
             if (blueprint != null)
             {
+
+                Elements.Add(new ()
+                {
+                    key = "Blueprint ID",
+                    value = blueprint.GuidText,
+                    level = 0,
+                    link = null,
+                    Parent = null,
+                    String = null,
+                    RowCount = 1,
+                    Collapsed = false,
+                });
+                totalRows = 1;
+
                 int level = 0;
                 Stack<RowElement> stack = new();
                 stack.Push(null);
@@ -255,11 +298,14 @@ namespace BlueprintExplorer
                         var prev = stack.Pop();
                         if (!prev.IsObj)
                             prev.value += "[" + prev.Children.Count + "]";
+
                         Elements.Last().Last = true;
                         level--;
                     }
                     else if (e.levelDelta > 0)
+                    {
                         level++;
+                    }
 
                     if (e.levelDelta >= 0)
                     {
@@ -322,6 +368,7 @@ namespace BlueprintExplorer
                             row.Lines = lines;
                             row.RowCount = lines.Count;
                         }
+
                         stack.Peek()?.Children.Add(row);
                         row.PrimaryRow = totalRows;
                         Elements.Add(row);
@@ -367,7 +414,6 @@ namespace BlueprintExplorer
 
         private ImageAttributes HoverAttribs;
         private ImageAttributes ExpandAttribs;
-
 
         private void DrawElement(int row, DrawParams render)
         {
@@ -424,7 +470,7 @@ namespace BlueprintExplorer
                 }
                 valueFont = LinkFont;
             }
-            else if (elem.value is "null" or "NULL")
+            else if (elem.value is "null" or "NULL" or "[0]")
                 valueColor = Color.Gray;
 
 
@@ -474,7 +520,7 @@ namespace BlueprintExplorer
                 render.Graphics.DrawString(line, valueFont, new SolidBrush(valueColor), new Rectangle(NameColumnWidth, 0, StringWidthAllowed, 500));
             }
 
-            if (elem.HasChildren)
+            if (elem.HasChildren && row == elem.PrimaryRow)
             {
                 var img = elem.Collapsed ? Resources.expand : Resources.collapse;
                 int topPad = (RowHeight - 32) / 2;
@@ -521,8 +567,9 @@ namespace BlueprintExplorer
                 {
                     if (ModifierKeys.HasFlag(Keys.Control))
                     {
+                        bool forceOff = elem.Children.Any(ch => ch.HasChildren && !ch.Collapsed);
                         foreach (var child in elem.Children.Where(ch => ch.HasChildren))
-                            child.Collapsed = !child.Collapsed;
+                            child.Collapsed = forceOff || !child.Collapsed;
                     }
                     else
                         elem.Collapsed = !elem.Collapsed;
@@ -539,14 +586,18 @@ namespace BlueprintExplorer
                 string value = elem.value;
                 if (elem.link != null)
                     value = elem.link;
+                value ??= elem.ValueStyled?.Raw;
                 if (value == null)
                     return;
                 Clipboard.SetText(value);
+                int displayAt = elem.PrimaryRow - 1;
+                if (elem.PrimaryRow < 3)
+                    displayAt = elem.PrimaryRow + 1;
                 var toast = new Toast
                 {
                     Text = "Value Copied",
-                    Lifetime = 900,
-                    Bounds = new(e.X - 80, (elem.PrimaryRow - 1) * RowHeight, 160, 40)
+                    Lifetime = 600,
+                    Bounds = new(e.X - 80, displayAt * RowHeight, 160, 40)
                 };
                 Toasts.Add(toast);
                 InvalidateToasts();

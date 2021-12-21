@@ -448,7 +448,6 @@ namespace BlueprintExplorer
             int biggestStringZ = 0;
             int biggestRefList = 0;
             string mostReferred = "";
-            byte[] scratchpad = new byte[10_000_000];
 
             Dictionary<Guid, List<Guid>> References = new();
 

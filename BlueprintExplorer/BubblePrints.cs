@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Drawing.Design;
 using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Forms.Design;
 
@@ -44,7 +39,7 @@ namespace BlueprintExplorer
                 folderBrowser.UseDescriptionForTitle = true;
                 bool errored = false;
 
-                string folderPath = null;
+                string folderPath;
 
                 while (true)
                 {
@@ -99,9 +94,13 @@ namespace BlueprintExplorer
         }
 
         [Description("Full path to your preferred text editor for viewing raw blueprints")]
-        [DisplayName("External Editor")]
+        [DisplayName("External Editor - Path")]
         [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
         public string Editor { get; set; }
+
+        [Description("Argument(s) that will be passed to External Editor, {blueprint} will be replaced with the path to the generated file")]
+        [DisplayName("External Editor - Template")]
+        public string ExternalEditorTemplate { get; set; }
 
         [Description("Full path to the blueprints.binz file, only edit this if you're sure what you're doing")]
         [DisplayName("Blueprints DB")]
