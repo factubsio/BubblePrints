@@ -30,12 +30,13 @@ namespace BlueprintExplorer
         private void InitializeComponent()
         {
             this.panel1 = new System.Windows.Forms.Panel();
-            this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
+            this.controlBar = new System.Windows.Forms.TableLayoutPanel();
             this.helpButton = new System.Windows.Forms.Button();
             this.settingsButton = new System.Windows.Forms.Button();
             this.omniSearch = new System.Windows.Forms.TextBox();
             this.SearchLabel = new System.Windows.Forms.Label();
             this.availableVersions = new System.Windows.Forms.ComboBox();
+            this.notifications = new System.Windows.Forms.Button();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.resultsGrid = new System.Windows.Forms.DataGridView();
             this.BPName = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -46,7 +47,7 @@ namespace BlueprintExplorer
             this.blueprintViews = new System.Windows.Forms.TabControl();
             this.splitContainer2 = new System.Windows.Forms.SplitContainer();
             this.panel1.SuspendLayout();
-            this.tableLayoutPanel1.SuspendLayout();
+            this.controlBar.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -58,7 +59,7 @@ namespace BlueprintExplorer
             // 
             // panel1
             // 
-            this.panel1.Controls.Add(this.tableLayoutPanel1);
+            this.panel1.Controls.Add(this.controlBar);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel1.Location = new System.Drawing.Point(0, 0);
             this.panel1.Name = "panel1";
@@ -66,31 +67,33 @@ namespace BlueprintExplorer
             this.panel1.Size = new System.Drawing.Size(2442, 82);
             this.panel1.TabIndex = 1;
             // 
-            // tableLayoutPanel1
+            // controlBar
             // 
-            this.tableLayoutPanel1.ColumnCount = 5;
-            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
-            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 200F));
-            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 100F));
-            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 100F));
-            this.tableLayoutPanel1.Controls.Add(this.helpButton, 4, 0);
-            this.tableLayoutPanel1.Controls.Add(this.settingsButton, 3, 0);
-            this.tableLayoutPanel1.Controls.Add(this.omniSearch, 1, 0);
-            this.tableLayoutPanel1.Controls.Add(this.SearchLabel, 0, 0);
-            this.tableLayoutPanel1.Controls.Add(this.availableVersions, 2, 0);
-            this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tableLayoutPanel1.Location = new System.Drawing.Point(8, 8);
-            this.tableLayoutPanel1.Name = "tableLayoutPanel1";
-            this.tableLayoutPanel1.RowCount = 1;
-            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel1.Size = new System.Drawing.Size(2426, 66);
-            this.tableLayoutPanel1.TabIndex = 2;
+            this.controlBar.ColumnCount = 6;
+            this.controlBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.controlBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.controlBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 200F));
+            this.controlBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 100F));
+            this.controlBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 100F));
+            this.controlBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 64F));
+            this.controlBar.Controls.Add(this.helpButton, 4, 0);
+            this.controlBar.Controls.Add(this.settingsButton, 3, 0);
+            this.controlBar.Controls.Add(this.omniSearch, 1, 0);
+            this.controlBar.Controls.Add(this.SearchLabel, 0, 0);
+            this.controlBar.Controls.Add(this.availableVersions, 2, 0);
+            this.controlBar.Controls.Add(this.notifications, 5, 0);
+            this.controlBar.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.controlBar.Location = new System.Drawing.Point(8, 8);
+            this.controlBar.Name = "controlBar";
+            this.controlBar.RowCount = 1;
+            this.controlBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.controlBar.Size = new System.Drawing.Size(2426, 66);
+            this.controlBar.TabIndex = 2;
             // 
             // helpButton
             // 
             this.helpButton.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.helpButton.Location = new System.Drawing.Point(2329, 3);
+            this.helpButton.Location = new System.Drawing.Point(2265, 3);
             this.helpButton.Name = "helpButton";
             this.helpButton.Size = new System.Drawing.Size(94, 60);
             this.helpButton.TabIndex = 4;
@@ -101,7 +104,7 @@ namespace BlueprintExplorer
             // settingsButton
             // 
             this.settingsButton.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.settingsButton.Location = new System.Drawing.Point(2229, 3);
+            this.settingsButton.Location = new System.Drawing.Point(2165, 3);
             this.settingsButton.Name = "settingsButton";
             this.settingsButton.Size = new System.Drawing.Size(94, 60);
             this.settingsButton.TabIndex = 2;
@@ -117,7 +120,7 @@ namespace BlueprintExplorer
             this.omniSearch.Margin = new System.Windows.Forms.Padding(8);
             this.omniSearch.Name = "omniSearch";
             this.omniSearch.PlaceholderText = "enter search text...";
-            this.omniSearch.Size = new System.Drawing.Size(1827, 54);
+            this.omniSearch.Size = new System.Drawing.Size(1763, 54);
             this.omniSearch.TabIndex = 0;
             this.omniSearch.TextChanged += new System.EventHandler(this.omniSearch_TextChanged_1);
             this.omniSearch.KeyDown += new System.Windows.Forms.KeyEventHandler(this.omniSearch_KeyDown);
@@ -142,10 +145,23 @@ namespace BlueprintExplorer
             this.availableVersions.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.availableVersions.FormattingEnabled = true;
             this.availableVersions.ItemHeight = 25;
-            this.availableVersions.Location = new System.Drawing.Point(2029, 3);
+            this.availableVersions.Location = new System.Drawing.Point(1965, 3);
             this.availableVersions.Name = "availableVersions";
             this.availableVersions.Size = new System.Drawing.Size(194, 33);
             this.availableVersions.TabIndex = 3;
+            // 
+            // notifications
+            // 
+            this.notifications.BackgroundImage = global::BlueprintExplorer.Properties.Resources.notification;
+            this.notifications.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
+            this.notifications.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.notifications.FlatAppearance.BorderSize = 0;
+            this.notifications.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.notifications.Location = new System.Drawing.Point(2365, 3);
+            this.notifications.Name = "notifications";
+            this.notifications.Size = new System.Drawing.Size(58, 60);
+            this.notifications.TabIndex = 5;
+            this.notifications.UseVisualStyleBackColor = true;
             // 
             // splitContainer1
             // 
@@ -275,8 +291,8 @@ namespace BlueprintExplorer
             this.Name = "Form1";
             this.Text = "BlueprintDB";
             this.panel1.ResumeLayout(false);
-            this.tableLayoutPanel1.ResumeLayout(false);
-            this.tableLayoutPanel1.PerformLayout();
+            this.controlBar.ResumeLayout(false);
+            this.controlBar.PerformLayout();
             this.splitContainer1.Panel1.ResumeLayout(false);
             this.splitContainer1.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
@@ -297,7 +313,7 @@ namespace BlueprintExplorer
         private System.Windows.Forms.DataGridViewTextBoxColumn BPNamespace;
         private System.Windows.Forms.DataGridViewTextBoxColumn Score;
         private System.Windows.Forms.DataGridViewTextBoxColumn BPGuid;
-        private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
+        private System.Windows.Forms.TableLayoutPanel controlBar;
         private System.Windows.Forms.TextBox omniSearch;
         private System.Windows.Forms.Label SearchLabel;
         private System.Windows.Forms.SplitContainer splitContainer2;
@@ -305,6 +321,7 @@ namespace BlueprintExplorer
         private System.Windows.Forms.ComboBox availableVersions;
         private System.Windows.Forms.TabControl blueprintViews;
         private System.Windows.Forms.Button helpButton;
+        private System.Windows.Forms.Button notifications;
     }
 }
 

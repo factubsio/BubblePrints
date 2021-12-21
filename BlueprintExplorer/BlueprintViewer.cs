@@ -41,8 +41,8 @@ namespace BlueprintExplorer
             filter.TextChanged += (sender, e) => view.Filter = filter.Text;
             if (Form1.Dark)
             {
-                Form1.DarkenControls(view, filter, references, openExternal, currentPath);
-                Form1.DarkenStyles(references.DefaultCellStyle, references.ColumnHeadersDefaultCellStyle);
+                BubbleTheme.DarkenControls(view, filter, references, openExternal, currentPath);
+                BubbleTheme.DarkenStyles(references.DefaultCellStyle, references.ColumnHeadersDefaultCellStyle);
             }
 
             references.CellClick += (sender, e) => ShowReferenceSelected();
@@ -89,7 +89,7 @@ namespace BlueprintExplorer
         private void PushHistory(BlueprintHandle bp) {
             var button = new Button();
             if (Form1.Dark)
-                Form1.DarkenControls(button);
+                BubbleTheme.DarkenControls(button);
             button.MinimumSize = new Size(10, 44);
             button.Text = bp.Name;
             button.AutoSize = true;

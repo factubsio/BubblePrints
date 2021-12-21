@@ -14,67 +14,6 @@ namespace BlueprintExplorer
 {
     public partial class Form1 : BubbleprintsForm {
         
-        private static readonly Color RegularDarkColor = Color.FromArgb(50, 50, 50);
-        private static readonly Color ChristmasColorBG = Color.FromArgb(150, 10, 10);
-        private static readonly Color ChristmasColorFG = Color.White;
-
-        public static Color SeasonalFGColor
-        {
-            get
-            {
-
-                if (SeasonalOverlay.NearChristmas)
-                    return ChristmasColorFG;
-
-                return Color.Green;
-            }
-        }
-
-        public static Color SeasonalBGColor
-        {
-            get
-            {
-                if (SeasonalOverlay.NearChristmas)
-                    return ChristmasColorBG;
-
-                return Color.Black;
-            }
-        }
-
-
-        public static void SeasonStyles(params DataGridViewCellStyle []styles)
-        {
-            foreach (var style in styles)
-            {
-                style.ForeColor = SeasonalFGColor;
-                style.BackColor = SeasonalBGColor;
-            }
-        }
-        public static void SeasonControls(params Control []controls)
-        {
-            foreach (var c in controls)
-            {
-                c.ForeColor = SeasonalFGColor;
-                c.BackColor = SeasonalBGColor;
-            }
-        }
-
-        public static void DarkenStyles(params DataGridViewCellStyle []styles)
-        {
-            foreach (var style in styles)
-            {
-                style.ForeColor = Color.White;
-                style.BackColor = RegularDarkColor;
-            }
-        }
-        public static void DarkenControls(params Control []controls)
-        {
-            foreach (var c in controls)
-            {
-                c.ForeColor = Color.White;
-                c.BackColor = RegularDarkColor;
-            }
-        }
         private BlueprintDB db => BlueprintDB.Instance;
         private static bool dark;
         bool Good => initialize?.IsCompleted ?? false;
@@ -84,7 +23,7 @@ namespace BlueprintExplorer
             var viewer = new BlueprintViewer();
             if (Dark)
             {
-                DarkenControls(viewer);
+                BubbleTheme.DarkenControls(viewer);
             }
 
             viewer.View.Font = BlueprintFont;
@@ -120,6 +59,11 @@ namespace BlueprintExplorer
             return viewer;
         }
 
+        public void AddNotification(string message)
+        {
+            controlBar.ColumnStyles[^1].Width = 64;
+        }
+
         public Form1() {
             var env = Environment.GetEnvironmentVariable("BubbleprintsTheme");
             Dark = env?.Equals("dark") ?? false;
@@ -133,6 +77,8 @@ namespace BlueprintExplorer
             resultsGrid.CellClick += ResultsGrid_CellClick;
 
             InstallReadline(omniSearch);
+
+            controlBar.ColumnStyles[^1].Width = 0;
 
             Color bgColor = omniSearch.BackColor;
             resultsGrid.RowHeadersVisible = false;
@@ -171,8 +117,8 @@ namespace BlueprintExplorer
             if (Dark)
             {
                 resultsGrid.EnableHeadersVisualStyles = false;
-                DarkenControls(omniSearch, resultsGrid, splitContainer1, panel1, settingsButton, blueprintViews, helpButton);
-                DarkenStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
+                BubbleTheme.DarkenControls(omniSearch, resultsGrid, splitContainer1, panel1, settingsButton, blueprintViews, helpButton);
+                BubbleTheme.DarkenStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
 
                 Invalidate();
             }
@@ -184,8 +130,8 @@ namespace BlueprintExplorer
 
             if (SeasonalOverlay.InSeason)
             {
-                SeasonControls(omniSearch, panel1, settingsButton, resultsGrid, helpButton);
-                SeasonStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
+                BubbleTheme.SeasonControls(omniSearch, panel1, settingsButton, resultsGrid, helpButton);
+                BubbleTheme.SeasonStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
                 SeasonalOverlay.Install(resultsGrid);
             }
 
@@ -252,19 +198,6 @@ namespace BlueprintExplorer
 
         private void Default_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-        }
-
-        public static void DarkenPropertyGrid(PropertyGrid grid)
-        {
-            grid.LineColor = Color.DimGray;
-            grid.DisabledItemForeColor = Color.White;
-            grid.ViewForeColor = Color.White;
-            grid.HelpForeColor = Color.LightGray;
-            grid.HelpBackColor = RegularDarkColor;
-            grid.BackColor = RegularDarkColor;
-            grid.ViewBackColor = RegularDarkColor;
-            grid.ViewBorderColor = Color.DimGray;
-            grid.ViewBackColor = RegularDarkColor;
         }
 
 

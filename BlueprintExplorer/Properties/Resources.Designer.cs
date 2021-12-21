@@ -111,16 +111,23 @@ namespace BlueprintExplorer.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang2057{\fonttbl{\f0\fnil\fcharset0 Calibri;}{\f1\fnil\fcharset2 Symbol;}}
-        ///{\*\generator Riched20 10.0.19041}\viewkind4\uc1 
-        ///\pard\sa200\sl276\slmult1\b\f0\fs22\lang9 SETTINGS\par
-        ///\b0 Some things are configurable, click the &apos;Settings&apos; button at the top right of the main window, each setting has a description of what it does.\par
-        ///\b COPYING\par
-        ///\b0 Right clicking on any row in the blueprints view will copy the value (with some special handling for stuff like  [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to {\rtf1\ansi\deff3\adeflang1025
+        ///{\fonttbl{\f0\froman\fprq2\fcharset0 Times New Roman;}{\f1\froman\fprq2\fcharset2 Symbol;}{\f2\fswiss\fprq2\fcharset0 Arial;}{\f3\froman\fprq2\fcharset0 Liberation Serif{\*\falt Times New Roman};}{\f4\froman\fprq2\fcharset0 Calibri;}{\f5\froman\fprq2\fcharset0 Liberation Sans{\*\falt Arial};}{\f6\froman\fprq2\fcharset0 Lucida Console;}{\f7\fnil\fprq2\fcharset0 0;}{\f8\fnil\fprq2\fcharset0 Microsoft YaHei;}{\f9\fnil\fprq2\fcharset0 Arial;}}
+        ///{\colortbl;\red0\green0\blue0;\red0 [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string help {
             get {
                 return ResourceManager.GetString("help", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap notification {
+            get {
+                object obj = ResourceManager.GetObject("notification", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
             }
         }
     }
