@@ -144,6 +144,7 @@ namespace BlueprintExplorer
             }
 
             public bool HasChildren => Children.Count > 0;
+            public bool HasLink => link != null;
 
             public string SearchableValue => value ?? ValueStyled?.Raw ?? "";
 
@@ -452,7 +453,7 @@ namespace BlueprintExplorer
             float xOffset = 48 + elem.level * LevelIndent;
 
             var extra = "";
-            if (elem.link != null)
+            if (elem.HasLink) 
             {
                 if (BackColor.GetBrightness() < 0.5f)
                     valueColor = Color.LightGreen;
@@ -553,9 +554,27 @@ namespace BlueprintExplorer
             return false;
         }
 
+        private void Toggle(RowElement elem)
+        {
+            if (ModifierKeys.HasFlag(Keys.Control))
+            {
+                bool forceOff = elem.Children.Any(ch => ch.HasChildren && !ch.Collapsed);
+                foreach (var child in elem.Children.Where(ch => ch.HasChildren))
+                    child.Collapsed = forceOff || !child.Collapsed;
+            }
+            else
+                elem.Collapsed = !elem.Collapsed;
+
+            ValidateFilter();
+        }
+
         protected override void OnMouseDoubleClick(MouseEventArgs e)
         {
-
+            bool valid = GetCurrent(out var elem);
+            if (valid && e.Clicks == 2 && elem.HasChildren && !elem.HasLink && !elem.HoverButton)
+            {
+                Toggle(elem);
+            }
         }
 
         protected override void OnMouseClick(MouseEventArgs e)
@@ -565,18 +584,9 @@ namespace BlueprintExplorer
             {
                 if (elem.HoverButton)
                 {
-                    if (ModifierKeys.HasFlag(Keys.Control))
-                    {
-                        bool forceOff = elem.Children.Any(ch => ch.HasChildren && !ch.Collapsed);
-                        foreach (var child in elem.Children.Where(ch => ch.HasChildren))
-                            child.Collapsed = forceOff || !child.Collapsed;
-                    }
-                    else
-                        elem.Collapsed = !elem.Collapsed;
-
-                    ValidateFilter();
+                    Toggle(elem);
                 }
-                else if (elem.link != null)
+                else if (elem.HasLink)
                 {
                     OnLinkClicked?.Invoke(elem.link, ModifierKeys.HasFlag(Keys.Control));
                 }
@@ -584,10 +594,10 @@ namespace BlueprintExplorer
             else if (e.Button == MouseButtons.Right && valid)
             {
                 string value = elem.value;
-                if (elem.link != null)
-                    value = elem.link;
                 value ??= elem.ValueStyled?.Raw;
-                if (value == null)
+                if (elem.HasLink)
+                    value = elem.link;
+                if (string.IsNullOrWhiteSpace(value))
                     return;
                 Clipboard.SetText(value);
                 int displayAt = elem.PrimaryRow - 1;
@@ -646,7 +656,7 @@ namespace BlueprintExplorer
                 bool onButton = elem.HasChildren && e.X < (LevelIndent * elem.level + 48 - LevelIndent / 2);
                 invalidateChildren = onButton != elem.HoverButton;
                 elem.HoverButton = onButton;
-                if (!elem.HoverButton && elem.link != null)
+                if (!elem.HoverButton && elem.HasLink)
                     Cursor = Cursors.Hand;
                 else
                     Cursor = Cursors.Default;
