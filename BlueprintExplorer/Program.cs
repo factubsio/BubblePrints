@@ -1,11 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.IO.Compression;
-using System.Linq;
-using System.Reflection;
-using System.Text.Json;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace BlueprintExplorer
@@ -21,6 +14,8 @@ namespace BlueprintExplorer
 #if DEBUG
             BubblePrints.SetupLogging();
 #endif
+
+            BubblePrints.LoadSettings();
 
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();

@@ -104,45 +104,38 @@ namespace BlueprintExplorer
         }
 
         public Form1() {
-
-            // Copy user settings from previous application version if necessary
-            if (Properties.Settings.Default.NeedsUpdate)
-            {
-                Properties.Settings.Default.Upgrade();
-                Properties.Settings.Default.NeedsUpdate = false;
-                Properties.Settings.Default.Save();
-            }
-
             var env = Environment.GetEnvironmentVariable("BubbleprintsTheme");
             Dark = env?.Equals("dark") ?? false;
-            Dark |= Properties.Settings.Default.DarkMode;
+            Dark |= BubblePrints.Settings.DarkMode;
 
             long version = ParseVersion(Application.ProductVersion);
 
-            Task.Run(async () =>
+            if (BubblePrints.Settings.CheckForUpdates)
             {
-                using WebClient client = new();
-                client.Headers.Add("User-Agent", "BubblePrints");
-                var raw = await client.DownloadStringTaskAsync("https://api.github.com/repos/factubsio/BubblePrints/releases/latest");
-                return JsonSerializer.Deserialize<JsonElement>(raw);
-            }).ContinueWith(t =>
-            {
-                var json = t.Result;
-                if (json.TryGetProperty("tag_name", out var tag)) {
-                    long latest = ParseVersion(tag.GetString()[1..]);
-                    if (latest > version)
+                Task.Run(async () =>
+                {
+                    using WebClient client = new();
+                    client.Headers.Add("User-Agent", "BubblePrints");
+                    var raw = await client.DownloadStringTaskAsync("https://api.github.com/repos/factubsio/BubblePrints/releases/latest");
+                    return JsonSerializer.Deserialize<JsonElement>(raw);
+                }).ContinueWith(t =>
+                {
+                    var json = t.Result;
+                    if (json.TryGetProperty("tag_name", out var tag))
                     {
-                        AddNotification(new()
+                        long latest = ParseVersion(tag.GetString()[1..]);
+                        if (latest > version)
                         {
-                            Message = "An update is available (" + tag + ")",
-                            Action = () => Process.Start("explorer", json.GetProperty("assets")[0].GetProperty("browser_download_url").GetString()),
-                            ActionText = "Download now",
-                        });
+                            AddNotification(new()
+                            {
+                                Message = "An update is available (" + tag + ")",
+                                Action = () => Process.Start("explorer", json.GetProperty("assets")[0].GetProperty("browser_download_url").GetString()),
+                                ActionText = "Download now",
+                            });
+                        }
                     }
-                }
-            }, TaskScheduler.FromCurrentSynchronizationContext());
-
-            Properties.Settings.Default.PropertyChanged += Default_PropertyChanged;
+                }, TaskScheduler.FromCurrentSynchronizationContext());
+            }
 
             InitializeComponent();
             NewBlueprintViewer();
@@ -275,10 +268,6 @@ namespace BlueprintExplorer
             e.Graphics.FillRectangle(Brushes.Yellow, 0, 0, 100, 100);
         }
 
-        private void Default_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-        }
-
 
         private void DoOpenInEditor(BlueprintHandle blueprint)
         {
@@ -295,10 +284,10 @@ namespace BlueprintExplorer
                 using var stream = File.CreateText(fileToOpen);
                 TextExporter.Export(stream, blueprint);
             }
-            var editor = Properties.Settings.Default.Editor;
+            var editor = BubblePrints.Settings.Editor;
             if (editor == null || !File.Exists(editor))
                 editor = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "notepad.exe");
-            string[] args = Properties.Settings.Default.ExternalEditorTemplate.Split(' ');
+            string[] args = BubblePrints.Settings.ExternalEditorTemplate.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i] == "{blueprint}")
@@ -565,7 +554,7 @@ namespace BlueprintExplorer
 
 
         private void ShowBlueprint(BlueprintHandle bp, ShowFlags flags) {
-            if (flags.UpdateHistory() && Properties.Settings.Default.AlwaysOpenInEditor)
+            if (flags.UpdateHistory() && BubblePrints.Settings.AlwaysOpenInEditor)
                 DoOpenInEditor(bp);
 
             if (blueprintViews.SelectedTab.Controls[0] is BlueprintViewer bpView)

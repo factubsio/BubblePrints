@@ -76,7 +76,7 @@ namespace BlueprintExplorer
 
         }
 
-        public static bool InSeason => !Properties.Settings.Default.NoSeasonalTheme && (NearChristmas);
+        public static bool InSeason => !BubblePrints.Settings.NoSeasonalTheme && (NearChristmas);
 
         internal static void Install(Control target)
         {

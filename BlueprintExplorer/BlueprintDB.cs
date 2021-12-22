@@ -124,7 +124,7 @@ namespace BlueprintExplorer
             if (!AvailableDetected)
             {
                 bool fromWeb = false;
-                if (Properties.Settings.Default.CheckForNewBP)
+                if (BubblePrints.Settings.CheckForNewBP)
                 {
                     try
                     {
@@ -152,7 +152,7 @@ namespace BlueprintExplorer
 
                 if (!fromWeb)
                 {
-                    var last = Properties.Settings.Default.LastLoaded;
+                    var last = BubblePrints.Settings.LastLoaded;
                     if (!string.IsNullOrWhiteSpace(last))
                     {
                         Console.WriteLine("setting available = last loaded");
@@ -322,8 +322,6 @@ namespace BlueprintExplorer
                             progress.Current = e.ProgressPercentage;
                         };
                         await client.DownloadFileTaskAsync(latestVersionUrl, fileToOpen);
-                        Properties.Settings.Default.BlueprintDBPath = fileToOpen;
-                        Properties.Settings.Default.Save();
                         break;
                     case GoingToLoad.FromCache:
                         fileToOpen = Path.Combine(CacheDir, FileName);
@@ -453,8 +451,8 @@ namespace BlueprintExplorer
                 loadMeta.Wait();
 
 
-                Properties.Settings.Default.LastLoaded = Path.GetFileName(fileToOpen);
-                Properties.Settings.Default.Save();
+                BubblePrints.Settings.LastLoaded = Path.GetFileName(fileToOpen);
+                BubblePrints.SaveSettings();
                 ctx.Dispose();
 
             }

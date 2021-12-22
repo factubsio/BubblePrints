@@ -7,6 +7,9 @@
     <ApplicationIcon />
     <StartupObject />
     <Version>0.0.1</Version>
+    <SignAssembly>false</SignAssembly>
+    <AssemblyOriginatorKeyFile>bubbleprintskey.pfx</AssemblyOriginatorKeyFile>
+    <DelaySign>false</DelaySign>
   </PropertyGroup>
 
   <ItemGroup>

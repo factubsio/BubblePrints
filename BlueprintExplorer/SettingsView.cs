@@ -22,7 +22,7 @@ namespace BlueprintExplorer
                 BubbleTheme.DarkenPropertyGrid(settingsPropView);
                 BubbleTheme.DarkenControls(deleteBinz, deleteEditorCache, formSave, formCancel, cacheControlButtons, formActionButtons);
             }
-            settingsPropView.SelectedObject = new SettingsProxy();
+            settingsPropView.SelectedObject = new SettingsProxy(BubblePrints.Settings);
         }
 
         private void label1_Click(object sender, EventArgs e)
@@ -85,7 +85,6 @@ namespace BlueprintExplorer
         private void formSave_Click(object sender, EventArgs e)
         {
             (settingsPropView.SelectedObject as SettingsProxy).Sync();
-            Properties.Settings.Default.Save();
             Close();
         }
 

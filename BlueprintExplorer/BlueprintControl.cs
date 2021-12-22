@@ -322,7 +322,7 @@ namespace BlueprintExplorer
                             String = JsonExtensions.ParseAsString(e.Node),
                             RowCount = 1,
                             IsObj = e.isObj,
-                            Collapsed = totalRows != 0 && !Properties.Settings.Default.EagerExpand,
+                            Collapsed = totalRows != 0 && !BubblePrints.Settings.EagerExpand,
                         };
 
                         if (e.isObj && e.Node.TryGetProperty("$type", out var rawType))

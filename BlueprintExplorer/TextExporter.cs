@@ -13,7 +13,7 @@ namespace BlueprintExplorer
         }
         public static void Export(TextWriter stream, BlueprintHandle blueprint)
         {
-            bool json = Properties.Settings.Default.StrictJsonForEditor;
+            bool json = BubblePrints.Settings.StrictJsonForEditor;
             int level = 0;
             Stack<ElementWriteState> stack = new();
             stack.Push(new() { IsObj = true });

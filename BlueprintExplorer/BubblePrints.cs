@@ -1,7 +1,9 @@
-﻿using System.ComponentModel;
+﻿using System;
+using System.ComponentModel;
 using System.Drawing.Design;
 using System.IO;
 using System.Reflection;
+using System.Text.Json;
 using System.Windows.Forms;
 using System.Windows.Forms.Design;
 
@@ -9,6 +11,7 @@ namespace BlueprintExplorer
 {
     public static class BubblePrints
     {
+        public static SettingsProxy Settings = new();
         private static string StoredWrathPath = null;
         public static bool TryGetWrathPath(out string path)
         {
@@ -22,6 +25,15 @@ namespace BlueprintExplorer
         private static bool console = false;
         public static Assembly Wrath;
 
+        public static void LoadSettings()
+        {
+            if (File.Exists(SettingsPath))
+            {
+                var raw = File.ReadAllText(SettingsPath);
+                Settings = JsonSerializer.Deserialize<SettingsProxy>(raw);
+            }
+        }
+
         internal static void SetupLogging()
         {
 #if DEBUG
@@ -32,14 +44,13 @@ namespace BlueprintExplorer
 
         internal static void SetWrathPath()
         {
-            var path = Properties.Settings.Default.WrathPath;
+
+            var path = BubblePrints.Settings.WrathPath;
             if (path == null || path.Length == 0 || !File.Exists(Path.Combine(path, "Wrath.exe")))
             {
                 var folderBrowser = new FolderBrowserDialog();
                 folderBrowser.UseDescriptionForTitle = true;
                 bool errored = false;
-
-                string folderPath;
 
                 while (true)
                 {
@@ -51,45 +62,51 @@ namespace BlueprintExplorer
                     if (folderBrowser.ShowDialog() != DialogResult.OK)
                         return;
                         
-                    folderPath = folderBrowser.SelectedPath;
+                    path = folderBrowser.SelectedPath;
 
-                    var exePath = Path.Combine(folderPath, "Wrath.exe");
+                    var exePath = Path.Combine(path, "Wrath.exe");
                     if (File.Exists(exePath))
                         break;
 
                     errored = true;
                 }
-                if (path != null)
+                if (!errored)
                 {
-                    path = folderPath;
-                    Properties.Settings.Default.WrathPath = path;
-                    Properties.Settings.Default.Save();
+                    BubblePrints.Settings.WrathPath = path;
+                    BubblePrints.SaveSettings();
                 }
             }
 
             StoredWrathPath = path;
         }
+
+        public static string DataPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints");
+        public static string MakeDataPath(string subpath) => Path.Combine(DataPath, subpath);
+        public static string SettingsPath => MakeDataPath("settings.json");
+
+        internal static void SaveSettings() => File.WriteAllText(BubblePrints.SettingsPath, JsonSerializer.Serialize(BubblePrints.Settings));
     }
 
     public class SettingsProxy
     {
         public void Sync()
         {
-            var settings = Properties.Settings.Default;
+            var settings = BubblePrints.Settings;
             foreach (var p in GetType().GetProperties())
             {
-                string prop = p.Name;
-                settings.GetType().GetProperty(prop).SetValue(settings, p.GetValue(this));
+                p.SetValue(settings, p.GetValue(this));
             }
+            BubblePrints.SaveSettings();
         }
 
-        public SettingsProxy()
+
+        public SettingsProxy() { }
+
+        public SettingsProxy(SettingsProxy settings)
         {
-            var settings = Properties.Settings.Default;
             foreach (var p in GetType().GetProperties())
             {
-                string prop = p.Name;
-                p.SetValue(this, settings.GetType().GetProperty(prop).GetValue(settings));
+                p.SetValue(this, p.GetValue(settings));
             }
         }
 
@@ -100,12 +117,7 @@ namespace BlueprintExplorer
 
         [Description("Argument(s) that will be passed to External Editor, {blueprint} will be replaced with the path to the generated file")]
         [DisplayName("External Editor - Template")]
-        public string ExternalEditorTemplate { get; set; }
-
-        [Description("Full path to the blueprints.binz file, only edit this if you're sure what you're doing")]
-        [DisplayName("Blueprints DB")]
-        [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
-        public string BlueprintDBPath { get; set; }
+        public string ExternalEditorTemplate { get; set; } = "{blueprint}";
 
         [Description("Full path to your Wrath folder (i.e. the folder containing Wrath.exe")]
         [DisplayName("Wrath Install Folder")]
@@ -116,17 +128,13 @@ namespace BlueprintExplorer
         [DisplayName("Always Open Externally")]
         public bool AlwaysOpenInEditor { get; set; }
 
-        [Description("If set, clicking on a link in the blueprint view will automatically open the link target")]
-        [DisplayName("Follow link on click")]
-        public bool EagerFollowLink { get; set; }
-
         [Description("If true, the external editor will display strict json. If false, the external editor will display human-friendly text")]
         [DisplayName("Generate json for 'Open in Editor'")]
-        public bool StrictJsonForEditor { get; set; }
+        public bool StrictJsonForEditor { get; set; } = true;
 
         [Description("If true, the blueprint view will expand all fields automatically")]
         [DisplayName("Expand all properties")]
-        public bool EagerExpand { get; set; }
+        public bool EagerExpand { get; set; } = true;
 
         [Description("If true, use a dark theme, you must restart the application for this to take effect")]
         [DisplayName("Dark Mode (*)")]
@@ -134,14 +142,19 @@ namespace BlueprintExplorer
 
         [Description("If true, checks to see if there is a newer version of the application available and notifies you (does not automatically update)")]
         [DisplayName("Check for updates")]
-        public bool CheckForUpdates { get; set; }
+        public bool CheckForUpdates { get; set; } = true;
 
         [Description("If true, checks to see if there is a later version of the blueprints file and automatically updates your current version")]
         [DisplayName("Check for new blueprints")]
-        public bool CheckForNewBP { get; set; }
+        public bool CheckForNewBP { get; set; } = true;
 
         [Description("If true, disables any fun seasonal themes that may be in effect")]
         [DisplayName("Disable fun themes")]
-        public bool NoSeasonalTheme { get; set; }
+        public bool NoSeasonalTheme { get; set; } = false;
+
+        [ReadOnly(true)]
+        [Description("This path will be used if the 'check for updates' is false, or if there is no connectivity to check for any later version")]
+        [DisplayName("Most recent blueprints loaded")]
+        public string LastLoaded { get; set; }
     }
 }
