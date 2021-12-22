@@ -178,5 +178,17 @@ namespace BlueprintExplorer.Properties {
                 this["ExternalEditorTemplate"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool NeedsUpdate {
+            get {
+                return ((bool)(this["NeedsUpdate"]));
+            }
+            set {
+                this["NeedsUpdate"] = value;
+            }
+        }
     }
 }

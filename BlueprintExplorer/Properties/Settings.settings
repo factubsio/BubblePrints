@@ -41,5 +41,8 @@
     <Setting Name="ExternalEditorTemplate" Type="System.String" Scope="User">
       <Value Profile="(Default)">{blueprint}</Value>
     </Setting>
+    <Setting Name="NeedsUpdate" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

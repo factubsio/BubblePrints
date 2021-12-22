@@ -104,6 +104,15 @@ namespace BlueprintExplorer
         }
 
         public Form1() {
+
+            // Copy user settings from previous application version if necessary
+            if (Properties.Settings.Default.NeedsUpdate)
+            {
+                Properties.Settings.Default.Upgrade();
+                Properties.Settings.Default.NeedsUpdate = false;
+                Properties.Settings.Default.Save();
+            }
+
             var env = Environment.GetEnvironmentVariable("BubbleprintsTheme");
             Dark = env?.Equals("dark") ?? false;
             Dark |= Properties.Settings.Default.DarkMode;
