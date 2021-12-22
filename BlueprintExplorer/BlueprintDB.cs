@@ -19,6 +19,13 @@ namespace BlueprintExplorer
 {
     public partial class BlueprintDB
     {
+
+        #region DEV
+        bool generateOutput = false;
+        bool importNew = false;
+        bool forceLastKnown = false;
+        #endregion
+
         private static BlueprintDB _Instance;
         public static BlueprintDB Instance => _Instance ??= new();
         public readonly Dictionary<string, string> Strings = new();
@@ -87,12 +94,13 @@ namespace BlueprintExplorer
 
         public List<GameVersion> Available = new() { };
 
-        private readonly GameVersion LastKnown = new(1, 1, 4, 'f', 0);
+        private readonly GameVersion LastKnown = new(1, 1, 6, 'e', 0);
 
         private readonly string filenameRoot = "blueprints_raw";
         private readonly string extension = "binz";
 
-        public string FileName => $"{filenameRoot}_{Latest}.{extension}";
+        private string FileNameFor(GameVersion version) => $"{filenameRoot}_{version}.{extension}";
+        public string FileName => FileNameFor(Latest);
 
         public bool InCache => File.Exists(Path.Combine(CacheDir, FileName));
 
@@ -116,7 +124,6 @@ namespace BlueprintExplorer
 
             if (!AvailableDetected)
             {
-                var last = Properties.Settings.Default.LastLoaded;
                 bool fromWeb = false;
                 if (Properties.Settings.Default.CheckForNewBP)
                 {
@@ -146,6 +153,7 @@ namespace BlueprintExplorer
 
                 if (!fromWeb)
                 {
+                    var last = Properties.Settings.Default.LastLoaded;
                     if (!string.IsNullOrWhiteSpace(last))
                     {
                         Console.WriteLine("setting available = last loaded");
@@ -182,13 +190,17 @@ namespace BlueprintExplorer
 
         }
 
-        #region DEV
-        bool generateOutput = false;
-        bool importNew = false;
-        bool forceLastKnown = false;
-        #endregion
-
         public string[] ComponentTypeLookup;
+
+        private static Dictionary<string, Dictionary<string, string>> defaults = new();
+        public static string DefaultForField(string typename, string field)
+        {
+            if (typename == null || !defaults.TryGetValue(typename, out var map))
+                return null;
+            if (!map.TryGetValue(field, out var value))
+                value = null;
+            return value;
+        }
 
         public class ConnectionProgress
         {
@@ -227,6 +239,11 @@ namespace BlueprintExplorer
                 }
 
                 using var bpDump = ZipFile.OpenRead(@"D:\WOTR-1.1-DEBUG\blueprints.zip");
+
+                if (File.Exists(@"D:\bp_defaults.json"))
+                {
+                    defaults = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(File.ReadAllText(@"D:\bp_defaults.json"));
+                }
 
                 Dictionary<string, string> TypenameToGuid = new();
 
@@ -277,6 +294,7 @@ namespace BlueprintExplorer
 
                 Console.WriteLine("COMPLETE, press a key");
                 Console.ReadKey();
+                Console.WriteLine("Continuing");
             }
             else
             {
@@ -335,7 +353,9 @@ namespace BlueprintExplorer
 
                 Console.WriteLine($"Reading {count} blueprints for Wrath: {header}");
 
-                foreach (var bundle in reader.Handle.GetChunks((ushort)ChunkTypes.Blueprints))
+                var blueprintBundles = reader.Handle.GetChunks((ushort)ChunkTypes.Blueprints);
+
+                foreach (var bundle in blueprintBundles)
                 {
                     var task = Task.Run<List<BlueprintHandle>>(() =>
                     {
@@ -360,7 +380,10 @@ namespace BlueprintExplorer
                         }
 
                         byte[] guid_cache = new byte[16];
-                        var refs = bundleContext.Open(bundle.ForSubType((ushort)ChunkSubTypes.Blueprints.References));
+                        ushort refId = (ushort)ChunkSubTypes.Blueprints.References;
+                        //if (header.Major == 1 && header.Minor == 1 && header.Patch < 6)
+                        //    refId = (ushort)ChunkSubTypes.Blueprints.Components;
+                        var refs = bundleContext.Open(bundle.ForSubType(refId));
 
                         for (int i = 0; i < res.Count; i++)
                         {
@@ -375,6 +398,7 @@ namespace BlueprintExplorer
 
                         return res;
                     });
+                    task.Wait();
                     tasks.Add(task);
                 }
 
@@ -392,8 +416,30 @@ namespace BlueprintExplorer
                     var strings = ctx.OpenRaw(reader.Get((ushort)ChunkTypes.Strings).Main);
 
                     var stringDictRaw = JsonSerializer.Deserialize<JsonElement>(strings.Span).GetProperty("strings");
-                        foreach (var kv in stringDictRaw.EnumerateObject())
-                            Strings[kv.Name] = kv.Value.GetString();
+                    foreach (var kv in stringDictRaw.EnumerateObject())
+                    {
+                        Strings[kv.Name] = kv.Value.GetString();
+                    }
+
+                    var defs = ctx.Open(reader.Get((ushort)ChunkTypes.Defaults)?.Main);
+                    if (defs != null)
+                    {
+                        int defCount = defs.ReadInt32();
+                        for (int i = 0; i < defCount; i++)
+                        {
+                            string key = defs.ReadString();
+                            int subCount = defs.ReadInt32();
+                            var map = new Dictionary<string, string>();
+                            for (int s = 0; s < subCount; s++)
+                            {
+                                string subKey = defs.ReadString();
+                                string subVal = defs.ReadString();
+                                map[subKey] = subVal;
+                            }
+                            defaults[key] = map;
+                        }
+
+                    }
                 });
 
                 float loadTime = watch.ElapsedMilliseconds;
@@ -420,6 +466,8 @@ namespace BlueprintExplorer
 #pragma warning disable CS0162 // Unreachable code detected
                 try
                 {
+                    Console.WriteLine("Generating");
+                    File.WriteAllLines(@"D:\bp_types.txt", GuidToFullTypeName.Select(kv => $"{kv.Key} {kv.Value}"));
                     WriteBlueprints();
                 }
                 catch (Exception ex)
@@ -467,15 +515,14 @@ namespace BlueprintExplorer
 
             Dictionary<string, UInt16> uniqueComponents = new();
 
-
-            using (var file = new BPFile.BPWriter("NEW_" + FileName))
+            using (var file = new BPFile.BPWriter("NEW_" + FileNameFor(LastKnown)))
             {
                 using (var header = file.Begin((ushort)ChunkTypes.Header))
                 {
-                    header.Stream.Write(1);
-                    header.Stream.Write(1);
-                    header.Stream.Write(4);
-                    header.Stream.Write('d');
+                    header.Stream.Write(LastKnown.Major);
+                    header.Stream.Write(LastKnown.Minor);
+                    header.Stream.Write(LastKnown.Patch);
+                    header.Stream.Write(LastKnown.Suffix);
                     header.Stream.Write(cache.Count);
                 }
 
@@ -500,7 +547,7 @@ namespace BlueprintExplorer
                     current.Stream.Write(c.Type);
                     current.Stream.Write(c.Raw);
 
-                    var refs = current.GetStream((ushort)ChunkSubTypes.Blueprints.Components);
+                    var refs = current.GetStream((ushort)ChunkSubTypes.Blueprints.References);
                     if (References.TryGetValue(Guid.Parse(c.GuidText), out var refList))
                     {
                         refs.Write(refList.Count);
@@ -517,7 +564,7 @@ namespace BlueprintExplorer
                         refs.Write(0);
                     }
 
-                    var comps = current.GetStream((ushort)ChunkSubTypes.Blueprints.References);
+                    var comps = current.GetStream((ushort)ChunkSubTypes.Blueprints.Components);
                     comps.Write(components.Count);
                     foreach (var componentType in components)
                     {
@@ -547,13 +594,28 @@ namespace BlueprintExplorer
                     }
                 }
 
-                using (var comps = file.Begin((ushort)ChunkTypes.TypeNames))
+                using (var comps = file.Begin((ushort)ChunkTypes.ComponentNames))
                 {
                     comps.Stream.Write(uniqueComponents.Count);
                     foreach (var kv in uniqueComponents)
                     {
                         comps.Stream.Write(kv.Key);
                         comps.Stream.Write(kv.Value);
+                    }
+                }
+
+                using (var chunk = file.Begin((ushort)ChunkTypes.Defaults))
+                {
+                    chunk.Stream.Write(defaults.Count);
+                    foreach (var kv in defaults)
+                    {
+                        chunk.Stream.Write(kv.Key);
+                        chunk.Stream.Write(kv.Value.Count);
+                        foreach (var sub in kv.Value)
+                        {
+                            chunk.Stream.Write(sub.Key);
+                            chunk.Stream.Write(sub.Value);
+                        }
                     }
                 }
 

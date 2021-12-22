@@ -15,6 +15,8 @@ namespace BlueprintExplorer
         Blueprints,
         Strings,
         TypeNames,
+        ComponentNames,
+        Defaults,
     }
 
     public struct ChunkSubTypes
@@ -205,7 +207,12 @@ namespace BlueprintExplorer
 
             public BinaryReader Open(Chunk chunk)
             {
+                if (chunk == null)
+                    return null;
                 var raw = OpenRaw(chunk);
+                if (raw.IsEmpty)
+                    return null;
+
                 if (MemoryMarshal.TryGetArray(raw, out var array))
                     return new(new MemoryStream(array.Array, array.Offset, array.Count));
                 throw new Exception("WTF???");

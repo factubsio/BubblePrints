@@ -157,10 +157,13 @@ namespace BlueprintExplorer
             this.notifications.Dock = System.Windows.Forms.DockStyle.Fill;
             this.notifications.FlatAppearance.BorderSize = 0;
             this.notifications.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.notifications.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+            this.notifications.ForeColor = System.Drawing.SystemColors.ControlText;
             this.notifications.Location = new System.Drawing.Point(2365, 3);
             this.notifications.Name = "notifications";
             this.notifications.Size = new System.Drawing.Size(58, 60);
             this.notifications.TabIndex = 5;
+            this.notifications.Text = "1";
             this.notifications.UseVisualStyleBackColor = true;
             // 
             // splitContainer1

@@ -109,7 +109,12 @@ namespace BlueprintExplorer
 
         public static (string Guid, string Name, string FullName) NewTypeStr(this JsonElement elem, bool strict = true)
         {
-            return elem.Str("$type").NewTypeStr(strict);
+            if (elem.ValueKind == JsonValueKind.String)
+                return elem.GetString().NewTypeStr();
+            else if (elem.ValueKind == JsonValueKind.Object)
+                return elem.Str("$type").NewTypeStr(strict);
+            else
+                throw new Exception("invalid type query??");
         }
 
         public static bool True(this JsonElement elem, string child)

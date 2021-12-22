@@ -83,6 +83,7 @@ namespace BlueprintExplorer
             public bool Visible = true;
             public bool Collapsed = false;
             public RowElement Parent;
+            public string TypeFull;
             public string String;
             public List<string> Lines;
             public List<RowElement> Children = new();
@@ -93,6 +94,7 @@ namespace BlueprintExplorer
             internal bool PreviewHover;
             private string _Path;
             public string Type;
+            internal string Default;
 
             internal void AllChildren(Action<RowElement> p)
             {
@@ -201,6 +203,7 @@ namespace BlueprintExplorer
         private void UpdateRowHoverColor()
         {
             RowHoverColor = new(ControlPaint.Dark(BackColor, -0.4f));
+            RowLineGuide = new(ControlPaint.Light(BackColor, 0.1f), 2);
             RowPreviewHoverColor = new(ControlPaint.Dark(BackColor, -0.41f));
         }
 
@@ -273,7 +276,6 @@ namespace BlueprintExplorer
             int totalRows = 0;
             if (blueprint != null)
             {
-
                 Elements.Add(new ()
                 {
                     key = "Blueprint ID",
@@ -323,15 +325,23 @@ namespace BlueprintExplorer
                             Collapsed = totalRows != 0 && !Properties.Settings.Default.EagerExpand,
                         };
 
-                        if (row.key == "$type" && row.Parent != null)
+                        if (e.isObj && e.Node.TryGetProperty("$type", out var rawType))
                         {
-                            var (typeGuid, typeName, _) = row.value.NewTypeStr();
+                            var (typeGuid, typeName, typeNameFull) = rawType.NewTypeStr();
                             List<StyledString.StyleSpan> spans = new();
                             spans.Add(new(typeName + "  ", StyleFlags.Bold));
                             spans.Add(new("typeId: " + typeGuid));
-                            row.Parent.ValueStyled = new(spans);
-                            row.Parent.Type = typeName;
+                            row.ValueStyled = new(spans);
+                            row.Type = typeName;
+                            row.TypeFull = typeNameFull;
+                        }
+
+                        if (row.key == "$type" && row.Parent != null)
                             continue;
+
+                        if (e.levelDelta == 0 && row.Parent != null)
+                        {
+                            row.Default = BlueprintDB.DefaultForField(row.Parent?.TypeFull, e.key);
                         }
 
                         if (row.String != null)
@@ -493,12 +503,28 @@ namespace BlueprintExplorer
             }
             if (elem.PrimaryRow == row)
             {
+                float keyWidth = render.Graphics.MeasureString(elem.key, render.Bold).Width;
                 render.Graphics.DrawString(elem.key, render.Bold, new SolidBrush(ForeColor), new PointF(xOffset, 0));
+                float lineY = RowHeight / 2.0f;
+                render.Graphics.DrawLine(RowLineGuide, xOffset + keyWidth + 3, lineY, NameColumnWidth - 3, lineY);
                 if (elem.String == null)
                 {
+                    bool empty = false;
+                    float right = NameColumnWidth;
                     var brush = new SolidBrush(valueColor);
                     if (elem.ValueStyled == null)
-                        render.Graphics.DrawString(elem.value + extra, valueFont, brush, new PointF(NameColumnWidth, 0));
+                    {
+                        var str = elem.value + extra;
+                        if (str.Length > 0)
+                        {
+                            right += render.Graphics.MeasureString(str, valueFont).Width;
+                            render.Graphics.DrawString(str, valueFont, brush, new PointF(NameColumnWidth, 0));
+                        }
+                        else
+                        {
+                            empty = true;
+                        }
+                    }
                     else
                     {
                         PointF p = new(NameColumnWidth, 0);
@@ -511,6 +537,21 @@ namespace BlueprintExplorer
                             render.Graphics.DrawString(span.Value, font, brush, p);
                             p.X += width;
                         }
+
+                        right = p.X;
+                    }
+
+
+                    if (elem.Default != null)
+                    {
+                        if (!empty)
+                        {
+                            right += 64;
+                            if (right < NameColumnWidth + 400)
+                                right = NameColumnWidth + 400;
+                        }
+
+                        render.Graphics.DrawString("[default: " + elem.Default + "]", Font, Brushes.Gray, new PointF(right, 0));
                     }
                 }
             }
@@ -740,6 +781,7 @@ namespace BlueprintExplorer
 
         public Font LinkFont { get => linkFont ?? Font; set => linkFont = value; }
         private SolidBrush RowHoverColor;
+        private Pen RowLineGuide;
         private SolidBrush RowPreviewHoverColor;
 
         public class DrawParams

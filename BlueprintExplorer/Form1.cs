@@ -4,7 +4,9 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -59,15 +61,77 @@ namespace BlueprintExplorer
             return viewer;
         }
 
-        public void AddNotification(string message)
+        public class BubbleNotification
         {
-            controlBar.ColumnStyles[^1].Width = 64;
+            public string Message;
+            public Action Action;
+            public string ActionText;
+
+            public bool Complete;
+        }
+
+        private NotificationsView notificationsView = new();
+        private List<BubbleNotification> pendingNotifications = new();
+        private ToolTip notificationTooltip = new();
+
+        public void AddNotification(BubbleNotification notification)
+        {
+            pendingNotifications.Add(notification);
+            ValidateNotifications();
+        }
+
+        public void ValidateNotifications()
+        {
+            pendingNotifications = pendingNotifications.Where(n => !n.Complete).ToList();
+
+            if (pendingNotifications.Count == 0)
+            {
+                controlBar.ColumnStyles[^1].Width = 0;
+            }
+            else
+            {
+                controlBar.ColumnStyles[^1].Width = 64;
+                notifications.Text = pendingNotifications.Count.ToString();
+                notificationTooltip.SetToolTip(notifications, pendingNotifications.Count.ToString() + " pending notifications");
+            }
+
+        }
+
+        private static long ParseVersion(string v)
+        {
+            var c = v.Split('.');
+            return int.Parse(c[0]) * 65536 + int.Parse(c[1]) * 256 + int.Parse(c[2]);
         }
 
         public Form1() {
             var env = Environment.GetEnvironmentVariable("BubbleprintsTheme");
             Dark = env?.Equals("dark") ?? false;
             Dark |= Properties.Settings.Default.DarkMode;
+
+            long version = ParseVersion(Application.ProductVersion);
+
+            Task.Run(async () =>
+            {
+                using WebClient client = new();
+                client.Headers.Add("User-Agent", "BubblePrints");
+                var raw = await client.DownloadStringTaskAsync("https://api.github.com/repos/factubsio/BubblePrints/releases/latest");
+                return JsonSerializer.Deserialize<JsonElement>(raw);
+            }).ContinueWith(t =>
+            {
+                var json = t.Result;
+                if (json.TryGetProperty("tag_name", out var tag)) {
+                    long latest = 65536 + ParseVersion(tag.GetString()[1..]);
+                    if (latest > version)
+                    {
+                        AddNotification(new()
+                        {
+                            Message = "An update is available (" + tag + ")",
+                            Action = () => Process.Start("explorer", json.GetProperty("assets")[0].GetProperty("browser_download_url").GetString()),
+                            ActionText = "Download now",
+                        });
+                    }
+                }
+            }, TaskScheduler.FromCurrentSynchronizationContext());
 
             Properties.Settings.Default.PropertyChanged += Default_PropertyChanged;
 
@@ -84,6 +148,12 @@ namespace BlueprintExplorer
             resultsGrid.RowHeadersVisible = false;
 
             availableVersions.Enabled = false;
+
+            notifications.Click += (sender, evt) =>
+            {
+                notificationsView.Show(this, pendingNotifications);
+                ValidateNotifications();
+            };
 
 
             settingsButton.Click += (sender, evt) =>
