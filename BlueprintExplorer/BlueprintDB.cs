@@ -91,7 +91,6 @@ namespace BlueprintExplorer
 
         }
 
-
         public List<GameVersion> Available = new() { };
 
         private readonly GameVersion LastKnown = new(1, 1, 6, 'e', 0);

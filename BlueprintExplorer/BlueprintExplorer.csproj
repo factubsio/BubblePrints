@@ -6,6 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon />
     <StartupObject />
+    <Version>0.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>

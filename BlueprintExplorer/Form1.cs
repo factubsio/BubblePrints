@@ -120,7 +120,7 @@ namespace BlueprintExplorer
             {
                 var json = t.Result;
                 if (json.TryGetProperty("tag_name", out var tag)) {
-                    long latest = 65536 + ParseVersion(tag.GetString()[1..]);
+                    long latest = ParseVersion(tag.GetString()[1..]);
                     if (latest > version)
                     {
                         AddNotification(new()
