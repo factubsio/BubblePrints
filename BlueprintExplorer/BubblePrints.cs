@@ -84,6 +84,12 @@ namespace BlueprintExplorer
         public static string MakeDataPath(string subpath) => Path.Combine(DataPath, subpath);
         public static string SettingsPath => MakeDataPath("settings.json");
 
+        public static void EnsureAppDir()
+        {
+            if (!Directory.Exists(DataPath))
+                Directory.CreateDirectory(DataPath);
+        }
+
         internal static void SaveSettings() => File.WriteAllText(BubblePrints.SettingsPath, JsonSerializer.Serialize(BubblePrints.Settings));
     }
 
