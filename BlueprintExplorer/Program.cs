@@ -11,11 +11,7 @@ namespace BlueprintExplorer
         [STAThread]
         static void Main()
         {
-#if DEBUG
-            BubblePrints.SetupLogging();
-#endif
-
-            BubblePrints.LoadSettings();
+            BubblePrints.Install();
 
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();

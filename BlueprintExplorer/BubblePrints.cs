@@ -22,24 +22,22 @@ namespace BlueprintExplorer
         [System.Runtime.InteropServices.DllImport("kernel32.dll")]
         private static extern bool AllocConsole();
 
-        private static bool console = false;
         public static Assembly Wrath;
 
-        public static void LoadSettings()
+        internal static void Install()
         {
+#if DEBUG
+            AllocConsole();
+#endif
+
+            if (!Directory.Exists(DataPath))
+                Directory.CreateDirectory(DataPath);
+
             if (File.Exists(SettingsPath))
             {
                 var raw = File.ReadAllText(SettingsPath);
                 Settings = JsonSerializer.Deserialize<SettingsProxy>(raw);
             }
-        }
-
-        internal static void SetupLogging()
-        {
-#if DEBUG
-            if (console) return;
-            AllocConsole();
-#endif
         }
 
         internal static void SetWrathPath()
@@ -84,11 +82,6 @@ namespace BlueprintExplorer
         public static string MakeDataPath(string subpath) => Path.Combine(DataPath, subpath);
         public static string SettingsPath => MakeDataPath("settings.json");
 
-        public static void EnsureAppDir()
-        {
-            if (!Directory.Exists(DataPath))
-                Directory.CreateDirectory(DataPath);
-        }
 
         internal static void SaveSettings() => File.WriteAllText(BubblePrints.SettingsPath, JsonSerializer.Serialize(BubblePrints.Settings));
     }
