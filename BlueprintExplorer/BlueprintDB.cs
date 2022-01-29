@@ -20,6 +20,8 @@ namespace BlueprintExplorer
     public partial class BlueprintDB
     {
 
+        public static readonly string ImportFolderBase = @"D:\WOTR-1.2-DEBUG";
+
         #region DEV
         bool generateOutput = false;
         bool importNew = false;
@@ -93,7 +95,7 @@ namespace BlueprintExplorer
 
         public List<GameVersion> Available = new() { };
 
-        private readonly GameVersion LastKnown = new(1, 1, 6, 'e', 0);
+        private readonly GameVersion LastKnown = new(1, 2, 0, 'f', 0);
 
         private readonly string filenameRoot = "blueprints_raw";
         private readonly string extension = "binz";
@@ -237,7 +239,7 @@ namespace BlueprintExplorer
                     }
                 }
 
-                using var bpDump = ZipFile.OpenRead(@"D:\WOTR-1.1-DEBUG\blueprints.zip");
+                using var bpDump = ZipFile.OpenRead(Path.Combine(ImportFolderBase, "blueprints.zip"));
 
                 if (File.Exists(@"D:\bp_defaults.json"))
                 {
@@ -578,7 +580,7 @@ namespace BlueprintExplorer
 
 
 
-                var rawLangDict = File.ReadAllBytes(@"D:\WOTR-1.1-DEBUG\Wrath_Data\StreamingAssets\Localization\enGB.json");
+                var rawLangDict = File.ReadAllBytes(Path.Combine(ImportFolderBase, @"Wrath_Data\StreamingAssets\Localization\enGB.json"));
                 file.Write((ushort)ChunkTypes.Strings, 0, rawLangDict);
 
                 using (var types = file.Begin((ushort)ChunkTypes.TypeNames))

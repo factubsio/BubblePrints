@@ -42,7 +42,6 @@ namespace BlueprintExplorer
 
         internal static void SetWrathPath()
         {
-
             var path = BubblePrints.Settings.WrathPath;
             if (path == null || path.Length == 0 || !File.Exists(Path.Combine(path, "Wrath.exe")))
             {
