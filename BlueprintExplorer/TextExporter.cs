@@ -13,7 +13,18 @@ namespace BlueprintExplorer
         }
         public static void Export(TextWriter stream, BlueprintHandle blueprint)
         {
-            bool json = BubblePrints.Settings.StrictJsonForEditor;
+            if (BubblePrints.Settings.EditorExportMode == ExportMode.JBP)
+            {
+                stream.WriteLine("{");
+                stream.WriteLine($"\"AssetId\": \"${blueprint.GuidText}\"");
+                stream.WriteLine("\"Data\":");
+                stream.Write(blueprint.Raw);
+                stream.WriteLine();
+                stream.WriteLine("}");
+                return;
+            }
+
+            bool json = BubblePrints.Settings.EditorExportMode == ExportMode.Json;
             int level = 0;
             Stack<ElementWriteState> stack = new();
             stack.Push(new() { IsObj = true });

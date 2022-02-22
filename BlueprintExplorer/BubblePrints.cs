@@ -37,12 +37,18 @@ namespace BlueprintExplorer
             {
                 var raw = File.ReadAllText(SettingsPath);
                 Settings = JsonSerializer.Deserialize<SettingsProxy>(raw);
+                if (Settings.StrictJsonForEditor && Settings.EditorExportMode == ExportMode.Bubble)
+                {
+                    Settings.EditorExportMode = ExportMode.Json;
+                    SaveSettings();
+                }
+
             }
         }
 
         internal static void SetWrathPath()
         {
-            var path = BubblePrints.Settings.WrathPath;
+            var path = Settings.WrathPath;
             if (path == null || path.Length == 0 || !File.Exists(Path.Combine(path, "Wrath.exe")))
             {
                 var folderBrowser = new FolderBrowserDialog();
@@ -69,8 +75,8 @@ namespace BlueprintExplorer
                 }
                 if (!errored)
                 {
-                    BubblePrints.Settings.WrathPath = path;
-                    BubblePrints.SaveSettings();
+                    Settings.WrathPath = path;
+                    SaveSettings();
                 }
             }
 
@@ -82,7 +88,14 @@ namespace BlueprintExplorer
         public static string SettingsPath => MakeDataPath("settings.json");
 
 
-        internal static void SaveSettings() => File.WriteAllText(BubblePrints.SettingsPath, JsonSerializer.Serialize(BubblePrints.Settings));
+        internal static void SaveSettings() => File.WriteAllText(SettingsPath, JsonSerializer.Serialize(Settings));
+    }
+
+    public enum ExportMode
+    {
+        Bubble,
+        Json,
+        JBP,
     }
 
     public class SettingsProxy
@@ -128,7 +141,14 @@ namespace BlueprintExplorer
 
         [Description("If true, the external editor will display strict json. If false, the external editor will display human-friendly text")]
         [DisplayName("Generate json for 'Open in Editor'")]
+        [Browsable(false)]
         public bool StrictJsonForEditor { get; set; } = true;
+
+        [Description("Bubble: easy-to-read text file, Json: strict json with some fields made more human readable, JBP: OwlcatTemplate compatible json")]
+        [DisplayName("Export Mode for 'Open in Editor'")]
+        [DefaultValue(ExportMode.Bubble)]
+        public ExportMode EditorExportMode { get; set; } = ExportMode.Bubble;
+
 
         [Description("If true, the blueprint view will expand all fields automatically")]
         [DisplayName("Expand all properties")]
