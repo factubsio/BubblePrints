@@ -211,7 +211,7 @@ namespace BlueprintExplorer
         //}
         internal MatchResult[][] _Matches;
         public ushort[] ComponentIndex;
-        public IEnumerable<string> ComponentsList => ComponentIndex.Select(i => BlueprintDB.Instance.ComponentTypeLookup[i]);
+        public IEnumerable<string> ComponentsList => ComponentIndex.Select(i => BlueprintDB.Instance.FlatIndexToTypeName[i]);
         internal static readonly MatchQuery.MatchProvider MatchProvider = new(
                     obj => (obj as BlueprintHandle).NameLower,
                     obj => (obj as BlueprintHandle).TypeNameLower,
@@ -329,36 +329,19 @@ namespace BlueprintExplorer
             }
         }
 
-        public IEnumerable<string> Objects
-        {
-            get
-            {
-                EnsureParsed();
-                return VisitObjects(obj);
-            }
-        }
-
-        public static IEnumerable<string> VisitObjects(JsonElement node, string context = null)
+        public static void VisitObjects(JsonElement node, HashSet<string> types)
         {
             if (node.ValueKind == JsonValueKind.Array)
             {
-                int index = 0;
                 foreach (var elem in node.EnumerateArray())
-                {
-                    foreach (var n in VisitObjects(elem, context + "/" + index.ToString()))
-                        yield return n;
-                    index++;
-                }
+                    VisitObjects(elem, types);
             }
             else if (node.ValueKind == JsonValueKind.Object)
             {
-                if (node.TryGetProperty("$type", out var _))
-                    yield return node.NewTypeStr().Guid;
+                if (node.TryGetProperty("$type", out var raw))
+                    types.Add(raw.NewTypeStr().Guid);
                 foreach (var elem in node.EnumerateObject())
-                {
-                    foreach (var n in VisitObjects(elem.Value, context + "/" + elem.Name))
-                        yield return n;
-                }
+                    VisitObjects(elem.Value, types);
             }
 
         }

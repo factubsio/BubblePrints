@@ -25,7 +25,7 @@ namespace BlueprintExplorer
         #region DEV
         bool generateOutput = false;
         bool importNew = false;
-        bool forceLastKnown = false;
+        bool forceLastKnown = true;
         #endregion
 
         private static BlueprintDB _Instance;
@@ -33,6 +33,11 @@ namespace BlueprintExplorer
         public readonly Dictionary<string, string> Strings = new();
 
         public readonly Dictionary<string, string> GuidToFullTypeName = new();
+        public string[] FlatIndexToTypeName;
+
+        // Only used during import/export
+        public readonly Dictionary<string, ushort> GuidToFlatIndex = new();
+        public readonly List<string> TypeGuidsInOrder = new();
 
         public readonly Dictionary<Guid, BlueprintHandle> Blueprints = new();
         private readonly List<BlueprintHandle> cache = new();
@@ -95,7 +100,7 @@ namespace BlueprintExplorer
 
         public List<GameVersion> Available = new() { };
 
-        private readonly GameVersion LastKnown = new(1, 2, 0, 'f', 0);
+        private readonly GameVersion LastKnown = new(1, 2, 0, 'f', 1);
 
         private readonly string filenameRoot = "blueprints_raw";
         private readonly string extension = "binz";
@@ -191,8 +196,6 @@ namespace BlueprintExplorer
 
         }
 
-        public string[] ComponentTypeLookup;
-
         private static Dictionary<string, Dictionary<string, string>> defaults = new();
         public static string DefaultForField(string typename, string field)
         {
@@ -235,8 +238,18 @@ namespace BlueprintExplorer
                     if (typeId != null)
                     {
                         var guid = typeIdGuid.GetValue(typeId) as string;
-                        GuidToFullTypeName[guid] = type.FullName;
+                        if (GuidToFullTypeName.TryAdd(guid, type.FullName))
+                            TypeGuidsInOrder.Add(guid);
                     }
+                }
+
+                TypeGuidsInOrder.Sort();
+                FlatIndexToTypeName = new string[TypeGuidsInOrder.Count];
+                for (int i = 0; i < TypeGuidsInOrder.Count; i++)
+                {
+                    var guid = TypeGuidsInOrder[i];
+                    GuidToFlatIndex[guid] = (ushort)i;
+                    FlatIndexToTypeName[i] = GuidToFullTypeName[guid];
                 }
 
                 using var bpDump = ZipFile.OpenRead(Path.Combine(ImportFolderBase, "blueprints.zip"));
@@ -249,6 +262,8 @@ namespace BlueprintExplorer
                 Dictionary<string, string> TypenameToGuid = new();
 
                 progress.EstimatedTotal = bpDump.Entries.Count(e => e.Name.EndsWith(".jbp"));
+
+                HashSet<string> referencedTypes = new();
 
                 foreach (var entry in bpDump.Entries)
                 {
@@ -278,8 +293,11 @@ namespace BlueprintExplorer
                         }
 
                         handle.EnsureParsed();
-                        foreach (var _ in handle.Objects) { }
                         foreach (var _ in handle.GetDirectReferences()) { }
+
+                        referencedTypes.Clear();
+                        BlueprintHandle.VisitObjects(handle.EnsureObj, referencedTypes);
+                        handle.ComponentIndex = referencedTypes.Select(typeId => GuidToFlatIndex[typeId]).ToArray();
 
                         AddBlueprint(handle);
                         progress.Current++;
@@ -329,6 +347,7 @@ namespace BlueprintExplorer
                         fileToOpen = Path.Combine(CacheDir, FileName);
                         break;
                     case GoingToLoad.FromLocalFile:
+                        Console.WriteLine("reading from local dev...");
                         fileToOpen = FileName;
                         break;
                 }
@@ -379,10 +398,9 @@ namespace BlueprintExplorer
                         }
 
                         byte[] guid_cache = new byte[16];
-                        ushort refId = (ushort)ChunkSubTypes.Blueprints.References;
                         //if (header.Major == 1 && header.Minor == 1 && header.Patch < 6)
                         //    refId = (ushort)ChunkSubTypes.Blueprints.Components;
-                        var refs = bundleContext.Open(bundle.ForSubType(refId));
+                        var refs = bundleContext.Open(bundle.ForSubType((ushort)ChunkSubTypes.Blueprints.References));
 
                         for (int i = 0; i < res.Count; i++)
                         {
@@ -395,6 +413,18 @@ namespace BlueprintExplorer
 
                         }
 
+                        var referencedTypes = bundleContext.Open(bundle.ForSubType((ushort)ChunkSubTypes.Blueprints.Components));
+                        if (referencedTypes != null)
+                        {
+                            for (int i = 0; i < res.Count; i++)
+                            {
+                                res[i].ComponentIndex = new ushort[referencedTypes.ReadInt32()];
+                                for (int r = 0; r < res[i].ComponentIndex.Length; r++)
+                                    res[i].ComponentIndex[r] = referencedTypes.ReadUInt16();
+                            }
+                        }
+
+
                         return res;
                     });
                     task.Wait();
@@ -405,12 +435,15 @@ namespace BlueprintExplorer
                 {
                     var types = ctx.Open(reader.Get((ushort)ChunkTypes.TypeNames).Main);
                     int count = types.ReadInt32();
+                    FlatIndexToTypeName = new string[count];
                     for (int i = 0; i < count; i++)
                     {
                         string key = types.ReadString();
                         string val = types.ReadString();
                         GuidToFullTypeName[key] = val;
+                        FlatIndexToTypeName[i] = val;
                     }
+
 
                     var strings = ctx.OpenRaw(reader.Get((ushort)ChunkTypes.Strings).Main);
 
@@ -512,8 +545,6 @@ namespace BlueprintExplorer
                 }
             }
 
-            Dictionary<string, UInt16> uniqueComponents = new();
-
             using (var file = new BPFile.BPWriter("NEW_" + FileNameFor(LastKnown)))
             {
                 using (var header = file.Begin((ushort)ChunkTypes.Header))
@@ -538,9 +569,6 @@ namespace BlueprintExplorer
 
                     var c = cache[i];
 
-                    HashSet<string> components = new(c.Objects);
-
-
                     current.Stream.Write(c.GuidText);
                     current.Stream.Write(c.Name);
                     current.Stream.Write(c.Type);
@@ -564,16 +592,9 @@ namespace BlueprintExplorer
                     }
 
                     var comps = current.GetStream((ushort)ChunkSubTypes.Blueprints.Components);
-                    comps.Write(components.Count);
-                    foreach (var componentType in components)
-                    {
-                        if (!uniqueComponents.TryGetValue(componentType, out var index))
-                        {
-                            index = (UInt16)uniqueComponents.Count;
-                            uniqueComponents.Add(componentType, index);
-                        }
+                    comps.Write(c.ComponentIndex.Length);
+                    foreach (var index in c.ComponentIndex)
                         comps.Write(index);
-                    }
                 }
 
                 current?.Dispose();
@@ -586,20 +607,10 @@ namespace BlueprintExplorer
                 using (var types = file.Begin((ushort)ChunkTypes.TypeNames))
                 {
                     types.Stream.Write(GuidToFullTypeName.Count);
-                    foreach (var kv in GuidToFullTypeName)
+                    foreach (var k in TypeGuidsInOrder)
                     {
-                        types.Stream.Write(kv.Key);
-                        types.Stream.Write(kv.Value);
-                    }
-                }
-
-                using (var comps = file.Begin((ushort)ChunkTypes.ComponentNames))
-                {
-                    comps.Stream.Write(uniqueComponents.Count);
-                    foreach (var kv in uniqueComponents)
-                    {
-                        comps.Stream.Write(kv.Key);
-                        comps.Stream.Write(kv.Value);
+                        types.Stream.Write(k);
+                        types.Stream.Write(GuidToFullTypeName[k]);
                     }
                 }
 

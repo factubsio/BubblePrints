@@ -105,9 +105,9 @@ namespace BlueprintExplorer
             private readonly UInt16 Id;
             private readonly BPWriter Parent;
 
-            private static readonly List<ChunkStream> Streams = new();
+            private static readonly List<ChunkStream> StreamPool = new();
 
-            private readonly Dictionary<ushort, ChunkStream> Chunks = new();
+            private readonly Dictionary<ushort, ChunkStream> ActiveStreams = new();
 
             public ChunkWriter(UInt16 id, BPWriter parent)
             {
@@ -117,26 +117,26 @@ namespace BlueprintExplorer
 
             public BinaryWriter GetStream(ushort type)
             {
-                if (!Chunks.TryGetValue(type, out var stream))
+                if (!ActiveStreams.TryGetValue(type, out var stream))
                 {
-                    if (Streams.Count == 0)
+                    if (StreamPool.Count == 0)
                         stream = new();
                     else
                     {
-                        stream = Streams[^1];
-                        Streams.RemoveAt(Streams.Count - 1);
+                        stream = StreamPool[^1];
+                        StreamPool.RemoveAt(StreamPool.Count - 1);
                     }
                     stream.Reset();
-                    Chunks[type] = stream;
+                    ActiveStreams[type] = stream;
                 }
                 return stream.Writer;
             }
             public BinaryWriter Stream => GetStream(0);
 
             public void Dispose() {
-                foreach (var stream in Chunks.OrderBy(kv => kv.Key))
+                foreach (var stream in ActiveStreams.OrderBy(kv => kv.Key))
                     Parent.Write(Id, stream.Key, stream.Value.Span);
-                Streams.AddRange(Chunks.Values);
+                StreamPool.AddRange(ActiveStreams.Values);
             }
         }
 
