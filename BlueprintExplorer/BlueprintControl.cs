@@ -18,21 +18,27 @@ namespace BlueprintExplorer
         public event LinkClickedDelegate OnLinkClicked;
         public event PathDelegate OnPathHovered;
 
-        private BlueprintHandle blueprint;
+        private Dictionary<string, int> ScrollPositionCache = new();
+
+        private IDisplayableElementCollection DisplayedObject;
 
         private Timer ToastTimer;
         private Stopwatch Timer = new();
         private long LastTick = 0;
 
-        public BlueprintHandle Blueprint
+        public IDisplayableElementCollection Blueprint
         {
-            get => blueprint;
+            get => DisplayedObject;
             set
             {
-                if (blueprint == value) return;
-                blueprint = value;
-                blueprint.EnsureParsed();
-                ValidateBlueprint();
+                if (DisplayedObject == value) return;
+                if (DisplayedObject != null)
+                {
+                    ScrollPositionCache[DisplayedObject.GuidText] = VerticalScroll.Value;
+                }
+                DisplayedObject = value;
+                DisplayedObject.EnsureParsed();
+                ValidateBlueprint(true);
             }
         }
 
@@ -70,7 +76,7 @@ namespace BlueprintExplorer
 
             public StyleSpan[] Spans;
 
-            public String Raw => string.Join("", Spans.Select(s => s.Value));
+            public String Raw => string.Concat(Spans.Select(s => s.Value));
         }
 
         public class RowElement
@@ -266,7 +272,7 @@ namespace BlueprintExplorer
 
         int StringWidthAllowed => Width - NameColumnWidth - 32;
 
-        private void ValidateBlueprint()
+        private void ValidateBlueprint(bool scroll)
         {
             Elements.Clear();
             var oneRow = Font.Height;
@@ -274,25 +280,49 @@ namespace BlueprintExplorer
             int strWidthAllowed = StringWidthAllowed;
             currentHover = -1;
             int totalRows = 0;
-            if (blueprint != null)
+            if (DisplayedObject != null)
             {
                 Elements.Add(new ()
                 {
                     key = "Blueprint ID",
-                    value = blueprint.GuidText,
+                    value = DisplayedObject.GuidText,
                     level = 0,
                     link = null,
                     Parent = null,
                     String = null,
                     RowCount = 1,
+                    Collapsed = true,
+                });
+                Elements.Add(new ()
+                {
+                    key = "Blueprint Name",
+                    value = DisplayedObject.Name,
+                    level = 1,
+                    link = null,
+                    Parent = Elements[0],
+                    String = null,
+                    RowCount = 1,
                     Collapsed = false,
                 });
-                totalRows = 1;
+                Elements.Add(new ()
+                {
+                    key = "Blueprint Type",
+                    value = DisplayedObject.TypeName,
+                    level = 1,
+                    link = null,
+                    Parent = Elements[0],
+                    String = null,
+                    RowCount = 1,
+                    Collapsed = false,
+                });
+                Elements[0].Children.Add(Elements[1]);
+                Elements[0].Children.Add(Elements[2]);
+                totalRows = 3;
 
                 int level = 0;
                 Stack<RowElement> stack = new();
                 stack.Push(null);
-                foreach (var e in blueprint.Elements)
+                foreach (var e in DisplayedObject.DisplayableElements)
                 {
                     int currentLevel = level;
 
@@ -322,18 +352,17 @@ namespace BlueprintExplorer
                             String = JsonExtensions.ParseAsString(e.Node),
                             RowCount = 1,
                             IsObj = e.isObj,
-                            Collapsed = totalRows != 0 && !BubblePrints.Settings.EagerExpand,
+                            Collapsed = totalRows != 0 && !BubblePrints.Settings.EagerExpand && currentLevel > 0,
                         };
 
-                        if (e.isObj && e.Node.TryGetProperty("$type", out var rawType))
+                        if (e.isObj && e.HasType)
                         {
-                            var (typeGuid, typeName, typeNameFull) = rawType.NewTypeStr();
                             List<StyledString.StyleSpan> spans = new();
-                            spans.Add(new(typeName + "  ", StyleFlags.Bold));
-                            spans.Add(new("typeId: " + typeGuid));
+                            spans.Add(new(e.MaybeType.Name + "  ", StyleFlags.Bold));
+                            spans.Add(new("typeId: " + e.MaybeType.Guid));
                             row.ValueStyled = new(spans);
-                            row.Type = typeName;
-                            row.TypeFull = typeNameFull;
+                            row.Type = e.MaybeType.Name;
+                            row.TypeFull = e.MaybeType.FullName;
                         }
 
                         if (row.key == "$type" && row.Parent != null)
@@ -341,7 +370,7 @@ namespace BlueprintExplorer
 
                         if (e.levelDelta == 0 && row.Parent != null)
                         {
-                            row.Default = BlueprintDB.DefaultForField(row.Parent?.TypeFull, e.key);
+                            row.Default = BlueprintDB.Instance.DefaultForField(row.Parent?.TypeFull, e.key);
                         }
 
                         if (row.String != null)
@@ -393,6 +422,18 @@ namespace BlueprintExplorer
                 }
             }
             AutoScroll = true;
+            if (scroll)
+            {
+                if (ScrollPositionCache.TryGetValue(DisplayedObject.GuidText, out var scrollPosition))
+                {
+                    VerticalScroll.Value = scrollPosition;
+                }
+                else
+                {
+                    VerticalScroll.Value = 0;
+
+                }
+            }
             ValidateFilter();
         }
 
@@ -409,7 +450,7 @@ namespace BlueprintExplorer
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
-            ValidateBlueprint();
+            ValidateBlueprint(false);
         }
 
         private string _Filter;

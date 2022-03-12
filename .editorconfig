@@ -2,3 +2,6 @@
 
 # IDE0022: Use block body for methods
 csharp_style_expression_bodied_methods = when_on_single_line
+
+# RCS1123: Add parentheses when necessary.
+dotnet_diagnostic.RCS1123.severity = silent

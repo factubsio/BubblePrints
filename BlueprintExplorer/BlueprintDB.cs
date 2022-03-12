@@ -25,7 +25,7 @@ namespace BlueprintExplorer
         #region DEV
         bool generateOutput = false;
         bool importNew = false;
-        bool forceLastKnown = true;
+        bool forceLastKnown = false;
         #endregion
 
         private static BlueprintDB _Instance;
@@ -100,7 +100,7 @@ namespace BlueprintExplorer
 
         public List<GameVersion> Available = new() { };
 
-        private readonly GameVersion LastKnown = new(1, 2, 0, 'f', 1);
+        private readonly GameVersion LastKnown = new(1, 2, 0, 'A', 1);
 
         private readonly string filenameRoot = "blueprints_raw";
         private readonly string extension = "binz";
@@ -196,8 +196,8 @@ namespace BlueprintExplorer
 
         }
 
-        private static Dictionary<string, Dictionary<string, string>> defaults = new();
-        public static string DefaultForField(string typename, string field)
+        private Dictionary<string, Dictionary<string, string>> defaults = new();
+        public string DefaultForField(string typename, string field)
         {
             if (typename == null || !defaults.TryGetValue(typename, out var map))
                 return null;
@@ -213,7 +213,7 @@ namespace BlueprintExplorer
 
             public string Status => EstimatedTotal == 0 ? "??" : $"{Current}/{EstimatedTotal} - {(Current / (double)EstimatedTotal):P1}";
         }
-        public async Task<bool> TryConnect(ConnectionProgress progress)
+        public async Task<bool> TryConnect(ConnectionProgress progress, string forceFileName = null)
         {
             if (importNew)
             {
@@ -324,32 +324,37 @@ namespace BlueprintExplorer
 
                 string fileToOpen = null;
 
-                switch (GetLoadType())
+                if (forceFileName != null)
+                    fileToOpen = forceFileName;
+                else
                 {
-                    case GoingToLoad.FromWeb:
-                        Console.WriteLine("Settings file does not exist, downloading");
-                        var host = "https://github.com/factubsio/BubblePrintsData/releases/download";
-                        var latestVersionUrl = new Uri($"{host}/{Latest}/{filenameRoot}_{Latest}.{extension}");
+                    switch (GetLoadType())
+                    {
+                        case GoingToLoad.FromWeb:
+                            Console.WriteLine("Settings file does not exist, downloading");
+                            var host = "https://github.com/factubsio/BubblePrintsData/releases/download";
+                            var latestVersionUrl = new Uri($"{host}/{Latest}/{filenameRoot}_{Latest}.{extension}");
 
-                        var client = new WebClient();
-                        if (!Directory.Exists(CacheDir))
-                            Directory.CreateDirectory(CacheDir);
+                            var client = new WebClient();
+                            if (!Directory.Exists(CacheDir))
+                                Directory.CreateDirectory(CacheDir);
 
-                        fileToOpen = Path.Combine(CacheDir, FileName);
-                        progress.EstimatedTotal = 100;
-                        client.DownloadProgressChanged += (sender, e) =>
-                        {
-                            progress.Current = e.ProgressPercentage;
-                        };
-                        await client.DownloadFileTaskAsync(latestVersionUrl, fileToOpen);
-                        break;
-                    case GoingToLoad.FromCache:
-                        fileToOpen = Path.Combine(CacheDir, FileName);
-                        break;
-                    case GoingToLoad.FromLocalFile:
-                        Console.WriteLine("reading from local dev...");
-                        fileToOpen = FileName;
-                        break;
+                            fileToOpen = Path.Combine(CacheDir, FileName);
+                            progress.EstimatedTotal = 100;
+                            client.DownloadProgressChanged += (sender, e) =>
+                            {
+                                progress.Current = e.ProgressPercentage;
+                            };
+                            await client.DownloadFileTaskAsync(latestVersionUrl, fileToOpen);
+                            break;
+                        case GoingToLoad.FromCache:
+                            fileToOpen = Path.Combine(CacheDir, FileName);
+                            break;
+                        case GoingToLoad.FromLocalFile:
+                            Console.WriteLine("reading from local dev...");
+                            fileToOpen = FileName;
+                            break;
+                    }
                 }
 
                 BPFile.Reader reader = new(fileToOpen);
@@ -490,6 +495,34 @@ namespace BlueprintExplorer
                 BubblePrints.SaveSettings();
                 ctx.Dispose();
 
+                //File.WriteAllLines(@"D:\areas.txt", cache.Where(b => b.TypeName == "BlueprintAbilityAreaEffect").SelectMany(bp =>
+                //{
+                //    return new String[]
+                //    {
+                //        $"//{bp.Name}",
+                //        "{",
+                //        $"  \"ability\": \"{bp.GuidText}\"",
+                //        "  \"type\": \"bad\"",
+                //        "},",
+
+                //    };
+                //}));
+
+                //var featureType = BubblePrints.Wrath.GetType("Kingmaker.Blueprints.Classes.BlueprintFeature");
+                //int featuresFound = 0;
+                //List<(string, string)> features = new();
+                //foreach (var bp in cache)
+                //{
+                //    var type = BubblePrints.Wrath.GetType(bp.Type);
+                //    if (type == null) continue;
+                //    if (type.IsAssignableTo(featureType))
+                //    {
+                //        featuresFound++;
+                //        features.Add((bp.Name, bp.GuidText));
+                //    }
+                //}
+                //Console.WriteLine("Features found: " + featuresFound);
+                //File.WriteAllLines(@"D:\features.txt", features.Select(f => $"{f.Item2} {f.Item1}"));
             }
 
 

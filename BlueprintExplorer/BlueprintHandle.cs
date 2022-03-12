@@ -15,6 +15,24 @@ using System.Windows.Forms.Design;
 
 namespace BlueprintExplorer
 {
+
+    public interface IDisplayableElement
+    {
+        public string key { get; }
+        public string value { get; }
+        public int levelDelta { get; }
+        public bool isObj { get; }
+        public string link { get; }
+        //public string linkTarget;
+        public bool Empty { get; }
+        public JsonElement Node { get; }
+        public (string Guid, string Name, string FullName) MaybeType { get; }
+        public bool HasType { get; }
+        public bool Last { get; }
+
+    }
+
+
     static class JsonExtensions
     {
         public static bool ContainsIgnoreCase(this string haystack, string needle) => haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
@@ -179,13 +197,25 @@ namespace BlueprintExplorer
         }
     }
 
-    public class BlueprintHandle : ISearchable
+    public interface IDisplayableElementCollection
+    {
+        public void EnsureParsed();
+        public IEnumerable<IDisplayableElement> DisplayableElements { get; }
+        string GuidText { get; }
+        string Name { get; }
+        string Type { get; }
+        string TypeName { get; }
+    }
+
+    public class BlueprintHandle : ISearchable, IDisplayableElementCollection
     {
         //public byte[] guid;
+
+        public object UserData = null;
         public string GuidText { get; set; }
         public string Name { get; set; }
         public string Type { get; set; }
-        public string TypeName;
+        public string TypeName { get; set; }
         public string Namespace;
         public string Raw { get; set; }
         public JsonElement obj;
@@ -244,7 +274,7 @@ namespace BlueprintExplorer
         }
 
 
-        internal void EnsureParsed()
+        public void EnsureParsed()
         {
             if (!Parsed)
             {
@@ -285,17 +315,19 @@ namespace BlueprintExplorer
 
         }
 
-        public class VisitedElement
+        public class VisitedElement : IDisplayableElement
         {
-            public string key;
-            public string value;
-            public int levelDelta;
-            public bool isObj;
-            public string link;
+            public string key { get; set; }
+            public string value { get; set; }
+            public int levelDelta { get; set; }
+            public bool isObj { get; set; }
+            public string link { get; set; }
             //public string linkTarget;
-            public bool Empty;
-            public JsonElement Node;
-            public bool Last;
+            public bool Empty { get; set; }
+            public JsonElement Node { get; set; }
+            public (string Guid, string Name, string FullName) MaybeType { get; set; }
+            public bool HasType => MaybeType.Name != null;
+            public bool Last { get; set; }
         }
 
         public static string ParseReference(string val)
@@ -328,6 +360,8 @@ namespace BlueprintExplorer
                 return Visit(obj, Name);
             }
         }
+
+        IEnumerable<IDisplayableElement> IDisplayableElementCollection.DisplayableElements => Elements;
 
         public static void VisitObjects(JsonElement node, HashSet<string> types)
         {
@@ -376,7 +410,10 @@ namespace BlueprintExplorer
             }
             else
             {
-                yield return new VisitedElement { key = name, levelDelta = 1, isObj = true, Node = node };
+                (string, string, string) maybeType = (null, null, null);
+                if (node.TryGetProperty("$type", out var rawType))
+                    maybeType = rawType.NewTypeStr();
+                yield return new VisitedElement { key = name, levelDelta = 1, isObj = true, Node = node, MaybeType = maybeType };
                 foreach (var elem in node.EnumerateObject())
                 {
                     foreach (var n in Visit(elem.Value, elem.Name))

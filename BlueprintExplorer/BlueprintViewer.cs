@@ -47,7 +47,7 @@ namespace BlueprintExplorer
 
             references.CellClick += (sender, e) => ShowReferenceSelected();
 
-            openExternal.Click += (sender, e) => OnOpenExternally?.Invoke(View.Blueprint);
+            openExternal.Click += (sender, e) => OnOpenExternally?.Invoke(View.Blueprint as BlueprintHandle);
         }
 
         public void ShowBlueprint(BlueprintHandle handle, ShowFlags flags)
@@ -104,7 +104,7 @@ namespace BlueprintExplorer
 
         private void ShowReferenceSelected()
         {
-            var handle = View.Blueprint;
+            var handle = View.Blueprint as BlueprintHandle;
             if (handle == null) return;
             if (handle.BackReferences.Count != references.RowCount) return;
             int row = references.SelectedRow();
