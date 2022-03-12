@@ -57,6 +57,9 @@ namespace BlueprintExplorer
 
         public void ShowBlueprint(BlueprintHandle handle, ShowFlags flags)
         {
+            if (handle == view.Blueprint)
+                return;
+
             view.Blueprint = handle;
 
             references.Rows.Clear();
@@ -71,6 +74,7 @@ namespace BlueprintExplorer
             {
                 historyBread.Controls.Clear();
                 history.Clear();
+                ActiveHistoryIndex = 0;
             }
 
             if (flags.UpdateHistory())
@@ -81,18 +85,19 @@ namespace BlueprintExplorer
 
         public BlueprintControl View => view;
 
-        private readonly Stack<BlueprintHandle> history = new();
-
-        private void PopHistory(int to) {
-            int toRemove = history.Count;
-            for (int i = to + 1; i < toRemove; i++) {
-                historyBread.Controls.RemoveAt(to + 1);
-                history.Pop();
-            }
-        }
+        private readonly List<BlueprintHandle> history = new();
+        private int ActiveHistoryIndex = 0;
 
         private void PushHistory(BlueprintHandle bp) {
+
+            for (int i = ActiveHistoryIndex + 1; i < history.Count; i++)
+            {
+                history.RemoveAt(ActiveHistoryIndex + 1);
+                historyBread.Controls.RemoveAt(ActiveHistoryIndex + 1);
+            }
+
             var button = new Button();
+            int historyIndex = history.Count;
             if (Form1.Dark)
                 BubbleTheme.DarkenControls(button);
             button.MinimumSize = new Size(10, 44);
@@ -100,11 +105,30 @@ namespace BlueprintExplorer
             button.AutoSize = true;
             int here = historyBread.Controls.Count;
             button.Click += (sender, e) => {
-                PopHistory(here);
+                ActiveHistoryIndex = historyIndex;
                 ShowBlueprint(bp, 0);
+                InvalidateHistory();
             };
             historyBread.Controls.Add(button);
-            history.Push(bp);
+            history.Add(bp);
+
+            ActiveHistoryIndex = historyIndex;
+            InvalidateHistory();
+        }
+
+        private void InvalidateHistory()
+        {
+            for (int i = 0; i < history.Count; i++) {
+                var button = historyBread.Controls[i];
+                if (i == ActiveHistoryIndex)
+                {
+                    button.Font = new Font(button.Font, FontStyle.Bold);
+                }
+                else
+                {
+                    button.Font = new Font(button.Font, FontStyle.Italic);
+                }
+            }
         }
 
         private void ShowReferenceSelected()

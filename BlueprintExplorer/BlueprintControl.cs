@@ -444,6 +444,10 @@ namespace BlueprintExplorer
                     OnFilterChanged?.Invoke(_Filter);
                 }
             }
+            else
+            {
+                ValidateFilter(null);
+            }
         }
 
         public override Size GetPreferredSize(Size proposedSize) => new(proposedSize.Width, wantedHeight);
@@ -612,7 +616,8 @@ namespace BlueprintExplorer
 
             if (elem.String != null)
             {
-                string line = elem.Lines[row - elem.PrimaryRow];
+                int stringIndex = row - elem.PrimaryRow;
+                string line = elem.Lines[stringIndex];
                 render.Graphics.DrawString(line, valueFont, new SolidBrush(valueColor), new Rectangle(NameColumnWidth, 0, StringWidthAllowed, 500));
             }
 
