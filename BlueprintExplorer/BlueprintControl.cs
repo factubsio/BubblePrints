@@ -14,11 +14,13 @@ namespace BlueprintExplorer
     {
         public delegate void LinkClickedDelegate(string link, bool newTab);
         public delegate void PathDelegate(string path);
+        public delegate void FilterChangedDelegate(string filter);
 
         public event LinkClickedDelegate OnLinkClicked;
         public event PathDelegate OnPathHovered;
+        public event FilterChangedDelegate OnFilterChanged;
 
-        private Dictionary<string, int> ScrollPositionCache = new();
+        private Dictionary<string, (int position, string filter)> HistoryCache = new();
 
         private IDisplayableElementCollection DisplayedObject;
 
@@ -34,7 +36,7 @@ namespace BlueprintExplorer
                 if (DisplayedObject == value) return;
                 if (DisplayedObject != null)
                 {
-                    ScrollPositionCache[DisplayedObject.GuidText] = VerticalScroll.Value;
+                    HistoryCache[DisplayedObject.GuidText] = (VerticalScroll.Value, _Filter);
                 }
                 DisplayedObject = value;
                 DisplayedObject.EnsureParsed();
@@ -215,7 +217,7 @@ namespace BlueprintExplorer
 
         private int Count => Remap.Count;
 
-        private void ValidateFilter()
+        private void ValidateFilter(int? scrollTo)
         {
             Remap.Clear();
             if (_Filter.Length == 0)
@@ -268,6 +270,10 @@ namespace BlueprintExplorer
             wantedHeight = Count * RowHeight;
             AutoScrollMinSize = new Size(1, wantedHeight);
             Invalidate();
+            if (scrollTo != null)
+            {
+                AutoScrollPosition = new Point(0, scrollTo.Value);
+            }
         }
 
         int StringWidthAllowed => Width - NameColumnWidth - 32;
@@ -424,17 +430,20 @@ namespace BlueprintExplorer
             AutoScroll = true;
             if (scroll)
             {
-                if (ScrollPositionCache.TryGetValue(DisplayedObject.GuidText, out var scrollPosition))
+                if (HistoryCache.TryGetValue(DisplayedObject.GuidText, out var history))
                 {
-                    VerticalScroll.Value = scrollPosition;
+                    _Filter = history.filter;
+                    ValidateFilter(history.position);
+                    OnFilterChanged?.Invoke(_Filter);
                 }
                 else
                 {
                     VerticalScroll.Value = 0;
-
+                    _Filter = "";
+                    ValidateFilter(null);
+                    OnFilterChanged?.Invoke(_Filter);
                 }
             }
-            ValidateFilter();
         }
 
         public override Size GetPreferredSize(Size proposedSize) => new(proposedSize.Width, wantedHeight);
@@ -459,8 +468,12 @@ namespace BlueprintExplorer
             get => _Filter;
             set
             {
-                _Filter = value?.Trim() ?? "";
-                ValidateFilter();
+                var newFilter = value?.Trim() ?? "";
+                if (_Filter != newFilter)
+                {
+                    _Filter = newFilter;
+                    ValidateFilter(null);
+                }
             }
         }
 
@@ -647,7 +660,7 @@ namespace BlueprintExplorer
             else
                 elem.Collapsed = !elem.Collapsed;
 
-            ValidateFilter();
+            ValidateFilter(null);
         }
 
         protected override void OnMouseDoubleClick(MouseEventArgs e)

@@ -38,6 +38,11 @@ namespace BlueprintExplorer
                 currentPath.Text = path ?? "-";
             };
 
+            view.OnFilterChanged += filterValue =>
+            {
+                filter.Text = filterValue;
+            };
+
             filter.TextChanged += (sender, e) => view.Filter = filter.Text;
             if (Form1.Dark)
             {
