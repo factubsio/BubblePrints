@@ -29,6 +29,7 @@ namespace BlueprintExplorer
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.panel1 = new System.Windows.Forms.Panel();
             this.controlBar = new System.Windows.Forms.TableLayoutPanel();
             this.helpButton = new System.Windows.Forms.Button();
@@ -44,8 +45,9 @@ namespace BlueprintExplorer
             this.BPNamespace = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Score = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.BPGuid = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.blueprintViews = new System.Windows.Forms.TabControl();
-            this.splitContainer2 = new System.Windows.Forms.SplitContainer();
+            this.blueprintDock = new Krypton.Docking.KryptonDockableWorkspace();
+            this.kDockManager = new Krypton.Docking.KryptonDockingManager();
+            this.kGlobalManager = new Krypton.Toolkit.KryptonManager(this.components);
             this.panel1.SuspendLayout();
             this.controlBar.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
@@ -53,8 +55,7 @@ namespace BlueprintExplorer
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.resultsGrid)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).BeginInit();
-            this.splitContainer2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.blueprintDock)).BeginInit();
             this.SuspendLayout();
             // 
             // panel1
@@ -181,8 +182,7 @@ namespace BlueprintExplorer
             // 
             // splitContainer1.Panel2
             // 
-            this.splitContainer1.Panel2.Controls.Add(this.blueprintViews);
-            this.splitContainer1.Panel2.Controls.Add(this.splitContainer2);
+            this.splitContainer1.Panel2.Controls.Add(this.blueprintDock);
             this.splitContainer1.Panel2.Cursor = System.Windows.Forms.Cursors.Default;
             this.splitContainer1.Size = new System.Drawing.Size(2442, 1167);
             this.splitContainer1.SplitterDistance = 299;
@@ -200,7 +200,6 @@ namespace BlueprintExplorer
             this.BPNamespace,
             this.Score,
             this.BPGuid});
-            this.resultsGrid.Cursor = System.Windows.Forms.Cursors.Default;
             this.resultsGrid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.resultsGrid.Location = new System.Drawing.Point(0, 0);
             this.resultsGrid.MultiSelect = false;
@@ -255,32 +254,36 @@ namespace BlueprintExplorer
             this.BPGuid.ReadOnly = true;
             this.BPGuid.Width = 240;
             // 
-            // blueprintViews
+            // blueprintDock
             // 
-            this.blueprintViews.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.blueprintViews.Location = new System.Drawing.Point(0, 0);
-            this.blueprintViews.Name = "blueprintViews";
-            this.blueprintViews.SelectedIndex = 0;
-            this.blueprintViews.Size = new System.Drawing.Size(2442, 852);
-            this.blueprintViews.TabIndex = 3;
+            this.blueprintDock.ActivePage = null;
+            this.blueprintDock.AutoHiddenHost = false;
+            this.blueprintDock.CompactFlags = ((Krypton.Workspace.CompactFlags)(((Krypton.Workspace.CompactFlags.RemoveEmptyCells | Krypton.Workspace.CompactFlags.RemoveEmptySequences) 
+            | Krypton.Workspace.CompactFlags.PromoteLeafs)));
+            this.blueprintDock.ContainerBackStyle = Krypton.Toolkit.PaletteBackStyle.FormCustom1;
+            this.blueprintDock.ContextMenus.ShowContextMenu = false;
+            this.blueprintDock.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.blueprintDock.Location = new System.Drawing.Point(0, 0);
+            this.blueprintDock.Name = "blueprintDock";
             // 
-            // splitContainer2
             // 
-            this.splitContainer2.Cursor = System.Windows.Forms.Cursors.Default;
-            this.splitContainer2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.splitContainer2.Location = new System.Drawing.Point(0, 0);
-            this.splitContainer2.Name = "splitContainer2";
             // 
-            // splitContainer2.Panel1
+            this.blueprintDock.Root.UniqueName = "ab97069bd5da4900883796bd4f6a8e33";
+            this.blueprintDock.Root.WorkspaceControl = this.blueprintDock;
+            this.blueprintDock.SeparatorStyle = Krypton.Toolkit.SeparatorStyle.LowProfile;
+            this.blueprintDock.ShowMaximizeButton = false;
+            this.blueprintDock.Size = new System.Drawing.Size(2442, 852);
+            this.blueprintDock.SplitterWidth = 5;
+            this.blueprintDock.TabIndex = 0;
+            this.blueprintDock.TabStop = true;
             // 
-            this.splitContainer2.Panel1.Cursor = System.Windows.Forms.Cursors.Default;
+            // kDockManager
             // 
-            // splitContainer2.Panel2
+            this.kDockManager.DefaultCloseRequest = Krypton.Docking.DockingCloseRequest.RemovePageAndDispose;
             // 
-            this.splitContainer2.Panel2.Cursor = System.Windows.Forms.Cursors.Default;
-            this.splitContainer2.Size = new System.Drawing.Size(2442, 852);
-            this.splitContainer2.SplitterDistance = 1775;
-            this.splitContainer2.TabIndex = 5;
+            // kGlobalManager
+            // 
+            this.kGlobalManager.GlobalAllowFormChrome = false;
             // 
             // Form1
             // 
@@ -301,8 +304,7 @@ namespace BlueprintExplorer
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
             this.splitContainer1.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.resultsGrid)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).EndInit();
-            this.splitContainer2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.blueprintDock)).EndInit();
             this.ResumeLayout(false);
 
         }
@@ -319,12 +321,13 @@ namespace BlueprintExplorer
         private System.Windows.Forms.TableLayoutPanel controlBar;
         private System.Windows.Forms.TextBox omniSearch;
         private System.Windows.Forms.Label SearchLabel;
-        private System.Windows.Forms.SplitContainer splitContainer2;
         private System.Windows.Forms.Button settingsButton;
         private System.Windows.Forms.ComboBox availableVersions;
-        private System.Windows.Forms.TabControl blueprintViews;
         private System.Windows.Forms.Button helpButton;
         private System.Windows.Forms.Button notifications;
+        private Krypton.Docking.KryptonDockableWorkspace blueprintDock;
+        private Krypton.Docking.KryptonDockingManager kDockManager;
+        private Krypton.Toolkit.KryptonManager kGlobalManager;
     }
 }
 

@@ -18,14 +18,6 @@ namespace BlueprintExplorer
         public event BlueprintHandleDelegate OnOpenExternally;
         public event Action OnClose;
 
-        public bool CanClose
-        {
-            set
-            {
-                this.close.Enabled = value;
-            }
-        }
-
         public void Navigate(NavigateTo to)
         {
             int target = to switch

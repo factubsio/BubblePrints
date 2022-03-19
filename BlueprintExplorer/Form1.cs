@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Krypton.Navigator;
+using Krypton.Workspace;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -20,7 +22,7 @@ namespace BlueprintExplorer
         private static bool dark;
         bool Good => initialize?.IsCompleted ?? false;
 
-        public BlueprintViewer NewBlueprintViewer(int index = -1)
+        public BlueprintViewer NewBlueprintViewer(KryptonWorkspaceCell cell = null)
         {
             var viewer = new BlueprintViewer();
             if (Dark)
@@ -30,11 +32,18 @@ namespace BlueprintExplorer
 
             viewer.View.Font = BlueprintFont;
             viewer.View.LinkFont = LinkFont;
-            var page = new TabPage("<empty>");
+            var page = new KryptonPage
+            {
+                Text = "<empty>",
+                TextTitle = "<empty>",
+                TextDescription = "<empty>",
+            };
+            page.ClearFlags(KryptonPageFlags.DockingAllowClose | KryptonPageFlags.DockingAllowFloating | KryptonPageFlags.DockingAllowAutoHidden);
 
             viewer.OnBlueprintShown += bp =>
             {
-                page.Text = "     " + bp.Name + "     ";
+                page.Text = "  " + bp.Name + "   ";
+                page.UniqueName = bp.GuidText;
             };
 
             viewer.OnOpenExternally += bp =>
@@ -44,29 +53,55 @@ namespace BlueprintExplorer
 
             viewer.OnLinkOpenNewTab += bp =>
             {
-                var viewer = NewBlueprintViewer();
-                viewer.ShowBlueprint(bp, ShowFlags.F_ClearHistory | ShowFlags.F_UpdateHistory);
-                blueprintViews.SelectedIndex = blueprintViews.TabCount - 1;
+                //var existing = blueprintDock.PageForUniqueName(bp.GuidText);
+                //if (existing != null)
+                //{
+                //    blueprintDock.ActivePage = existing;
+                //}
+                //else
+                {
+
+                    var cell = blueprintDock.CellForPage(page);
+                    var viewer = NewBlueprintViewer(cell);
+                    viewer.ShowBlueprint(bp, ShowFlags.F_ClearHistory | ShowFlags.F_UpdateHistory);
+
+                    var parent = (viewer.Parent as KryptonPage);
+
+                    cell.SelectedPage = parent;
+
+                    //blueprintDock.ActivePage = parent;
+                }
             };
 
             viewer.OnClose += () =>
             {
-                if (blueprintViews.TabCount > 1)
-                    blueprintViews.TabPages.Remove(page);
-                for (int i =0; i < blueprintViews.TabCount; i++)
-                {
-                    (blueprintViews.TabPages[i].Controls[0] as BlueprintViewer).CanClose = blueprintViews.TabCount > 1;
-                }
+                //if (blueprintViews.TabCount > 1)
+                //    blueprintViews.TabPages.Remove(page);
+                //for (int i =0; i < blueprintViews.TabCount; i++)
+                //{
+                //    (blueprintViews.TabPages[i].Controls[0] as BlueprintViewer).CanClose = blueprintViews.TabCount > 1;
+                //}
             };
 
             page.Controls.Add(viewer);
             viewer.Dock = DockStyle.Fill;
-            blueprintViews.TabPages.Add(page);
-
-            for (int i =0; i < blueprintViews.TabCount; i++)
+            if (cell != null)
             {
-                (blueprintViews.TabPages[i].Controls[0] as BlueprintViewer).CanClose = blueprintViews.TabCount > 1;
+                cell.Pages.Add(page);
             }
+            else
+            {
+                kDockManager.AddToWorkspace("Workspace", new KryptonPage[]
+                {
+                    page
+                });
+            }
+
+
+            //for (int i =0; i < blueprintViews.TabCount; i++)
+            //{
+            //    (blueprintViews.TabPages[i].Controls[0] as BlueprintViewer).CanClose = blueprintViews.TabCount > 1;
+            //}
 
 
             return viewer;
@@ -151,9 +186,17 @@ namespace BlueprintExplorer
 
             InitializeComponent();
 
+            Load += (sender, e) =>
+            {
+                var w = kDockManager.ManageWorkspace(blueprintDock);
+                kDockManager.ManageFloating(this);
+                NewBlueprintViewer();
+
+                kGlobalManager.GlobalPaletteMode = Krypton.Toolkit.PaletteModeManager.SparkleOrange;
+            };
+
             this.AddMouseClickRecursively(HandleXbuttons);
 
-            NewBlueprintViewer();
             omniSearch.TextChanged += OmniSearch_TextChanged;
             resultsGrid.CellClick += ResultsGrid_CellClick;
 
@@ -188,24 +231,26 @@ namespace BlueprintExplorer
 
             resultsGrid.AllowUserToResizeRows = false;
 
-            blueprintViews.DrawMode = TabDrawMode.OwnerDrawFixed;
-            blueprintViews.DrawItem += (sender, e) =>
-            {
-                var g = e.Graphics;
-                g.FillRectangle(new SolidBrush(resultsGrid.BackColor), e.Bounds);
-                var textBounds = e.Bounds;
-                textBounds.Inflate(-2, -2);
-                var title = blueprintViews.TabPages[e.Index].Text;
-                int halfSize = (int)(g.MeasureString(title, Font).Width / 2);
-                int center = textBounds.Left + textBounds.Width / 2;
-                textBounds.X = center - halfSize;
-                g.DrawString(title, Font, new SolidBrush(resultsGrid.ForeColor), textBounds);
-            };
+            //blueprintViews.DrawMode = TabDrawMode.OwnerDrawFixed;
+            //blueprintViews.DrawItem += (sender, e) =>
+            //{
+            //    var g = e.Graphics;
+            //    g.FillRectangle(new SolidBrush(resultsGrid.BackColor), e.Bounds);
+            //    var textBounds = e.Bounds;
+            //    textBounds.Inflate(-2, -2);
+            //    var title = blueprintViews.TabPages[e.Index].Text;
+            //    int halfSize = (int)(g.MeasureString(title, Font).Width / 2);
+            //    int center = textBounds.Left + textBounds.Width / 2;
+            //    textBounds.X = center - halfSize;
+            //    g.DrawString(title, Font, new SolidBrush(resultsGrid.ForeColor), textBounds);
+            //};
+
+            resultsGrid.Cursor = Cursors.Arrow;
 
             if (Dark)
             {
                 resultsGrid.EnableHeadersVisualStyles = false;
-                BubbleTheme.DarkenControls(omniSearch, resultsGrid, splitContainer1, panel1, settingsButton, blueprintViews, helpButton);
+                BubbleTheme.DarkenControls(omniSearch, resultsGrid, splitContainer1, panel1, settingsButton, helpButton);
                 BubbleTheme.DarkenStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
 
                 Invalidate();
@@ -284,10 +329,10 @@ namespace BlueprintExplorer
 
         private void HandleXbuttons(object sender, MouseEventArgs e)
         {
-            if (e.Button == MouseButtons.XButton1)
-                (blueprintViews.SelectedTab.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeBackOne);
-            else if (e.Button == MouseButtons.XButton2)
-                (blueprintViews.SelectedTab.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeForwardOne);
+            //if (e.Button == MouseButtons.XButton1)
+            //    (blueprintViews.SelectedTab.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeBackOne);
+            //else if (e.Button == MouseButtons.XButton2)
+            //    (blueprintViews.SelectedTab.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeForwardOne);
         }
 
         private void ResultsGrid_MouseDown(object sender, MouseEventArgs e)
@@ -594,8 +639,15 @@ namespace BlueprintExplorer
             if (flags.UpdateHistory() && BubblePrints.Settings.AlwaysOpenInEditor)
                 DoOpenInEditor(bp);
 
-            if (blueprintViews.SelectedTab.Controls[0] is BlueprintViewer bpView)
+            if (blueprintDock.PageCount == 0)
+            {
+                NewBlueprintViewer().ShowBlueprint(bp, flags);
+            } 
+            else if (blueprintDock.ActivePage.Controls[0] is BlueprintViewer bpView)
+            {
                 bpView.ShowBlueprint(bp, flags);
+            }
+
 
         }
 

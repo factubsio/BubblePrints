@@ -36,7 +36,6 @@ namespace BlueprintExplorer
             this.filter = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
             this.openExternal = new System.Windows.Forms.Button();
-            this.close = new System.Windows.Forms.Button();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.references = new System.Windows.Forms.DataGridView();
             this.From = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -86,17 +85,15 @@ namespace BlueprintExplorer
             // 
             // tableLayoutPanel2
             // 
-            this.tableLayoutPanel2.ColumnCount = 5;
+            this.tableLayoutPanel2.ColumnCount = 4;
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 100F));
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 400F));
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 200F));
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 54F));
             this.tableLayoutPanel2.Controls.Add(this.currentPath, 3, 0);
             this.tableLayoutPanel2.Controls.Add(this.filter, 1, 0);
             this.tableLayoutPanel2.Controls.Add(this.label1, 0, 0);
             this.tableLayoutPanel2.Controls.Add(this.openExternal, 2, 0);
-            this.tableLayoutPanel2.Controls.Add(this.close, 4, 0);
             this.tableLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tableLayoutPanel2.Location = new System.Drawing.Point(3, 3);
             this.tableLayoutPanel2.Name = "tableLayoutPanel2";
@@ -113,7 +110,7 @@ namespace BlueprintExplorer
             this.currentPath.Name = "currentPath";
             this.currentPath.PlaceholderText = "...";
             this.currentPath.ReadOnly = true;
-            this.currentPath.Size = new System.Drawing.Size(1570, 39);
+            this.currentPath.Size = new System.Drawing.Size(1624, 39);
             this.currentPath.TabIndex = 3;
             // 
             // filter
@@ -146,18 +143,6 @@ namespace BlueprintExplorer
             this.openExternal.Text = "Open In Editor";
             this.openExternal.UseVisualStyleBackColor = true;
             // 
-            // close
-            // 
-            this.close.AutoSize = true;
-            this.close.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.close.Image = global::BlueprintExplorer.Properties.Resources.close;
-            this.close.Location = new System.Drawing.Point(2279, 3);
-            this.close.Name = "close";
-            this.close.Size = new System.Drawing.Size(48, 42);
-            this.close.TabIndex = 4;
-            this.close.UseVisualStyleBackColor = true;
-            this.close.Click += new System.EventHandler(this.close_Click);
-            // 
             // splitContainer1
             // 
             this.splitContainer1.Cursor = System.Windows.Forms.Cursors.VSplit;
@@ -184,7 +169,6 @@ namespace BlueprintExplorer
             this.references.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.references.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.From});
-            this.references.Cursor = System.Windows.Forms.Cursors.Default;
             this.references.Dock = System.Windows.Forms.DockStyle.Fill;
             this.references.Location = new System.Drawing.Point(0, 0);
             this.references.MultiSelect = false;
@@ -248,6 +232,5 @@ namespace BlueprintExplorer
         private System.Windows.Forms.Button openExternal;
         private System.Windows.Forms.TextBox currentPath;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel2;
-        private System.Windows.Forms.Button close;
     }
 }
