@@ -60,7 +60,6 @@ namespace BlueprintExplorer
                 //}
                 //else
                 {
-
                     var cell = blueprintDock.CellForPage(page);
                     var viewer = NewBlueprintViewer(cell);
                     viewer.ShowBlueprint(bp, ShowFlags.F_ClearHistory | ShowFlags.F_UpdateHistory);
@@ -289,6 +288,11 @@ namespace BlueprintExplorer
                 omniSearch.Text = "";
                 omniSearch.Select();
                 ShowBlueprint(BlueprintDB.Instance.Blueprints.Values.First(), ShowFlags.F_UpdateHistory);
+
+                var template = "var @{bp.name:firstLower}Ref = BlueprintTool.Get<@{bp.type}>(\"@{bp.guid}\").ToReference<>();";
+                Console.WriteLine("applying template: " + template + " to blueprint");
+                Console.WriteLine(TemplateRunner.Execute(template, BlueprintDB.Instance.Blueprints[Guid.Parse("dbe1d6ac18ad4eafb4f6d24e48eb12dc")]));
+
 
                 foreach (var v in BlueprintDB.Instance.Available)
                     availableVersions.Items.Add(v);

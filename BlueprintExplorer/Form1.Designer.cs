@@ -65,8 +65,8 @@ namespace BlueprintExplorer
             this.panel1.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel1.Location = new System.Drawing.Point(0, 0);
             this.panel1.Name = "panel1";
-            this.panel1.Padding = new System.Windows.Forms.Padding(8);
-            this.panel1.Size = new System.Drawing.Size(2442, 82);
+            this.panel1.Padding = new System.Windows.Forms.Padding(9, 8, 9, 8);
+            this.panel1.Size = new System.Drawing.Size(2440, 82);
             this.panel1.TabIndex = 1;
             // 
             // controlBar
@@ -85,17 +85,17 @@ namespace BlueprintExplorer
             this.controlBar.Controls.Add(this.availableVersions, 2, 0);
             this.controlBar.Controls.Add(this.notifications, 5, 0);
             this.controlBar.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.controlBar.Location = new System.Drawing.Point(8, 8);
+            this.controlBar.Location = new System.Drawing.Point(9, 8);
             this.controlBar.Name = "controlBar";
             this.controlBar.RowCount = 1;
             this.controlBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.controlBar.Size = new System.Drawing.Size(2426, 66);
+            this.controlBar.Size = new System.Drawing.Size(2422, 66);
             this.controlBar.TabIndex = 2;
             // 
             // helpButton
             // 
             this.helpButton.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.helpButton.Location = new System.Drawing.Point(2265, 3);
+            this.helpButton.Location = new System.Drawing.Point(2261, 3);
             this.helpButton.Name = "helpButton";
             this.helpButton.Size = new System.Drawing.Size(94, 60);
             this.helpButton.TabIndex = 4;
@@ -106,7 +106,7 @@ namespace BlueprintExplorer
             // settingsButton
             // 
             this.settingsButton.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.settingsButton.Location = new System.Drawing.Point(2165, 3);
+            this.settingsButton.Location = new System.Drawing.Point(2161, 3);
             this.settingsButton.Name = "settingsButton";
             this.settingsButton.Size = new System.Drawing.Size(94, 60);
             this.settingsButton.TabIndex = 2;
@@ -118,11 +118,11 @@ namespace BlueprintExplorer
             this.omniSearch.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.omniSearch.Dock = System.Windows.Forms.DockStyle.Fill;
             this.omniSearch.Font = new System.Drawing.Font("Segoe UI", 20F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.omniSearch.Location = new System.Drawing.Point(191, 8);
-            this.omniSearch.Margin = new System.Windows.Forms.Padding(8);
+            this.omniSearch.Location = new System.Drawing.Point(192, 8);
+            this.omniSearch.Margin = new System.Windows.Forms.Padding(9, 8, 9, 8);
             this.omniSearch.Name = "omniSearch";
             this.omniSearch.PlaceholderText = "enter search text...";
-            this.omniSearch.Size = new System.Drawing.Size(1763, 54);
+            this.omniSearch.Size = new System.Drawing.Size(1757, 54);
             this.omniSearch.TabIndex = 0;
             this.omniSearch.TextChanged += new System.EventHandler(this.omniSearch_TextChanged_1);
             this.omniSearch.KeyDown += new System.Windows.Forms.KeyEventHandler(this.omniSearch_KeyDown);
@@ -147,7 +147,7 @@ namespace BlueprintExplorer
             this.availableVersions.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.availableVersions.FormattingEnabled = true;
             this.availableVersions.ItemHeight = 25;
-            this.availableVersions.Location = new System.Drawing.Point(1965, 3);
+            this.availableVersions.Location = new System.Drawing.Point(1961, 3);
             this.availableVersions.Name = "availableVersions";
             this.availableVersions.Size = new System.Drawing.Size(194, 33);
             this.availableVersions.TabIndex = 3;
@@ -161,7 +161,7 @@ namespace BlueprintExplorer
             this.notifications.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.notifications.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
             this.notifications.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.notifications.Location = new System.Drawing.Point(2365, 3);
+            this.notifications.Location = new System.Drawing.Point(2361, 3);
             this.notifications.Name = "notifications";
             this.notifications.Size = new System.Drawing.Size(58, 60);
             this.notifications.TabIndex = 5;
@@ -185,8 +185,8 @@ namespace BlueprintExplorer
             // 
             this.splitContainer1.Panel2.Controls.Add(this.blueprintDock);
             this.splitContainer1.Panel2.Cursor = System.Windows.Forms.Cursors.Default;
-            this.splitContainer1.Size = new System.Drawing.Size(2442, 1167);
-            this.splitContainer1.SplitterDistance = 299;
+            this.splitContainer1.Size = new System.Drawing.Size(2440, 1166);
+            this.splitContainer1.SplitterDistance = 297;
             this.splitContainer1.SplitterWidth = 16;
             this.splitContainer1.TabIndex = 3;
             // 
@@ -209,7 +209,7 @@ namespace BlueprintExplorer
             this.resultsGrid.RowHeadersWidth = 62;
             this.resultsGrid.RowTemplate.Height = 33;
             this.resultsGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.resultsGrid.Size = new System.Drawing.Size(2442, 299);
+            this.resultsGrid.Size = new System.Drawing.Size(2440, 297);
             this.resultsGrid.TabIndex = 2;
             this.resultsGrid.VirtualMode = true;
             this.resultsGrid.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.resultsGrid_CellContentClick);
@@ -273,7 +273,7 @@ namespace BlueprintExplorer
             this.blueprintDock.Root.WorkspaceControl = this.blueprintDock;
             this.blueprintDock.SeparatorStyle = Krypton.Toolkit.SeparatorStyle.LowProfile;
             this.blueprintDock.ShowMaximizeButton = false;
-            this.blueprintDock.Size = new System.Drawing.Size(2442, 852);
+            this.blueprintDock.Size = new System.Drawing.Size(2440, 853);
             this.blueprintDock.SplitterWidth = 5;
             this.blueprintDock.TabIndex = 0;
             this.blueprintDock.TabStop = true;
@@ -288,10 +288,10 @@ namespace BlueprintExplorer
             // 
             // Form1
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(10F, 25F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.AutoScaleDimensions = new System.Drawing.SizeF(144F, 144F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.BlueprintFont = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.ClientSize = new System.Drawing.Size(2442, 1249);
+            this.ClientSize = new System.Drawing.Size(2440, 1248);
             this.Controls.Add(this.splitContainer1);
             this.Controls.Add(this.panel1);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));

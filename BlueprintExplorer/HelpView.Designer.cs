@@ -38,7 +38,6 @@ namespace BlueprintExplorer
             // 
             this.contents.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.contents.BulletIndent = 2;
-            this.contents.Cursor = System.Windows.Forms.Cursors.Default;
             this.contents.Dock = System.Windows.Forms.DockStyle.Fill;
             this.contents.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             this.contents.Location = new System.Drawing.Point(32, 32);
@@ -62,8 +61,8 @@ namespace BlueprintExplorer
             // 
             // HelpView
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(10F, 25F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.AutoScaleDimensions = new System.Drawing.SizeF(144F, 144F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.ClientSize = new System.Drawing.Size(1314, 922);
             this.Controls.Add(this.panel1);
             this.Name = "HelpView";

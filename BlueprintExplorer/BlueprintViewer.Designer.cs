@@ -33,9 +33,11 @@ namespace BlueprintExplorer
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
             this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
             this.currentPath = new System.Windows.Forms.TextBox();
-            this.filter = new System.Windows.Forms.TextBox();
-            this.label1 = new System.Windows.Forms.Label();
             this.openExternal = new System.Windows.Forms.Button();
+            this.copyTemplate = new System.Windows.Forms.Button();
+            this.label1 = new System.Windows.Forms.Label();
+            this.filter = new System.Windows.Forms.TextBox();
+            this.templatesList = new System.Windows.Forms.ComboBox();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.references = new System.Windows.Forms.DataGridView();
             this.From = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -62,7 +64,7 @@ namespace BlueprintExplorer
             this.view.Name = "view";
             this.view.NameColumnWidth = 600;
             this.view.RowHeight = 36;
-            this.view.Size = new System.Drawing.Size(1845, 1054);
+            this.view.Size = new System.Drawing.Size(1843, 1060);
             this.view.TabIndex = 0;
             this.view.Text = "blueprintControl1";
             // 
@@ -79,21 +81,25 @@ namespace BlueprintExplorer
             this.tableLayoutPanel1.RowCount = 3;
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 54F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 60F));
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 54F));
             this.tableLayoutPanel1.Size = new System.Drawing.Size(2336, 1174);
             this.tableLayoutPanel1.TabIndex = 0;
             // 
             // tableLayoutPanel2
             // 
-            this.tableLayoutPanel2.ColumnCount = 4;
+            this.tableLayoutPanel2.ColumnCount = 6;
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 100F));
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 400F));
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 200F));
+            this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 200F));
+            this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel2.Controls.Add(this.currentPath, 3, 0);
-            this.tableLayoutPanel2.Controls.Add(this.filter, 1, 0);
-            this.tableLayoutPanel2.Controls.Add(this.label1, 0, 0);
+            this.tableLayoutPanel2.Controls.Add(this.currentPath, 5, 0);
             this.tableLayoutPanel2.Controls.Add(this.openExternal, 2, 0);
+            this.tableLayoutPanel2.Controls.Add(this.copyTemplate, 4, 0);
+            this.tableLayoutPanel2.Controls.Add(this.label1, 0, 0);
+            this.tableLayoutPanel2.Controls.Add(this.filter, 1, 0);
+            this.tableLayoutPanel2.Controls.Add(this.templatesList, 3, 0);
             this.tableLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tableLayoutPanel2.Location = new System.Drawing.Point(3, 3);
             this.tableLayoutPanel2.Name = "tableLayoutPanel2";
@@ -106,21 +112,36 @@ namespace BlueprintExplorer
             // 
             this.currentPath.Dock = System.Windows.Forms.DockStyle.Fill;
             this.currentPath.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.currentPath.Location = new System.Drawing.Point(703, 3);
+            this.currentPath.Location = new System.Drawing.Point(1023, 3);
             this.currentPath.Name = "currentPath";
             this.currentPath.PlaceholderText = "...";
             this.currentPath.ReadOnly = true;
-            this.currentPath.Size = new System.Drawing.Size(1624, 39);
+            this.currentPath.Size = new System.Drawing.Size(1304, 39);
             this.currentPath.TabIndex = 3;
             // 
-            // filter
+            // openExternal
             // 
-            this.filter.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.filter.Location = new System.Drawing.Point(103, 3);
-            this.filter.Name = "filter";
-            this.filter.PlaceholderText = "...";
-            this.filter.Size = new System.Drawing.Size(394, 39);
-            this.filter.TabIndex = 1;
+            this.openExternal.AutoSize = true;
+            this.openExternal.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.openExternal.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.openExternal.Location = new System.Drawing.Point(503, 3);
+            this.openExternal.Name = "openExternal";
+            this.openExternal.Size = new System.Drawing.Size(194, 42);
+            this.openExternal.TabIndex = 1;
+            this.openExternal.Text = "Open In Editor";
+            this.openExternal.UseVisualStyleBackColor = true;
+            // 
+            // copyTemplate
+            // 
+            this.copyTemplate.AutoSize = true;
+            this.copyTemplate.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.copyTemplate.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.copyTemplate.Location = new System.Drawing.Point(903, 3);
+            this.copyTemplate.Name = "copyTemplate";
+            this.copyTemplate.Size = new System.Drawing.Size(114, 42);
+            this.copyTemplate.TabIndex = 4;
+            this.copyTemplate.Text = "Template!";
+            this.copyTemplate.UseVisualStyleBackColor = true;
             // 
             // label1
             // 
@@ -132,16 +153,24 @@ namespace BlueprintExplorer
             this.label1.Text = "Filter:";
             this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // openExternal
+            // filter
             // 
-            this.openExternal.AutoSize = true;
-            this.openExternal.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.openExternal.Location = new System.Drawing.Point(503, 3);
-            this.openExternal.Name = "openExternal";
-            this.openExternal.Size = new System.Drawing.Size(194, 40);
-            this.openExternal.TabIndex = 1;
-            this.openExternal.Text = "Open In Editor";
-            this.openExternal.UseVisualStyleBackColor = true;
+            this.filter.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+            this.filter.Location = new System.Drawing.Point(103, 3);
+            this.filter.Name = "filter";
+            this.filter.PlaceholderText = "...";
+            this.filter.Size = new System.Drawing.Size(392, 39);
+            this.filter.TabIndex = 1;
+            // 
+            // templatesList
+            // 
+            this.templatesList.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.templatesList.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.templatesList.FormattingEnabled = true;
+            this.templatesList.Location = new System.Drawing.Point(703, 3);
+            this.templatesList.Name = "templatesList";
+            this.templatesList.Size = new System.Drawing.Size(194, 33);
+            this.templatesList.TabIndex = 5;
             // 
             // splitContainer1
             // 
@@ -157,8 +186,8 @@ namespace BlueprintExplorer
             // splitContainer1.Panel2
             // 
             this.splitContainer1.Panel2.Controls.Add(this.references);
-            this.splitContainer1.Size = new System.Drawing.Size(2330, 1054);
-            this.splitContainer1.SplitterDistance = 1845;
+            this.splitContainer1.Size = new System.Drawing.Size(2330, 1060);
+            this.splitContainer1.SplitterDistance = 1843;
             this.splitContainer1.TabIndex = 0;
             // 
             // references
@@ -179,7 +208,7 @@ namespace BlueprintExplorer
             this.references.RowHeadersWidthSizeMode = System.Windows.Forms.DataGridViewRowHeadersWidthSizeMode.DisableResizing;
             this.references.RowTemplate.Height = 33;
             this.references.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.references.Size = new System.Drawing.Size(481, 1054);
+            this.references.Size = new System.Drawing.Size(483, 1060);
             this.references.TabIndex = 1;
             // 
             // From
@@ -195,15 +224,14 @@ namespace BlueprintExplorer
             this.historyBread.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.historyBread.Dock = System.Windows.Forms.DockStyle.Fill;
             this.historyBread.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.historyBread.Location = new System.Drawing.Point(3, 1117);
+            this.historyBread.Location = new System.Drawing.Point(3, 1123);
             this.historyBread.Name = "historyBread";
-            this.historyBread.Size = new System.Drawing.Size(2330, 54);
+            this.historyBread.Size = new System.Drawing.Size(2330, 48);
             this.historyBread.TabIndex = 0;
             // 
             // BlueprintViewer
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(10F, 25F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Inherit;
             this.Controls.Add(this.tableLayoutPanel1);
             this.Name = "BlueprintViewer";
             this.Size = new System.Drawing.Size(2336, 1174);
@@ -232,5 +260,7 @@ namespace BlueprintExplorer
         private System.Windows.Forms.Button openExternal;
         private System.Windows.Forms.TextBox currentPath;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel2;
+        private System.Windows.Forms.Button copyTemplate;
+        private System.Windows.Forms.ComboBox templatesList;
     }
 }

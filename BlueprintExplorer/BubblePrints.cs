@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing.Design;
 using System.IO;
@@ -11,6 +13,12 @@ namespace BlueprintExplorer
 {
     public static class BubblePrints
     {
+        public delegate void TemplatesChangedDelegate(int oldCount, int newCount);
+        public static event TemplatesChangedDelegate OnTemplatesChanged;
+
+        public delegate void SettingsChangedDelegate();
+        public static event SettingsChangedDelegate OnSettingsChanged;
+
         public static SettingsProxy Settings = new();
         private static string StoredWrathPath = null;
         public static bool TryGetWrathPath(out string path)
@@ -64,7 +72,7 @@ namespace BlueprintExplorer
 
                     if (folderBrowser.ShowDialog() != DialogResult.OK)
                         return;
-                        
+
                     path = folderBrowser.SelectedPath;
 
                     var exePath = Path.Combine(path, "Wrath.exe");
@@ -87,8 +95,12 @@ namespace BlueprintExplorer
         public static string MakeDataPath(string subpath) => Path.Combine(DataPath, subpath);
         public static string SettingsPath => MakeDataPath("settings.json");
 
-
-        internal static void SaveSettings() => File.WriteAllText(SettingsPath, JsonSerializer.Serialize(Settings));
+        internal static void SaveSettings()
+        {
+            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(Settings));
+            OnSettingsChanged?.Invoke();
+        }
+        internal static void NotifyTemplatesChanged(int oldCount, int newCount) => OnTemplatesChanged?.Invoke(oldCount, newCount);
     }
 
     public enum ExportMode
@@ -102,12 +114,16 @@ namespace BlueprintExplorer
     {
         public void Sync()
         {
+            int oldCount = BubblePrints.Settings.GeneratorTemplate?.Length ?? 0;
+
             var settings = BubblePrints.Settings;
             foreach (var p in GetType().GetProperties())
             {
                 p.SetValue(settings, p.GetValue(this));
             }
             BubblePrints.SaveSettings();
+
+            BubblePrints.NotifyTemplatesChanged(oldCount, GeneratorTemplate?.Length ?? 0);
         }
 
 
@@ -174,5 +190,21 @@ namespace BlueprintExplorer
         [Description("This path will be used if the 'check for updates' is false, or if there is no connectivity to check for any later version")]
         [DisplayName("Most recent blueprints loaded")]
         public string LastLoaded { get; set; }
+
+        [Description("Size of the font for the blueprint viewer")]
+        [DisplayName("Blueprint font size")]
+        public int BlueprintFontSize { get; set; } = 12;
+
+        [Description("Template string for blueprint template generation - see help for more details")]
+        [DisplayName("Generator template")]
+        //[DesignerSerializationVisibility(DesignerSerializationVisibility.Content)]
+        public Template[] GeneratorTemplate { get; set; }
+    }
+
+    public class Template
+    {
+        public string Name { get; set; }
+        public string Value { get; set; }
+
     }
 }

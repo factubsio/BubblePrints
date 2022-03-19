@@ -52,6 +52,22 @@ namespace BlueprintExplorer
                 }
             };
 
+            BubblePrints.OnTemplatesChanged += BubblePrints_OnTemplatesChanged;
+            BubblePrints_OnTemplatesChanged(0, BubblePrints.Settings.GeneratorTemplate?.Length ?? 0);
+            if (templatesList.Items.Count > 0)
+                templatesList.SelectedIndex = 0;
+
+            copyTemplate.Click += (sender, e) =>
+            {
+                var availableTemplates = BubblePrints.Settings.GeneratorTemplate;
+                if (templatesList.SelectedIndex == -1) return;
+                if (templatesList.SelectedIndex >= availableTemplates.Length) return;
+
+                var template = availableTemplates[templatesList.SelectedIndex];
+                var result = TemplateRunner.Execute(template.Value, view.Blueprint as BlueprintHandle);
+                Clipboard.SetText(result);
+            };
+
             view.OnPathHovered += path =>
             {
                 currentPath.Text = path ?? "-";
@@ -67,7 +83,7 @@ namespace BlueprintExplorer
             filter.TextChanged += (sender, e) => view.Filter = filter.Text;
             if (Form1.Dark)
             {
-                BubbleTheme.DarkenControls(view, filter, references, openExternal, currentPath);
+                BubbleTheme.DarkenControls(view, filter, references, openExternal, copyTemplate, templatesList, currentPath);
                 BubbleTheme.DarkenStyles(references.DefaultCellStyle, references.ColumnHeadersDefaultCellStyle);
             }
 
@@ -77,6 +93,16 @@ namespace BlueprintExplorer
 
             this.AddMouseClickRecursively(HandleXbuttons);
         }
+
+        private void BubblePrints_OnTemplatesChanged(int oldCount, int newCount)
+        {
+            templatesList.Items.Clear();
+            foreach (var template in BubblePrints.Settings.GeneratorTemplate)
+            {
+                templatesList.Items.Add(template.Name);
+            }
+        }
+
         private void HandleXbuttons(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.XButton1)

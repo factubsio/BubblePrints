@@ -169,7 +169,11 @@ namespace BlueprintExplorer
             }
         }
 
-        public int RowHeight { get; set; } = 36;
+        public int RowHeight
+        {
+            get { return (Regular?.Height ?? 32) + 4; }
+            set { }
+        }
 
         protected override CreateParams CreateParams
         {
@@ -206,6 +210,18 @@ namespace BlueprintExplorer
             };
             ToastTimer.Interval = 33;
             ToastTimer.Start();
+
+            Regular = new Font(Font.FontFamily, (float)BubblePrints.Settings.BlueprintFontSize, FontStyle.Regular);
+            Bold = new Font(Font.FontFamily, (float)BubblePrints.Settings.BlueprintFontSize, FontStyle.Bold);
+
+            BubblePrints.OnSettingsChanged += BubblePrints_OnSettingsChanged;
+        }
+
+        private void BubblePrints_OnSettingsChanged()
+        {
+            Regular = new Font(Font.FontFamily, (float)BubblePrints.Settings.BlueprintFontSize, FontStyle.Regular);
+            Bold = new Font(Font.FontFamily, (float)BubblePrints.Settings.BlueprintFontSize, FontStyle.Bold);
+            ValidateBlueprint(false);
         }
 
         protected override void OnBackColorChanged(EventArgs e) => UpdateRowHoverColor();
@@ -288,6 +304,8 @@ namespace BlueprintExplorer
             int strWidthAllowed = StringWidthAllowed;
             currentHover = -1;
             int totalRows = 0;
+            if (DisplayedObject == null) return;
+
             if (DisplayedObject != null)
             {
                 Elements.Add(new ()
@@ -823,15 +841,18 @@ namespace BlueprintExplorer
                     
             }
         }
+        private Font Regular; 
+        private Font Bold; 
 
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
 
+
             DrawParams drawing = new()
             {
-                Bold = new Font(Font, FontStyle.Bold),
-                Regular = Font,
+                Regular = Regular,
+                Bold = Bold,
                 Graphics = g,
             };
 
@@ -867,7 +888,7 @@ namespace BlueprintExplorer
 
         }
 
-        public Font LinkFont { get => linkFont ?? Font; set => linkFont = value; }
+        public Font LinkFont { get => Regular; set => linkFont = value; }
         private SolidBrush RowHoverColor;
         private Pen RowLineGuide;
         private SolidBrush RowPreviewHoverColor;
