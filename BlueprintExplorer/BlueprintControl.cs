@@ -835,6 +835,7 @@ namespace BlueprintExplorer
                 Graphics = g,
             };
 
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
             int current = ((VerticalScroll.Value + e.ClipRectangle.Top) / RowHeight);
             if (current < 0)
