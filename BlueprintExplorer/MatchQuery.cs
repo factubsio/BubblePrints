@@ -194,6 +194,15 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
             foreach (var term in terms) {
                 if (term.Contains(':')) {
                     var pair = term.Split(':');
+                    if (pair[1].Length == 0) continue;
+                    if (pair[1][0] == '!')
+                    {
+                        int underscore = pair[1].IndexOf('_');
+                        if (underscore != -1 && underscore != pair[1].Length - 1)
+                        {
+                            pair[1] = pair[1].Substring(underscore + 1);
+                        }
+                    }
                     StrictSearchTexts[pair[0]] = pair[1];
                 }
                 else

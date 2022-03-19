@@ -701,8 +701,16 @@ namespace BlueprintExplorer
                         Console.WriteLine($"                       after: {toSearch.Count}");
                         break;
                     case '!':
-                        string[] path = special.Split('/', StringSplitOptions.RemoveEmptyEntries);
-                        toSearch = toSearch.Where(b => EntryIsNotNull(b, path)).ToList();
+                        if (special.StartsWith("bp_"))
+                        {
+
+                            toSearch = toSearch.Where(b => b.GuidText.Contains(special.Substring(3), StringComparison.OrdinalIgnoreCase)).ToList();
+                        }
+                        else
+                        {
+                            //string[] path = special.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                            //toSearch = toSearch.Where(b => EntryIsNotNull(b, path)).ToList();
+                        }
                         break;
                     default:
                         remove = false;

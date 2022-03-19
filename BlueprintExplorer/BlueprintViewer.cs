@@ -18,6 +18,33 @@ namespace BlueprintExplorer
         public event BlueprintHandleDelegate OnOpenExternally;
         public event Action OnClose;
 
+        public bool CanClose
+        {
+            set
+            {
+                this.close.Enabled = value;
+            }
+        }
+
+        public void Navigate(NavigateTo to)
+        {
+            int target = to switch
+            {
+                NavigateTo.RelativeBackOne => ActiveHistoryIndex - 1,
+                NavigateTo.RelativeForwardOne => ActiveHistoryIndex + 1,
+                NavigateTo.AbsoluteFirst => 0,
+                NavigateTo.AbsoluteLast => history.Count - 1,
+                _ => throw new NotImplementedException(),
+            };
+
+            if (target >= 0 && target < history.Count)
+            {
+                ActiveHistoryIndex = target;
+                ShowBlueprint(history[target], 0);
+                InvalidateHistory();
+            }
+        }
+
         public BlueprintViewer()
         {
             InitializeComponent();
@@ -43,6 +70,8 @@ namespace BlueprintExplorer
                 filter.Text = filterValue;
             };
 
+            view.OnNavigate += Navigate;
+
             filter.TextChanged += (sender, e) => view.Filter = filter.Text;
             if (Form1.Dark)
             {
@@ -53,6 +82,15 @@ namespace BlueprintExplorer
             references.CellClick += (sender, e) => ShowReferenceSelected();
 
             openExternal.Click += (sender, e) => OnOpenExternally?.Invoke(View.Blueprint as BlueprintHandle);
+
+            this.AddMouseClickRecursively(HandleXbuttons);
+        }
+        private void HandleXbuttons(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.XButton1)
+                Navigate(NavigateTo.RelativeBackOne);
+            else if (e.Button == MouseButtons.XButton2)
+                Navigate(NavigateTo.RelativeForwardOne);
         }
 
         public void ShowBlueprint(BlueprintHandle handle, ShowFlags flags)

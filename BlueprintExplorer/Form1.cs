@@ -53,11 +53,22 @@ namespace BlueprintExplorer
             {
                 if (blueprintViews.TabCount > 1)
                     blueprintViews.TabPages.Remove(page);
+                for (int i =0; i < blueprintViews.TabCount; i++)
+                {
+                    (blueprintViews.TabPages[i].Controls[0] as BlueprintViewer).CanClose = blueprintViews.TabCount > 1;
+                }
             };
 
             page.Controls.Add(viewer);
             viewer.Dock = DockStyle.Fill;
             blueprintViews.TabPages.Add(page);
+
+            for (int i =0; i < blueprintViews.TabCount; i++)
+            {
+                (blueprintViews.TabPages[i].Controls[0] as BlueprintViewer).CanClose = blueprintViews.TabCount > 1;
+            }
+
+
             return viewer;
         }
 
@@ -103,7 +114,8 @@ namespace BlueprintExplorer
             return int.Parse(c[0]) * 65536 + int.Parse(c[1]) * 256 + int.Parse(c[2]);
         }
 
-        public Form1() {
+        public Form1()
+        {
             var env = Environment.GetEnvironmentVariable("BubbleprintsTheme");
             Dark = env?.Equals("dark") ?? false;
             Dark |= BubblePrints.Settings.DarkMode;
@@ -138,9 +150,13 @@ namespace BlueprintExplorer
             }
 
             InitializeComponent();
+
+            this.AddMouseClickRecursively(HandleXbuttons);
+
             NewBlueprintViewer();
             omniSearch.TextChanged += OmniSearch_TextChanged;
             resultsGrid.CellClick += ResultsGrid_CellClick;
+
 
             InstallReadline(omniSearch);
 
@@ -221,7 +237,8 @@ namespace BlueprintExplorer
             var progress = new BlueprintDB.ConnectionProgress();
 
             initialize = Task.Run(() => BlueprintDB.Instance.TryConnect(progress));
-            initialize.ContinueWith(b => {
+            initialize.ContinueWith(b =>
+            {
                 omniSearch.Enabled = true;
                 resultsGrid.Enabled = true;
                 omniSearch.Text = "";
@@ -235,18 +252,24 @@ namespace BlueprintExplorer
             }, TaskScheduler.FromCurrentSynchronizationContext());
 
 
-            new Thread(() => {
+            new Thread(() =>
+            {
                 string plane = $"{loadString}-🛬";
                 const int frames = 90;
 
-                while (true) {
-                    for (int frame = 0; frame < frames; frame++) {
+                while (true)
+                {
+                    for (int frame = 0; frame < frames; frame++)
+                    {
                         if (Good)
                             return;
 
-                        if (omniSearch.Visible) {
-                            omniSearch.Invoke(new Action(() => {
-                                if (!Good) {
+                        if (omniSearch.Visible)
+                        {
+                            omniSearch.Invoke(new Action(() =>
+                            {
+                                if (!Good)
+                                {
                                     omniSearch.Text = plane.PadLeft(plane.Length + frame) + $"{progress.Status}";
                                 }
                             }));
@@ -256,6 +279,20 @@ namespace BlueprintExplorer
                 }
             }).Start();
 
+        }
+
+
+        private void HandleXbuttons(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.XButton1)
+                (blueprintViews.SelectedTab.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeBackOne);
+            else if (e.Button == MouseButtons.XButton2)
+                (blueprintViews.SelectedTab.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeForwardOne);
+        }
+
+        private void ResultsGrid_MouseDown(object sender, MouseEventArgs e)
+        {
+            throw new NotImplementedException();
         }
 
         private void BlueprintView_OnLinkClicked(string link)

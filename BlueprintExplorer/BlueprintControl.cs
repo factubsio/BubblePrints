@@ -15,7 +15,9 @@ namespace BlueprintExplorer
         public delegate void LinkClickedDelegate(string link, bool newTab);
         public delegate void PathDelegate(string path);
         public delegate void FilterChangedDelegate(string filter);
+        public delegate void NavigateDelegate(NavigateTo to);
 
+        public event NavigateDelegate OnNavigate;
         public event LinkClickedDelegate OnLinkClicked;
         public event PathDelegate OnPathHovered;
         public event FilterChangedDelegate OnFilterChanged;
@@ -676,6 +678,17 @@ namespace BlueprintExplorer
                 Toggle(elem);
             }
         }
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.XButton1)
+            {
+                OnNavigate?.Invoke(NavigateTo.RelativeBackOne);
+            }
+            else if (e.Button == MouseButtons.XButton2)
+            {
+                OnNavigate?.Invoke(NavigateTo.RelativeForwardOne);
+            }
+        }
 
         protected override void OnMouseClick(MouseEventArgs e)
         {
@@ -691,12 +704,27 @@ namespace BlueprintExplorer
                     OnLinkClicked?.Invoke(elem.link, ModifierKeys.HasFlag(Keys.Control));
                 }
             }
+            else if (e.Button == MouseButtons.Middle && valid && elem.HasLink)
+            {
+                OnLinkClicked?.Invoke(elem.link, true);
+            }
             else if (e.Button == MouseButtons.Right && valid)
             {
                 string value = elem.value;
                 value ??= elem.ValueStyled?.Raw;
+                bool jbpCompatible = ModifierKeys.HasFlag(Keys.Shift);
+
+
                 if (elem.HasLink)
+                {
                     value = elem.link;
+                    if (jbpCompatible)
+                        value = "!bp_" + value;
+                }
+
+                if (jbpCompatible && elem.key == "Blueprint ID") {
+                    value = "!bp_" + value;
+                }
                 if (string.IsNullOrWhiteSpace(value))
                     return;
                 Clipboard.SetText(value);
@@ -849,5 +877,12 @@ namespace BlueprintExplorer
             public Font Regular;
             public Graphics Graphics;
         }
+    }
+    public enum NavigateTo
+    {
+        RelativeBackOne,
+        RelativeForwardOne,
+        AbsoluteFirst,
+        AbsoluteLast,
     }
 }
