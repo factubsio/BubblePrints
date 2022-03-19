@@ -30,6 +30,7 @@ namespace BlueprintExplorer
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             this.panel1 = new System.Windows.Forms.Panel();
             this.controlBar = new System.Windows.Forms.TableLayoutPanel();
             this.helpButton = new System.Windows.Forms.Button();
@@ -293,6 +294,7 @@ namespace BlueprintExplorer
             this.ClientSize = new System.Drawing.Size(2442, 1249);
             this.Controls.Add(this.splitContainer1);
             this.Controls.Add(this.panel1);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.LinkFont = new System.Drawing.Font("Consolas", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             this.Name = "Form1";
             this.Text = "BlueprintDB";

@@ -4,13 +4,17 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
-    <ApplicationIcon />
+    <ApplicationIcon>bubbleprint.ico</ApplicationIcon>
     <StartupObject />
     <Version>0.0.1</Version>
     <SignAssembly>false</SignAssembly>
     <AssemblyOriginatorKeyFile>bubbleprintskey.pfx</AssemblyOriginatorKeyFile>
     <DelaySign>false</DelaySign>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="bubbleprint.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="..\.editorconfig" Link=".editorconfig" />
