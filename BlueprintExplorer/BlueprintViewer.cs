@@ -88,6 +88,7 @@ namespace BlueprintExplorer
             }
 
             references.CellClick += (sender, e) => ShowReferenceSelected();
+            references.Cursor = Cursors.Arrow;
 
             openExternal.Click += (sender, e) => OnOpenExternally?.Invoke(View.Blueprint as BlueprintHandle);
 
