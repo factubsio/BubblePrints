@@ -262,7 +262,6 @@ namespace BlueprintExplorer
             this.blueprintDock.CompactFlags = ((Krypton.Workspace.CompactFlags)(((Krypton.Workspace.CompactFlags.RemoveEmptyCells | Krypton.Workspace.CompactFlags.RemoveEmptySequences) 
             | Krypton.Workspace.CompactFlags.PromoteLeafs)));
             this.blueprintDock.ContainerBackStyle = Krypton.Toolkit.PaletteBackStyle.FormCustom1;
-            this.blueprintDock.ContextMenus.ShowContextMenu = false;
             this.blueprintDock.Dock = System.Windows.Forms.DockStyle.Fill;
             this.blueprintDock.Location = new System.Drawing.Point(0, 0);
             this.blueprintDock.Name = "blueprintDock";

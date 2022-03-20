@@ -1,4 +1,5 @@
 ﻿using Krypton.Navigator;
+using Krypton.Toolkit;
 using Krypton.Workspace;
 using System;
 using System.Collections.Generic;
@@ -16,8 +17,9 @@ using static BlueprintExplorer.BlueprintViewer;
 
 namespace BlueprintExplorer
 {
-    public partial class Form1 : BubbleprintsForm {
-        
+    public partial class Form1 : BubbleprintsForm
+    {
+
         private BlueprintDB db => BlueprintDB.Instance;
         private static bool dark;
         bool Good => initialize?.IsCompleted ?? false;
@@ -67,20 +69,21 @@ namespace BlueprintExplorer
                     var parent = (viewer.Parent as KryptonPage);
 
                     cell.SelectedPage = parent;
-
-                    //blueprintDock.ActivePage = parent;
                 }
             };
 
-            viewer.OnClose += () =>
+            var nav = cell ?? blueprintDock.ActiveCell;
+            ButtonSpecAny bsa = new()
             {
-                //if (blueprintViews.TabCount > 1)
-                //    blueprintViews.TabPages.Remove(page);
-                //for (int i =0; i < blueprintViews.TabCount; i++)
-                //{
-                //    (blueprintViews.TabPages[i].Controls[0] as BlueprintViewer).CanClose = blueprintViews.TabCount > 1;
-                //}
+                Style = PaletteButtonStyle.Standalone,
+                Type = PaletteButtonSpecStyle.Close,
+                Tag = page,
             };
+            bsa.Click += (sender, e) =>
+            {
+                (page.KryptonParentContainer as KryptonNavigator)?.Pages.Remove(page);
+            };
+            page.ButtonSpecs.Add(bsa);
 
             page.Controls.Add(viewer);
             viewer.Dock = DockStyle.Fill;
@@ -189,6 +192,63 @@ namespace BlueprintExplorer
             {
                 var w = kDockManager.ManageWorkspace(blueprintDock);
                 kDockManager.ManageFloating(this);
+                blueprintDock.WorkspaceCellAdding += (sender, e) =>
+                {
+                    KryptonWorkspaceCell cell = e.Cell;
+
+                    var closeToRight = new KryptonContextMenuItem("Close All To The Right");
+                    closeToRight.Click += (sender, click) =>
+                    {
+                        var firstToClose = cell.SelectedIndex + 1;
+                        int toClose = cell.Pages.Count - firstToClose;
+                        for (int i = 0; i < toClose; i++)
+                        {
+                            cell.Pages.RemoveAt(firstToClose);
+                        }
+                    };
+
+
+                    cell.ShowContextMenu += (sender, ctxMenuEvent) =>
+                    {
+                        ctxMenuEvent.Cancel = false;
+                        var menu = ctxMenuEvent.KryptonContextMenu;
+                        var itemList = menu.Items[1] as KryptonContextMenuItems;
+                        if (itemList.Items.Count == 12)
+                        {
+                            itemList.Items.Add(closeToRight);
+                        }
+                        closeToRight.Enabled = cell.SelectedIndex < cell.Pages.Count - 1;
+
+                    };
+                    ButtonSpecNavigator bsa = new()
+                    {
+                        Style = PaletteButtonStyle.Command,
+                        Type = PaletteButtonSpecStyle.FormRestore,
+                        Tag = cell,
+                        UniqueName = cell.UniqueName + "newtab",
+                        ExtraText = "New Tab",
+                    };
+                    bsa.Click += (sender, e) =>
+                    {
+                        NewBlueprintViewer(cell);
+                    };
+                    cell.Button.ButtonSpecs.Add(bsa);
+                    cell.Button.CloseButtonDisplay = ButtonDisplay.Hide;
+                    cell.Button.ButtonDisplayLogic = ButtonDisplayLogic.None;
+
+                    cell.MouseClick += (sender, clickEvent) =>
+                    {
+                        if (clickEvent.Button == MouseButtons.Middle)
+                        {
+                            var page = cell.PageFromPoint(clickEvent.Location);
+                            if (page != null)
+                            {
+                                cell.Pages.Remove(page);
+                            }
+                        }
+                    };
+
+                };
                 NewBlueprintViewer();
 
                 kGlobalManager.GlobalPaletteMode = Krypton.Toolkit.PaletteModeManager.SparkleOrange;
@@ -289,11 +349,6 @@ namespace BlueprintExplorer
                 omniSearch.Select();
                 ShowBlueprint(BlueprintDB.Instance.Blueprints.Values.First(), ShowFlags.F_UpdateHistory);
 
-                var template = "var @{bp.name:firstLower}Ref = BlueprintTool.Get<@{bp.type}>(\"@{bp.guid}\").ToReference<>();";
-                Console.WriteLine("applying template: " + template + " to blueprint");
-                Console.WriteLine(TemplateRunner.Execute(template, BlueprintDB.Instance.Blueprints[Guid.Parse("dbe1d6ac18ad4eafb4f6d24e48eb12dc")]));
-
-
                 foreach (var v in BlueprintDB.Instance.Available)
                     availableVersions.Items.Add(v);
                 availableVersions.SelectedIndex = availableVersions.Items.Count - 1;
@@ -382,7 +437,8 @@ namespace BlueprintExplorer
             Process.Start(editor, args);
         }
 
-        private void ResultsGrid_CellClick(object sender, DataGridViewCellEventArgs e) {
+        private void ResultsGrid_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
             ShowSelected();
         }
 
@@ -408,7 +464,8 @@ namespace BlueprintExplorer
             var newRowCount = resultsCache.Count;
             if (newRowCount > oldRowCount)
                 resultsGrid.Rows.Add(newRowCount - oldRowCount);
-            else {
+            else
+            {
                 resultsGrid.Rows.Clear();
                 if (newRowCount > 0)
                     resultsGrid.Rows.Add(newRowCount);
@@ -416,7 +473,8 @@ namespace BlueprintExplorer
             resultsGrid.Invalidate();
         }
 
-        private void InvalidateResults() {
+        private void InvalidateResults()
+        {
             CancellationTokenSource cancellation = new();
 
             int matchBuffer = 0;
@@ -459,8 +517,9 @@ namespace BlueprintExplorer
                     this.Invoke((Action<List<BlueprintHandle>, CancellationTokenSource, int>)SetResults, task.Result, cancellation, matchBuffer);
             });
 
-         }
-        private void OmniSearch_TextChanged(object sender, EventArgs e) {
+        }
+        private void OmniSearch_TextChanged(object sender, EventArgs e)
+        {
             if (!Good)
                 return;
             InvalidateResults();
@@ -477,10 +536,12 @@ namespace BlueprintExplorer
             '/',
             ':',
         };
-        private static void KillForwardLine(TextBox box) {
+        private static void KillForwardLine(TextBox box)
+        {
             var here = box.SelectionStart;
             string Search = box.Text;
-            if (box.SelectionLength == 0) {
+            if (box.SelectionLength == 0)
+            {
                 if (here > 0)
                     box.Text = Search.Substring(0, here);
                 else
@@ -491,10 +552,12 @@ namespace BlueprintExplorer
 
         }
 
-        private static void KillBackLine(TextBox box) {
+        private static void KillBackLine(TextBox box)
+        {
             var here = box.SelectionStart;
             string Search = box.Text;
-            if (box.SelectionLength == 0) {
+            if (box.SelectionLength == 0)
+            {
                 if (here < Search.Length)
                     box.Text = Search[here..];
                 else
@@ -504,10 +567,12 @@ namespace BlueprintExplorer
 
         }
 
-        private static void KillBackWord(TextBox box) {
+        private static void KillBackWord(TextBox box)
+        {
             var here = box.SelectionStart;
             string Search = box.Text;
-            if (box.SelectionLength == 0) {
+            if (box.SelectionLength == 0)
+            {
                 if (here == 0)
                     return;
 
@@ -525,7 +590,8 @@ namespace BlueprintExplorer
                 else
                     newSearch = "";
 
-                if (here < Search.Length) {
+                if (here < Search.Length)
+                {
                     newSearch += Search[here..];
                 }
 
@@ -591,16 +657,22 @@ namespace BlueprintExplorer
             };
         }
 
-        private void omniSearch_KeyDown(object sender, KeyEventArgs e) {
-            if (e.KeyCode == Keys.Return || e.KeyCode == Keys.Enter) {
-                if (resultsCache.Count > 0) {
+        private void omniSearch_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Return || e.KeyCode == Keys.Enter)
+            {
+                if (resultsCache.Count > 0)
+                {
                     ShowSelected();
                 }
             }
-            else if (e.KeyCode == Keys.Up) {
-                if (resultsCache.Count > 1) {
+            else if (e.KeyCode == Keys.Up)
+            {
+                if (resultsCache.Count > 1)
+                {
                     int row = resultsGrid.SelectedRow() - 1;
-                    if (row >= 0 && row < resultsCache.Count) {
+                    if (row >= 0 && row < resultsCache.Count)
+                    {
                         resultsGrid.Rows[row].Selected = true;
                         resultsGrid.CurrentCell = resultsGrid[0, row];
                         resultsGrid.CurrentCell.ToolTipText = "";
@@ -609,10 +681,13 @@ namespace BlueprintExplorer
                 e.Handled = true;
                 e.SuppressKeyPress = true;
             }
-            else if (e.KeyCode == Keys.Down) {
-                if (resultsCache.Count > 1) {
+            else if (e.KeyCode == Keys.Down)
+            {
+                if (resultsCache.Count > 1)
+                {
                     int row = resultsGrid.SelectedRow() + 1;
-                    if (row < resultsCache.Count) {
+                    if (row < resultsCache.Count)
+                    {
                         resultsGrid.Rows[row].Selected = true;
                         resultsGrid.CurrentCell = resultsGrid[0, row];
                         resultsGrid.CurrentCell.ToolTipText = "";
@@ -624,7 +699,8 @@ namespace BlueprintExplorer
 
         }
 
-        private void ShowSelected() {
+        private void ShowSelected()
+        {
             if (TryGetSelected(out var row))
             {
                 ShowBlueprint(resultsCache[row], ShowFlags.F_ClearHistory | ShowFlags.F_UpdateHistory);
@@ -632,21 +708,23 @@ namespace BlueprintExplorer
         }
 
 
-        private bool TryGetSelected(out int row) {
+        private bool TryGetSelected(out int row)
+        {
             row = resultsGrid.SelectedRow();
             return row >= 0 && row < resultsCache.Count;
         }
 
 
 
-        private void ShowBlueprint(BlueprintHandle bp, ShowFlags flags) {
+        private void ShowBlueprint(BlueprintHandle bp, ShowFlags flags)
+        {
             if (flags.UpdateHistory() && BubblePrints.Settings.AlwaysOpenInEditor)
                 DoOpenInEditor(bp);
 
             if (blueprintDock.PageCount == 0)
             {
                 NewBlueprintViewer().ShowBlueprint(bp, flags);
-            } 
+            }
             else if (blueprintDock.ActivePage.Controls[0] is BlueprintViewer bpView)
             {
                 bpView.ShowBlueprint(bp, flags);
@@ -658,9 +736,11 @@ namespace BlueprintExplorer
         private List<BlueprintHandle> resultsCache = new();
         private Task<bool> initialize;
 
-        private void dataGridView1_CellValueNeeded(object sender, DataGridViewCellValueEventArgs e) {
+        private void dataGridView1_CellValueNeeded(object sender, DataGridViewCellValueEventArgs e)
+        {
             var row = e.RowIndex;
-            if ((resultsCache?.Count ?? 0) == 0) {
+            if ((resultsCache?.Count ?? 0) == 0)
+            {
                 e.Value = "...";
                 return;
             }
@@ -680,15 +760,18 @@ namespace BlueprintExplorer
         }
 
 
-        private void omniSearch_TextChanged_1(object sender, EventArgs e) {
+        private void omniSearch_TextChanged_1(object sender, EventArgs e)
+        {
 
         }
 
-        private void label1_Click(object sender, EventArgs e) {
+        private void label1_Click(object sender, EventArgs e)
+        {
 
         }
 
-        private void resultsGrid_CellContentClick(object sender, DataGridViewCellEventArgs e) {
+        private void resultsGrid_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
 
         }
 
