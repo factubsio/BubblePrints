@@ -450,7 +450,7 @@ namespace BlueprintExplorer
         private CancellationTokenSource finishingLast;
         private Task<List<BlueprintHandle>> overlappedSearch;
 
-        private void SetResults(List<BlueprintHandle> results, CancellationTokenSource cancellation, int matchBuffer)
+        private void SetResults(List<BlueprintHandle> results, CancellationTokenSource cancellation, int matchBuffer, ulong sequenceNumber)
         {
             if (cancellation == finishingFirst)
                 finishingFirst = null;
@@ -459,6 +459,11 @@ namespace BlueprintExplorer
 
             lastFinished = matchBuffer;
             BlueprintDB.UnlockBuffer(matchBuffer);
+
+            if (sequenceNumber < lastCompleted)
+                return;
+            lastCompleted = sequenceNumber;
+
             resultsCache = results;
             var oldRowCount = resultsGrid.Rows.Count;
             var newRowCount = resultsCache.Count;
@@ -498,6 +503,8 @@ namespace BlueprintExplorer
                 matchBuffer = 1;
             }
 
+            ulong sequenceNumber = nextSequence++;
+
 
             Task<List<BlueprintHandle>> search;
 
@@ -514,7 +521,7 @@ namespace BlueprintExplorer
             search.ContinueWith(task =>
             {
                 if (!task.IsCanceled && !cancellation.IsCancellationRequested)
-                    this.Invoke((Action<List<BlueprintHandle>, CancellationTokenSource, int>)SetResults, task.Result, cancellation, matchBuffer);
+                    this.Invoke((Action<List<BlueprintHandle>, CancellationTokenSource, int, ulong>)SetResults, task.Result, cancellation, matchBuffer, sequenceNumber);
             });
 
         }
@@ -781,6 +788,8 @@ namespace BlueprintExplorer
         }
 
         private HelpView helpView;
+        private ulong nextSequence = 1;
+        private ulong lastCompleted = 0;
 
         private void helpButton_Click(object sender, EventArgs e)
         {
