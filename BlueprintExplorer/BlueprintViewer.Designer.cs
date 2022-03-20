@@ -29,8 +29,10 @@ namespace BlueprintExplorer
         /// </summary>
         private void InitializeComponent()
         {
-            this.view = new BlueprintExplorer.BlueprintControl();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
+            this.references = new System.Windows.Forms.DataGridView();
+            this.From = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.kryptonSplitContainer1 = new Krypton.Toolkit.KryptonSplitContainer();
             this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
             this.currentPath = new System.Windows.Forms.TextBox();
             this.openExternal = new System.Windows.Forms.Button();
@@ -38,68 +40,92 @@ namespace BlueprintExplorer
             this.label1 = new System.Windows.Forms.Label();
             this.filter = new System.Windows.Forms.TextBox();
             this.templatesList = new System.Windows.Forms.ComboBox();
-            this.splitContainer1 = new System.Windows.Forms.SplitContainer();
-            this.references = new System.Windows.Forms.DataGridView();
-            this.From = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.toggleReferencesVisible = new Krypton.Toolkit.KryptonCheckButton();
             this.historyBread = new System.Windows.Forms.FlowLayoutPanel();
             this.tableLayoutPanel1.SuspendLayout();
-            this.tableLayoutPanel2.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
-            this.splitContainer1.Panel1.SuspendLayout();
-            this.splitContainer1.Panel2.SuspendLayout();
-            this.splitContainer1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.references)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.kryptonSplitContainer1)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.kryptonSplitContainer1.Panel1)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.kryptonSplitContainer1.Panel2)).BeginInit();
+            this.tableLayoutPanel2.SuspendLayout();
             this.SuspendLayout();
-            // 
-            // view
-            // 
-            this.view.AutoScroll = true;
-            this.view.AutoScrollMinSize = new System.Drawing.Size(1, 0);
-            this.view.Blueprint = null;
-            this.view.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.view.Filter = "";
-            this.view.LevelIndent = 20;
-            this.view.LinkFont = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.view.Location = new System.Drawing.Point(0, 0);
-            this.view.Name = "view";
-            this.view.NameColumnWidth = 600;
-            this.view.RowHeight = 36;
-            this.view.Size = new System.Drawing.Size(1843, 1060);
-            this.view.TabIndex = 0;
-            this.view.Text = "blueprintControl1";
             // 
             // tableLayoutPanel1
             // 
             this.tableLayoutPanel1.ColumnCount = 1;
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel1.Controls.Add(this.references, 0, 3);
+            this.tableLayoutPanel1.Controls.Add(this.kryptonSplitContainer1, 0, 1);
             this.tableLayoutPanel1.Controls.Add(this.tableLayoutPanel2, 0, 0);
-            this.tableLayoutPanel1.Controls.Add(this.splitContainer1, 0, 1);
             this.tableLayoutPanel1.Controls.Add(this.historyBread, 0, 2);
             this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tableLayoutPanel1.Location = new System.Drawing.Point(0, 0);
             this.tableLayoutPanel1.Name = "tableLayoutPanel1";
-            this.tableLayoutPanel1.RowCount = 3;
+            this.tableLayoutPanel1.RowCount = 4;
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 54F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 54F));
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
             this.tableLayoutPanel1.Size = new System.Drawing.Size(2336, 1174);
             this.tableLayoutPanel1.TabIndex = 0;
             // 
+            // references
+            // 
+            this.references.AllowUserToAddRows = false;
+            this.references.AllowUserToDeleteRows = false;
+            this.references.AllowUserToResizeRows = false;
+            this.references.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.references.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.From});
+            this.references.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.references.Location = new System.Drawing.Point(3, 1157);
+            this.references.MultiSelect = false;
+            this.references.Name = "references";
+            this.references.ReadOnly = true;
+            this.references.RowHeadersVisible = false;
+            this.references.RowHeadersWidth = 62;
+            this.references.RowHeadersWidthSizeMode = System.Windows.Forms.DataGridViewRowHeadersWidthSizeMode.DisableResizing;
+            this.references.RowTemplate.Height = 33;
+            this.references.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.references.Size = new System.Drawing.Size(2330, 14);
+            this.references.TabIndex = 1;
+            // 
+            // From
+            // 
+            this.From.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.From.HeaderText = "Referenced By";
+            this.From.MinimumWidth = 8;
+            this.From.Name = "From";
+            this.From.ReadOnly = true;
+            // 
+            // kryptonSplitContainer1
+            // 
+            this.kryptonSplitContainer1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.kryptonSplitContainer1.Location = new System.Drawing.Point(3, 57);
+            this.kryptonSplitContainer1.Name = "kryptonSplitContainer1";
+            this.kryptonSplitContainer1.Panel2Collapsed = true;
+            this.kryptonSplitContainer1.Size = new System.Drawing.Size(2330, 1040);
+            this.kryptonSplitContainer1.SplitterDistance = 775;
+            this.kryptonSplitContainer1.TabIndex = 0;
+            // 
             // tableLayoutPanel2
             // 
-            this.tableLayoutPanel2.ColumnCount = 6;
+            this.tableLayoutPanel2.ColumnCount = 7;
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 100F));
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 400F));
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 200F));
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 200F));
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
             this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 50F));
             this.tableLayoutPanel2.Controls.Add(this.currentPath, 5, 0);
             this.tableLayoutPanel2.Controls.Add(this.openExternal, 2, 0);
             this.tableLayoutPanel2.Controls.Add(this.copyTemplate, 4, 0);
             this.tableLayoutPanel2.Controls.Add(this.label1, 0, 0);
             this.tableLayoutPanel2.Controls.Add(this.filter, 1, 0);
             this.tableLayoutPanel2.Controls.Add(this.templatesList, 3, 0);
+            this.tableLayoutPanel2.Controls.Add(this.toggleReferencesVisible, 6, 0);
             this.tableLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tableLayoutPanel2.Location = new System.Drawing.Point(3, 3);
             this.tableLayoutPanel2.Name = "tableLayoutPanel2";
@@ -116,7 +142,7 @@ namespace BlueprintExplorer
             this.currentPath.Name = "currentPath";
             this.currentPath.PlaceholderText = "...";
             this.currentPath.ReadOnly = true;
-            this.currentPath.Size = new System.Drawing.Size(1304, 39);
+            this.currentPath.Size = new System.Drawing.Size(1254, 39);
             this.currentPath.TabIndex = 3;
             // 
             // openExternal
@@ -172,59 +198,20 @@ namespace BlueprintExplorer
             this.templatesList.Size = new System.Drawing.Size(194, 33);
             this.templatesList.TabIndex = 5;
             // 
-            // splitContainer1
+            // toggleReferencesVisible
             // 
-            this.splitContainer1.Cursor = System.Windows.Forms.Cursors.VSplit;
-            this.splitContainer1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.splitContainer1.Location = new System.Drawing.Point(3, 57);
-            this.splitContainer1.Name = "splitContainer1";
-            // 
-            // splitContainer1.Panel1
-            // 
-            this.splitContainer1.Panel1.Controls.Add(this.view);
-            // 
-            // splitContainer1.Panel2
-            // 
-            this.splitContainer1.Panel2.Controls.Add(this.references);
-            this.splitContainer1.Size = new System.Drawing.Size(2330, 1060);
-            this.splitContainer1.SplitterDistance = 1843;
-            this.splitContainer1.TabIndex = 0;
-            // 
-            // references
-            // 
-            this.references.AllowUserToAddRows = false;
-            this.references.AllowUserToDeleteRows = false;
-            this.references.AllowUserToResizeRows = false;
-            this.references.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.references.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-            this.From});
-            this.references.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.references.Location = new System.Drawing.Point(0, 0);
-            this.references.MultiSelect = false;
-            this.references.Name = "references";
-            this.references.ReadOnly = true;
-            this.references.RowHeadersVisible = false;
-            this.references.RowHeadersWidth = 62;
-            this.references.RowHeadersWidthSizeMode = System.Windows.Forms.DataGridViewRowHeadersWidthSizeMode.DisableResizing;
-            this.references.RowTemplate.Height = 33;
-            this.references.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.references.Size = new System.Drawing.Size(483, 1060);
-            this.references.TabIndex = 1;
-            // 
-            // From
-            // 
-            this.From.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
-            this.From.HeaderText = "Referenced By";
-            this.From.MinimumWidth = 8;
-            this.From.Name = "From";
-            this.From.ReadOnly = true;
+            this.toggleReferencesVisible.Location = new System.Drawing.Point(2283, 3);
+            this.toggleReferencesVisible.Name = "toggleReferencesVisible";
+            this.toggleReferencesVisible.Size = new System.Drawing.Size(44, 38);
+            this.toggleReferencesVisible.TabIndex = 6;
+            this.toggleReferencesVisible.Values.Text = "<<";
             // 
             // historyBread
             // 
             this.historyBread.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.historyBread.Dock = System.Windows.Forms.DockStyle.Fill;
             this.historyBread.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.historyBread.Location = new System.Drawing.Point(3, 1123);
+            this.historyBread.Location = new System.Drawing.Point(3, 1103);
             this.historyBread.Name = "historyBread";
             this.historyBread.Size = new System.Drawing.Size(2330, 48);
             this.historyBread.TabIndex = 0;
@@ -236,25 +223,21 @@ namespace BlueprintExplorer
             this.Name = "BlueprintViewer";
             this.Size = new System.Drawing.Size(2336, 1174);
             this.tableLayoutPanel1.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.references)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.kryptonSplitContainer1.Panel1)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.kryptonSplitContainer1.Panel2)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.kryptonSplitContainer1)).EndInit();
             this.tableLayoutPanel2.ResumeLayout(false);
             this.tableLayoutPanel2.PerformLayout();
-            this.splitContainer1.Panel1.ResumeLayout(false);
-            this.splitContainer1.Panel2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
-            this.splitContainer1.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.references)).EndInit();
             this.ResumeLayout(false);
 
         }
 
         #endregion
-
-        private BlueprintControl view;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
         private System.Windows.Forms.TextBox filter;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.FlowLayoutPanel historyBread;
-        private System.Windows.Forms.SplitContainer splitContainer1;
         private System.Windows.Forms.DataGridView references;
         private System.Windows.Forms.DataGridViewTextBoxColumn From;
         private System.Windows.Forms.Button openExternal;
@@ -262,5 +245,7 @@ namespace BlueprintExplorer
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel2;
         private System.Windows.Forms.Button copyTemplate;
         private System.Windows.Forms.ComboBox templatesList;
+        private Krypton.Toolkit.KryptonSplitContainer kryptonSplitContainer1;
+        private Krypton.Toolkit.KryptonCheckButton toggleReferencesVisible;
     }
 }

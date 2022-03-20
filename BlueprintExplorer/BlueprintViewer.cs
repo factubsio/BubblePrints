@@ -37,9 +37,36 @@ namespace BlueprintExplorer
             }
         }
 
+        private BlueprintControl view;
+        bool refShownFirstTime = true;
+
         public BlueprintViewer()
         {
             InitializeComponent();
+            view = new();
+            kryptonSplitContainer1.Panel1.Controls.Add(view);
+            kryptonSplitContainer1.Panel2.Controls.Add(references);
+            references.Dock = DockStyle.Fill;
+            view.Dock = DockStyle.Fill;
+
+            toggleReferencesVisible.ToolTipValues.EnableToolTips = true;
+            toggleReferencesVisible.ToolTipValues.Description = "Toggle references panel visiblity";
+            toggleReferencesVisible.ToolTipValues.Heading = "";
+            toggleReferencesVisible.ToolTipValues.ToolTipStyle = Krypton.Toolkit.LabelStyle.SuperTip;
+
+            toggleReferencesVisible.CheckedChanged += (sender, e) =>
+            {
+                toggleReferencesVisible.Text = toggleReferencesVisible.Checked ? ">>" : "<<";
+                kryptonSplitContainer1.Panel2Collapsed = !toggleReferencesVisible.Checked;
+                if (refShownFirstTime)
+                {
+                    kryptonSplitContainer1.SplitterDistance = this.Width - 300;
+                    refShownFirstTime = false;
+
+                }
+            };
+
+
             Form1.InstallReadline(filter);
             view.OnLinkClicked += (link, newTab) =>
             {
@@ -98,10 +125,14 @@ namespace BlueprintExplorer
         private void BubblePrints_OnTemplatesChanged(int oldCount, int newCount)
         {
             templatesList.Items.Clear();
-            foreach (var template in BubblePrints.Settings.GeneratorTemplate)
+            if (BubblePrints.Settings.GeneratorTemplate != null)
             {
-                templatesList.Items.Add(template.Name);
+                foreach (var template in BubblePrints.Settings.GeneratorTemplate)
+                {
+                    templatesList.Items.Add(template.Name);
+                }
             }
+            copyTemplate.Enabled = templatesList.Items.Count > 0;
         }
 
         private void HandleXbuttons(object sender, MouseEventArgs e)
