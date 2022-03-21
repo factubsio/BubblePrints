@@ -187,6 +187,7 @@ namespace BlueprintExplorer
             }
 
             InitializeComponent();
+            Text = "BubblePrints - " + Application.ProductVersion;
 
             Load += (sender, e) =>
             {
