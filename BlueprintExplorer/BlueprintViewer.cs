@@ -120,6 +120,11 @@ namespace BlueprintExplorer
             openExternal.Click += (sender, e) => OnOpenExternally?.Invoke(View.Blueprint as BlueprintHandle);
 
             this.AddMouseClickRecursively(HandleXbuttons);
+
+            Load += (sender, e) =>
+            {
+                this.AddKeyDownRecursively((FindForm() as Form1).HandleGlobalKeys);
+            };
         }
 
         private void BubblePrints_OnTemplatesChanged(int oldCount, int newCount)

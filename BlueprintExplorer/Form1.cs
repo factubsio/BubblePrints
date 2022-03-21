@@ -187,6 +187,9 @@ namespace BlueprintExplorer
             }
 
             InitializeComponent();
+
+
+
             Text = "BubblePrints - " + Application.ProductVersion;
 
             Load += (sender, e) =>
@@ -257,16 +260,9 @@ namespace BlueprintExplorer
 
             this.AddMouseClickRecursively(HandleXbuttons);
 
-            omniSearch.TextChanged += OmniSearch_TextChanged;
-            resultsGrid.CellClick += ResultsGrid_CellClick;
-
-
-            InstallReadline(omniSearch);
+            this.AddKeyDownRecursively(HandleGlobalKeys);
 
             controlBar.ColumnStyles[^1].Width = 0;
-
-            Color bgColor = omniSearch.BackColor;
-            resultsGrid.RowHeadersVisible = false;
 
             availableVersions.Enabled = false;
 
@@ -289,8 +285,6 @@ namespace BlueprintExplorer
                 BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, "Wrath_Data", "Managed", "Assembly-CSharp.dll"));
             }
 
-            resultsGrid.AllowUserToResizeRows = false;
-
             //blueprintViews.DrawMode = TabDrawMode.OwnerDrawFixed;
             //blueprintViews.DrawItem += (sender, e) =>
             //{
@@ -305,27 +299,18 @@ namespace BlueprintExplorer
             //    g.DrawString(title, Font, new SolidBrush(resultsGrid.ForeColor), textBounds);
             //};
 
-            resultsGrid.Cursor = Cursors.Arrow;
 
             if (Dark)
             {
-                resultsGrid.EnableHeadersVisualStyles = false;
-                BubbleTheme.DarkenControls(omniSearch, resultsGrid, splitContainer1, panel1, settingsButton, helpButton);
-                BubbleTheme.DarkenStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
-
+                BubbleTheme.DarkenControls( panel1, settingsButton, helpButton);
                 Invalidate();
             }
 
 
 
-            omniSearch.Enabled = false;
-            resultsGrid.Enabled = false;
-
             if (SeasonalOverlay.InSeason)
             {
-                BubbleTheme.SeasonControls(omniSearch, panel1, settingsButton, resultsGrid, helpButton);
-                BubbleTheme.SeasonStyles(resultsGrid.ColumnHeadersDefaultCellStyle, resultsGrid.DefaultCellStyle);
-                SeasonalOverlay.Install(resultsGrid);
+                BubbleTheme.SeasonControls(panel1, settingsButton, helpButton);
             }
 
             var loadType = BlueprintDB.Instance.GetLoadType();
@@ -344,10 +329,6 @@ namespace BlueprintExplorer
             initialize = Task.Run(() => BlueprintDB.Instance.TryConnect(progress));
             initialize.ContinueWith(b =>
             {
-                omniSearch.Enabled = true;
-                resultsGrid.Enabled = true;
-                omniSearch.Text = "";
-                omniSearch.Select();
                 ShowBlueprint(BlueprintDB.Instance.Blueprints.Values.First(), ShowFlags.F_UpdateHistory);
 
                 foreach (var v in BlueprintDB.Instance.Available)
@@ -369,16 +350,16 @@ namespace BlueprintExplorer
                         if (Good)
                             return;
 
-                        if (omniSearch.Visible)
-                        {
-                            omniSearch.Invoke(new Action(() =>
-                            {
-                                if (!Good)
-                                {
-                                    omniSearch.Text = plane.PadLeft(plane.Length + frame) + $"{progress.Status}";
-                                }
-                            }));
-                        }
+                        //if (omniSearch.Visible)
+                        //{
+                        //    omniSearch.Invoke(new Action(() =>
+                        //    {
+                        //        if (!Good)
+                        //        {
+                        //            omniSearch.Text = plane.PadLeft(plane.Length + frame) + $"{progress.Status}";
+                        //        }
+                        //    }));
+                        //}
                         Thread.Sleep(33);
                     }
                 }
@@ -386,13 +367,33 @@ namespace BlueprintExplorer
 
         }
 
+        public void HandleGlobalKeys(object sender, KeyEventArgs e)
+        {
+            if (!Good) return;
+
+            if (e.KeyCode == Keys.P && ModifierKeys.HasFlag(Keys.Control))
+            {
+                ctrlP ??= new CtrlP();
+                ctrlP.Daddy = this;
+                ctrlP.StartPosition = FormStartPosition.Manual;
+                var search = PointToScreen(new Point(1, 1));
+                ctrlP.Location = new Point(search.X, search.Y);
+                ctrlP.Size = new Size(ClientSize.Width - 2, 80);
+                ctrlP.input.Focus();
+                ctrlP.ShowDialog(this);
+            }
+            //if (e.Button == MouseButtons.XButton1)
+            //    (blueprintDock.ActivePage.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeBackOne);
+            //else if (e.Button == MouseButtons.XButton2)
+            //    (blueprintDock.ActivePage.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeForwardOne);
+        }
 
         private void HandleXbuttons(object sender, MouseEventArgs e)
         {
-            //if (e.Button == MouseButtons.XButton1)
-            //    (blueprintViews.SelectedTab.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeBackOne);
-            //else if (e.Button == MouseButtons.XButton2)
-            //    (blueprintViews.SelectedTab.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeForwardOne);
+            if (e.Button == MouseButtons.XButton1)
+                (blueprintDock.ActivePage.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeBackOne);
+            else if (e.Button == MouseButtons.XButton2)
+                (blueprintDock.ActivePage.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeForwardOne);
         }
 
         private void ResultsGrid_MouseDown(object sender, MouseEventArgs e)
@@ -438,9 +439,9 @@ namespace BlueprintExplorer
             Process.Start(editor, args);
         }
 
-        private void ResultsGrid_CellClick(object sender, DataGridViewCellEventArgs e)
+        public void omniSearch_KeyDown(object sender, KeyEventArgs e)
         {
-            ShowSelected();
+
         }
 
         private DateTime lastChange = DateTime.MinValue;
@@ -466,20 +467,21 @@ namespace BlueprintExplorer
             lastCompleted = sequenceNumber;
 
             resultsCache = results;
-            var oldRowCount = resultsGrid.Rows.Count;
-            var newRowCount = resultsCache.Count;
-            if (newRowCount > oldRowCount)
-                resultsGrid.Rows.Add(newRowCount - oldRowCount);
-            else
-            {
-                resultsGrid.Rows.Clear();
-                if (newRowCount > 0)
-                    resultsGrid.Rows.Add(newRowCount);
-            }
-            resultsGrid.Invalidate();
+            ctrlP?.SetResults(results);
+            //var oldRowCount = resultsGrid.Rows.Count;
+            //var newRowCount = resultsCache.Count;
+            //if (newRowCount > oldRowCount)
+            //    resultsGrid.Rows.Add(newRowCount - oldRowCount);
+            //else
+            //{
+            //    resultsGrid.Rows.Clear();
+            //    if (newRowCount > 0)
+            //        resultsGrid.Rows.Add(newRowCount);
+            //}
+            //resultsGrid.Invalidate();
         }
 
-        private void InvalidateResults()
+        public void InvalidateResults(string searchTerm)
         {
             CancellationTokenSource cancellation = new();
 
@@ -511,12 +513,12 @@ namespace BlueprintExplorer
 
             if (matchBuffer == 1)
             {
-                overlappedSearch = db.SearchBlueprintsAsync(Search, cancellation.Token, matchBuffer);
+                overlappedSearch = db.SearchBlueprintsAsync(searchTerm, cancellation.Token, matchBuffer);
                 search = overlappedSearch;
             }
             else
             {
-                search = db.SearchBlueprintsAsync(Search, cancellation.Token, matchBuffer);
+                search = db.SearchBlueprintsAsync(searchTerm, cancellation.Token, matchBuffer);
             }
 
             search.ContinueWith(task =>
@@ -526,14 +528,8 @@ namespace BlueprintExplorer
             });
 
         }
-        private void OmniSearch_TextChanged(object sender, EventArgs e)
-        {
-            if (!Good)
-                return;
-            InvalidateResults();
-        }
 
-        private string Search => omniSearch.Text;
+        CtrlP ctrlP;
 
         public static bool Dark { get => dark; set => dark = value; }
 
@@ -665,63 +661,53 @@ namespace BlueprintExplorer
             };
         }
 
-        private void omniSearch_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.Return || e.KeyCode == Keys.Enter)
-            {
-                if (resultsCache.Count > 0)
-                {
-                    ShowSelected();
-                }
-            }
-            else if (e.KeyCode == Keys.Up)
-            {
-                if (resultsCache.Count > 1)
-                {
-                    int row = resultsGrid.SelectedRow() - 1;
-                    if (row >= 0 && row < resultsCache.Count)
-                    {
-                        resultsGrid.Rows[row].Selected = true;
-                        resultsGrid.CurrentCell = resultsGrid[0, row];
-                        resultsGrid.CurrentCell.ToolTipText = "";
-                    }
-                }
-                e.Handled = true;
-                e.SuppressKeyPress = true;
-            }
-            else if (e.KeyCode == Keys.Down)
-            {
-                if (resultsCache.Count > 1)
-                {
-                    int row = resultsGrid.SelectedRow() + 1;
-                    if (row < resultsCache.Count)
-                    {
-                        resultsGrid.Rows[row].Selected = true;
-                        resultsGrid.CurrentCell = resultsGrid[0, row];
-                        resultsGrid.CurrentCell.ToolTipText = "";
-                    }
-                }
-                e.Handled = true;
-                e.SuppressKeyPress = true;
-            }
+        //private void omniSearch_KeyDown(object sender, KeyEventArgs e)
+        //{
+        //    if (e.KeyCode == Keys.Return || e.KeyCode == Keys.Enter)
+        //    {
+        //        if (resultsCache.Count > 0)
+        //        {
+        //            ShowSelected();
+        //        }
+        //    }
+        //    else if (e.KeyCode == Keys.Up)
+        //    {
+        //        if (resultsCache.Count > 1)
+        //        {
+        //            int row = resultsGrid.SelectedRow() - 1;
+        //            if (row >= 0 && row < resultsCache.Count)
+        //            {
+        //                resultsGrid.Rows[row].Selected = true;
+        //                resultsGrid.CurrentCell = resultsGrid[0, row];
+        //                resultsGrid.CurrentCell.ToolTipText = "";
+        //            }
+        //        }
+        //        e.Handled = true;
+        //        e.SuppressKeyPress = true;
+        //    }
+        //    else if (e.KeyCode == Keys.Down)
+        //    {
+        //        if (resultsCache.Count > 1)
+        //        {
+        //            int row = resultsGrid.SelectedRow() + 1;
+        //            if (row < resultsCache.Count)
+        //            {
+        //                resultsGrid.Rows[row].Selected = true;
+        //                resultsGrid.CurrentCell = resultsGrid[0, row];
+        //                resultsGrid.CurrentCell.ToolTipText = "";
+        //            }
+        //        }
+        //        e.Handled = true;
+        //        e.SuppressKeyPress = true;
+        //    }
 
-        }
+        //}
 
-        private void ShowSelected()
+        public void ShowBlueprint(int row)
         {
-            if (TryGetSelected(out var row))
-            {
+            if (row >= 0 && row < resultsCache.Count)
                 ShowBlueprint(resultsCache[row], ShowFlags.F_ClearHistory | ShowFlags.F_UpdateHistory);
-            }
         }
-
-
-        private bool TryGetSelected(out int row)
-        {
-            row = resultsGrid.SelectedRow();
-            return row >= 0 && row < resultsCache.Count;
-        }
-
 
 
         private void ShowBlueprint(BlueprintHandle bp, ShowFlags flags)

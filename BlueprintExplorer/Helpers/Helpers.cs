@@ -15,7 +15,7 @@ namespace BlueprintExplorer
             return obj.Substring(0, Math.Min(length, obj.Length));
         }
 
-        public static void AddMouseClickRecursively(this Control root, MouseEventHandler handler)
+        public static void ForEachControl(this Control root, Action<Control> act)
         {
             Queue<Control> frontier = new();
             frontier.Enqueue(root);
@@ -23,11 +23,16 @@ namespace BlueprintExplorer
             while (frontier.Count > 0)
             {
                 var c = frontier.Dequeue();
-                c.MouseClick += handler;
+                act(c);
                 for (int i = 0; i < c.Controls.Count; i++)
                     frontier.Enqueue(c.Controls[i]);
             }
+
+
         }
+
+        public static void AddMouseClickRecursively(this Control root, MouseEventHandler handler) => ForEachControl(root, c => c.MouseClick += handler);
+        public static void AddKeyDownRecursively(this Control root, KeyEventHandler handler) => ForEachControl(root, c => c.KeyDown += handler);
     }
 
 }
