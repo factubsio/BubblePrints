@@ -431,6 +431,11 @@ namespace BlueprintExplorer
                                 if (l.Length > 0)
                                     lines.Add(l.ToString());
                             }
+
+                            if (lines.Count == 0)
+                            {
+                                lines.Add("");
+                            }
                             row.Lines = lines;
                             row.RowCount = lines.Count;
                         }
