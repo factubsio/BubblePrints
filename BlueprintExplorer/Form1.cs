@@ -109,6 +109,10 @@ namespace BlueprintExplorer
             return viewer;
         }
 
+        private void ShowCtrlP_Click(object sender, EventArgs e)
+        {
+        }
+
         public class BubbleNotification
         {
             public string Message;
@@ -367,20 +371,32 @@ namespace BlueprintExplorer
 
         }
 
-        public void HandleGlobalKeys(object sender, KeyEventArgs e)
+
+        public void ShowCtrlP()
         {
             if (!Good) return;
 
+            ctrlP ??= new CtrlP();
+            ctrlP.Daddy = this;
+            ctrlP.StartPosition = FormStartPosition.Manual;
+            var search = PointToScreen(new Point(100, 1));
+            ctrlP.Location = new Point(search.X, search.Y);
+            ctrlP.Size = new Size(ClientSize.Width - 200, 80);
+            ctrlP.input.Focus();
+            ctrlP.ShowDialog(this);
+        }
+
+
+        public void HandleGlobalKeys(object sender, KeyEventArgs e)
+        {
+
             if (e.KeyCode == Keys.P && ModifierKeys.HasFlag(Keys.Control))
             {
-                ctrlP ??= new CtrlP();
-                ctrlP.Daddy = this;
-                ctrlP.StartPosition = FormStartPosition.Manual;
-                var search = PointToScreen(new Point(1, 1));
-                ctrlP.Location = new Point(search.X, search.Y);
-                ctrlP.Size = new Size(ClientSize.Width - 2, 80);
-                ctrlP.input.Focus();
-                ctrlP.ShowDialog(this);
+                ShowCtrlP();
+            }
+            if (e.KeyCode == Keys.F && ModifierKeys.HasFlag(Keys.Control))
+            {
+                ShowCtrlP();
             }
             //if (e.Button == MouseButtons.XButton1)
             //    (blueprintDock.ActivePage.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeBackOne);
@@ -703,10 +719,26 @@ namespace BlueprintExplorer
 
         //}
 
-        public void ShowBlueprint(int row)
+        public void ShowBlueprint(int row, bool newTab)
         {
             if (row >= 0 && row < resultsCache.Count)
-                ShowBlueprint(resultsCache[row], ShowFlags.F_ClearHistory | ShowFlags.F_UpdateHistory);
+            {
+                if (!newTab)
+                {
+                    ShowBlueprint(resultsCache[row], ShowFlags.F_ClearHistory | ShowFlags.F_UpdateHistory);
+                }
+                else
+                {
+                    var cell = blueprintDock.ActiveCell;
+                    var viewer = NewBlueprintViewer(cell);
+                    viewer.ShowBlueprint(resultsCache[row], ShowFlags.F_ClearHistory | ShowFlags.F_UpdateHistory);
+
+                    var parent = (viewer.Parent as KryptonPage);
+
+                    cell.SelectedPage = parent;
+                }
+
+            }
         }
 
 

@@ -49,6 +49,25 @@ namespace BlueprintExplorer
                 BubbleTheme.DarkenStyles(root.DefaultCellStyle, root.ColumnHeadersDefaultCellStyle);
             }
 
+            root.MouseClick += Root_MouseClick;
+
+            DoubleBuffered = true;
+
+        }
+
+        private void Root_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Middle || e.Button == MouseButtons.Left)
+            {
+                var row = root.HitTest(e.X, e.Y).RowIndex;
+                if (row >= 0 && row < root.Rows.Count)
+                {
+                    root.Rows[row].Selected = true;
+                    Daddy.ShowBlueprint(row, ModifierKeys.HasFlag(Keys.Control) || e.Button == MouseButtons.Middle);
+                    Close();
+                }
+            }
+            Console.WriteLine(e.Button);
         }
 
         public Form1 Daddy;
@@ -61,9 +80,8 @@ namespace BlueprintExplorer
             }
         }
 
-        public void SetResults(List<BlueprintHandle> results)
+        private void UpdateSize()
         {
-            root.DataSource = results;
             int neededHeight = root.Rows.GetRowsHeight(DataGridViewElementStates.None);
             if (neededHeight < 640)
             {
@@ -73,6 +91,12 @@ namespace BlueprintExplorer
             {
                 Height = 640 + 82;
             }
+        }
+
+        public void SetResults(List<BlueprintHandle> results)
+        {
+            root.DataSource = results;
+            UpdateSize();
         }
 
         private void Input_KeyDown(object sender, KeyEventArgs e)
@@ -90,6 +114,7 @@ namespace BlueprintExplorer
                 if (current > 0)
                 {
                     root.Rows[current - 1].Selected = true;
+                    root.CurrentCell = root.Rows[current - 1].Cells[0];
                 }
             }
             if (e.KeyCode == Keys.Down || (e.KeyCode == Keys.N && ModifierKeys.HasFlag(Keys.Control)))
@@ -101,6 +126,7 @@ namespace BlueprintExplorer
                 if (current < (root.Rows.Count - 1))
                 {
                     root.Rows[current + 1].Selected = true;
+                    root.CurrentCell = root.Rows[current + 1].Cells[0];
                 }
             }
 
@@ -110,15 +136,28 @@ namespace BlueprintExplorer
                 e.Handled = true;
                 e.SuppressKeyPress = true;
 
-                Daddy.ShowBlueprint(root.SelectedRow());
+                Daddy.ShowBlueprint(root.SelectedRow(), ModifierKeys.HasFlag(Keys.Control));
 
                 Close();
             }
         }
 
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+            savedVerticalScroll = root.FirstDisplayedScrollingRowIndex;
+        }
+
+        private int savedVerticalScroll = -1;
+
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
+            UpdateSize();
+            if (savedVerticalScroll != -1)
+            {
+                root.FirstDisplayedScrollingRowIndex = savedVerticalScroll;
+            }
             input.Focus();
         }
     }
