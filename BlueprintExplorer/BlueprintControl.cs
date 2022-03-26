@@ -22,13 +22,86 @@ namespace BlueprintExplorer
         public event PathDelegate OnPathHovered;
         public event FilterChangedDelegate OnFilterChanged;
 
-        private Dictionary<string, (int position, string filter)> HistoryCache = new();
+        private Dictionary<string, (int position, string filter, int softRow)> HistoryCache = new();
 
         private IDisplayableElementCollection DisplayedObject;
 
         private Timer ToastTimer;
         private Stopwatch Timer = new();
         private long LastTick = 0;
+
+        private bool IsValid(int value) => value >= 0 && value < Count;
+        public int VisibleRowCount => (Height - RowHeight) / RowHeight;
+
+        private int _SoftRowSelection = 0;
+
+
+        private void ScrollToRow(int row)
+        {
+            int y = VerticalScroll.Value / RowHeight;
+            int heightInRows = (Height - RowHeight) / RowHeight;
+            int last = y + heightInRows;
+            if (last > Count) last = Count;
+
+            int clampedTop = row - 4;
+            if (clampedTop < 0) clampedTop = 0;
+
+            int clampedBot = row + 4;
+            if (clampedBot >= Count) clampedBot = Count - 1;
+
+            if (clampedTop < y)
+            {
+                AutoScrollPosition = new Point(0, clampedTop * RowHeight);
+            }
+            if (clampedBot > last)
+            {
+                int wanted = clampedBot - heightInRows;
+                if (wanted < 0) wanted = 0;
+                AutoScrollPosition = new Point(0, wanted * RowHeight);
+            }
+
+        }
+
+
+        public int SoftRowSelection
+        {
+            get => _SoftRowSelection;
+            set
+            {
+                if (IsValid(value))
+                {
+                    if (IsValid(_SoftRowSelection))
+                        Invalidate(GetElement(_SoftRowSelection));
+
+                    _SoftRowSelection = value;
+
+                    var newSoft = GetElement(_SoftRowSelection);
+                    ScrollToRow(_SoftRowSelection);
+
+                    Invalidate(newSoft);
+                }
+            }
+
+        }
+        internal void FollowLinkAtSoftSelection()
+        {
+            if (!IsValid(_SoftRowSelection)) return;
+
+            var softRow = GetElement(_SoftRowSelection);
+            if (softRow.HasLink)
+            {
+                OnLinkClicked?.Invoke(softRow.link, ModifierKeys.HasFlag(Keys.Control));
+            }
+        }
+
+        public void ToggleAtSoftSelection()
+        {
+            if (!IsValid(_SoftRowSelection)) return;
+
+            var softRow = GetElement(_SoftRowSelection);
+            if (softRow.HasChildren)
+                Toggle(softRow);
+        }
 
         public IDisplayableElementCollection Blueprint
         {
@@ -38,7 +111,7 @@ namespace BlueprintExplorer
                 if (DisplayedObject == value) return;
                 if (DisplayedObject != null)
                 {
-                    HistoryCache[DisplayedObject.GuidText] = (VerticalScroll.Value, _Filter);
+                    HistoryCache[DisplayedObject.GuidText] = (VerticalScroll.Value, _Filter, _SoftRowSelection);
                 }
                 DisplayedObject = value;
                 DisplayedObject.EnsureParsed();
@@ -228,6 +301,7 @@ namespace BlueprintExplorer
 
         private void UpdateRowHoverColor()
         {
+            RowSoftHoverColor = new(ControlPaint.Dark(Color.Coral, -0.8f));
             RowHoverColor = new(ControlPaint.Dark(BackColor, -0.4f));
             RowLineGuide = new(ControlPaint.Light(BackColor, 0.1f), 2);
             RowPreviewHoverColor = new(ControlPaint.Dark(BackColor, -0.41f));
@@ -453,11 +527,14 @@ namespace BlueprintExplorer
                 }
             }
             AutoScroll = true;
+            _SoftRowSelection = 0;
+            MatchesSearch.Clear();
             if (scroll)
             {
                 if (HistoryCache.TryGetValue(DisplayedObject.GuidText, out var history))
                 {
                     _Filter = history.filter;
+                    _SoftRowSelection = history.softRow;
                     ValidateFilter(history.position);
                     OnFilterChanged?.Invoke(_Filter);
                 }
@@ -570,6 +647,9 @@ namespace BlueprintExplorer
 
             if (elem.Hover)
                 render.Graphics.FillRectangle(RowHoverColor, 0, 0, Width, RowHeight);
+            if (row == _SoftRowSelection)
+                render.Graphics.FillRectangle(RowSoftHoverColor, 0, 0, Width, RowHeight);
+
             if (elem.PreviewHover)
                 render.Graphics.FillRectangle(RowPreviewHoverColor, 0, 0, Width, RowHeight);
             if (elem.level> 0)
@@ -584,10 +664,17 @@ namespace BlueprintExplorer
                 render.Graphics.FillRectangle(lineBrush, x, 0, 3f, h);
                 render.Graphics.FillRectangle(lineBrush, x, RowHeight/2f, 8f, 2f);
             }
+
+            bool isSearchMatch = MatchesSearch.Contains(row);
+            if (isSearchMatch)
+                valueColor = Color.Blue;
+
+
             if (elem.PrimaryRow == row)
             {
                 float keyWidth = render.Graphics.MeasureString(elem.key, render.Bold).Width;
-                render.Graphics.DrawString(elem.key, render.Bold, new SolidBrush(ForeColor), new PointF(xOffset, 0));
+                SolidBrush keyBrush = new(isSearchMatch ? Color.Blue : ForeColor);
+                render.Graphics.DrawString(elem.key, render.Bold, keyBrush, new PointF(xOffset, 0));
                 float lineY = RowHeight / 2.0f;
                 render.Graphics.DrawLine(RowLineGuide, xOffset + keyWidth + 3, lineY, NameColumnWidth - 3, lineY);
                 if (elem.String == null)
@@ -691,6 +778,7 @@ namespace BlueprintExplorer
                 elem.Collapsed = !elem.Collapsed;
 
             ValidateFilter(null);
+            UpdateSearchMatches(lastSearchDirection);
         }
 
         protected override void OnMouseDoubleClick(MouseEventArgs e)
@@ -895,7 +983,122 @@ namespace BlueprintExplorer
         }
 
         public Font LinkFont { get => Regular; set => linkFont = value; }
+
+        private ISet<int> MatchesSearch = new HashSet<int>();
+        private List<int> Matches = new();
+
+        private int scrollBeforeSearching = -1;
+        private int lastSearchDirection = 0;
+
+        public void PrepareForSearch(int direction)
+        {
+            SearchDirection = direction;
+            SearchTerm = "";
+            scrollBeforeSearching = AutoScrollPosition.Y;
+        }
+        public void EndSearch(bool commit)
+        {
+            if (!commit)
+            {
+                MatchesSearch.Clear();
+                Matches.Clear();
+                AutoScrollPosition = new(0, scrollBeforeSearching);
+            }
+            else
+            {
+                if (Matches.Count > 0)
+                {
+                    SoftRowSelection = Matches[0];
+                }
+                lastSearchDirection = SearchDirection;
+            }
+
+            SearchDirection = 0;
+        }
+
+        public void NextMatch(int direction)
+        {
+            if (Matches.Count == 0) return;
+
+            int match = GetNextMatch(direction);
+            if (match != -1)
+            {
+                SoftRowSelection = match;
+            }
+
+        }
+
+        private string _SearchTerm;
+
+        private void UpdateSearchMatches(int direction)
+        {
+            MatchesSearch.Clear();
+            Matches.Clear();
+
+            if (_SearchTerm.Length == 0) return;
+
+            int begin = direction > 0 ? 0 : Count - 1;
+            int end = direction > 0 ? Count : -1;
+
+            for (int candidate = begin; candidate != end; candidate += direction)
+            {
+                var element = GetElement(candidate);
+                int sub = candidate - element.PrimaryRow;
+
+                if (sub == 0)
+                {
+                    if (element.key.ContainsIgnoreCase(SearchTerm) || element.SearchableValue.ContainsIgnoreCase(SearchTerm))
+                    {
+                        MatchesSearch.Add(candidate);
+                        Matches.Add(candidate);
+                    }
+
+                }
+            }
+        }
+
+        private int GetNextMatch(int direction)
+        {
+            if (Matches.Count == 0) return -1;
+
+            if (direction > 0)
+            {
+                if (Matches[^1] <= _SoftRowSelection)
+                    return Matches[0];
+                else
+                    return Matches.Find(m => m > _SoftRowSelection);
+            }
+            else
+            {
+                if (Matches[0] >= _SoftRowSelection)
+                    return Matches[^1];
+                else
+                    return Enumerable.Reverse(Matches).First(m => m < _SoftRowSelection);
+            }
+        }
+
+        public string SearchTerm
+        {
+            get => _SearchTerm;
+            set
+            {
+                _SearchTerm = value;
+
+                if (SearchDirection == 0) return;
+
+                UpdateSearchMatches(SearchDirection);
+
+                int next = GetNextMatch(SearchDirection);
+                if (next != -1)
+                    ScrollToRow(next);
+
+                Invalidate();
+            }
+        }
+        public int SearchDirection { get; internal set; }
+
         private SolidBrush RowHoverColor;
+        private SolidBrush RowSoftHoverColor;
         private Pen RowLineGuide;
         private SolidBrush RowPreviewHoverColor;
 

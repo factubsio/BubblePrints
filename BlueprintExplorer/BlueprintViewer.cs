@@ -18,6 +18,8 @@ namespace BlueprintExplorer
         public event BlueprintHandleDelegate OnOpenExternally;
         public event Action OnClose;
 
+        private DataGridView references;
+
         public void Navigate(NavigateTo to)
         {
             int target = to switch
@@ -42,7 +44,28 @@ namespace BlueprintExplorer
 
         public BlueprintViewer()
         {
+            references = new();
+            references.Columns.Add("ref", "References");
+
+            references.Columns[0].Width = 800;
+            references.Columns[0].DataPropertyName = "References";
+            references.Columns[0].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+
+            references.ReadOnly = true;
+            references.Cursor = Cursors.Arrow;
+
+            references.AutoGenerateColumns = false;
+
+            references.RowHeadersVisible = false;
+            references.ColumnHeadersVisible = false;
+            references.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            references.MultiSelect = false;
+            references.AllowUserToResizeRows = false;
+            references.AllowUserToAddRows = false;
+            references.AllowUserToDeleteRows = false;
+
             InitializeComponent();
+            searchTerm.Enabled = false;
             view = new();
             kryptonSplitContainer1.Panel1.Controls.Add(view);
             kryptonSplitContainer1.Panel2.Controls.Add(references);
@@ -124,6 +147,7 @@ namespace BlueprintExplorer
             Load += (sender, e) =>
             {
                 this.AddKeyDownRecursively((FindForm() as Form1).HandleGlobalKeys);
+                this.AddKeyPressRecursively((FindForm() as Form1).HandleGlobalKeyPress);
             };
         }
 
@@ -161,7 +185,6 @@ namespace BlueprintExplorer
             var me = Guid.Parse(handle.GuidText);
             foreach (var reference in handle.BackReferences)
             {
-                if (reference != me)
                     references.Rows.Add(BlueprintDB.Instance.Blueprints[reference].Name);
             }
 
@@ -234,7 +257,11 @@ namespace BlueprintExplorer
             int row = references.SelectedRow();
 
             if (row >= 0 && row < handle.BackReferences.Count)
-                ShowBlueprint(BlueprintDB.Instance.Blueprints[handle.BackReferences[row]], ShowFlags.F_UpdateHistory);
+            {
+                if (handle.BackReferences[row] != Guid.Parse(handle.GuidText))
+                    ShowBlueprint(BlueprintDB.Instance.Blueprints[handle.BackReferences[row]], ShowFlags.F_UpdateHistory);
+
+            }
         }
 
         [Flags]
@@ -245,5 +272,40 @@ namespace BlueprintExplorer
         }
 
         private void close_Click(object sender, EventArgs e) => OnClose?.Invoke();
+
+        public bool Searching => view.SearchDirection != 0;
+        internal void BeginSearchBackward()
+        {
+            searchTerm.Enabled = true;
+            searchTerm.Text = "?";
+
+            view.PrepareForSearch(-1);
+        }
+
+        internal void BeginSearchForward()
+        {
+            searchTerm.Enabled = true;
+            searchTerm.Text = "/";
+
+            view.PrepareForSearch(1);
+        }
+        internal void DeleteLastSearchChar()
+        {
+            if (searchTerm.Text.Length > 1)
+                searchTerm.Text = searchTerm.Text[..^1];
+        }
+
+        internal void AppendSearchChar(char ch)
+        {
+            searchTerm.Text += ch;
+            view.SearchTerm = searchTerm.Text[1..];
+        }
+
+        internal void StopSearching(bool commit)
+        {
+            view.EndSearch(commit);
+            searchTerm.Text = "";
+            searchTerm.Enabled = false;
+        }
     }
 }

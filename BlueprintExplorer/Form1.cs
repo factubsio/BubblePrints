@@ -109,10 +109,6 @@ namespace BlueprintExplorer
             return viewer;
         }
 
-        private void ShowCtrlP_Click(object sender, EventArgs e)
-        {
-        }
-
         public class BubbleNotification
         {
             public string Message;
@@ -275,6 +271,7 @@ namespace BlueprintExplorer
             this.AddMouseClickRecursively(HandleXbuttons);
 
             this.AddKeyDownRecursively(HandleGlobalKeys);
+            this.AddKeyPressRecursively(HandleGlobalKeyPress);
 
             header.MouseClick -= HandleXbuttons;
 
@@ -465,21 +462,145 @@ namespace BlueprintExplorer
             header.OverrideText = null;
         }
 
+        private bool WithActiveViewer(Func<BlueprintViewer, bool> predicate, Action<BlueprintViewer> action)
+        {
+            if (blueprintDock.PageCount > 0 && blueprintDock.ActivePage.Controls[0] is BlueprintViewer viewer && predicate(viewer))
+            {
+                action(viewer);
+                return true;
+            }
+
+            return false;
+        }
+
+        private BlueprintViewer ActiveViewer => blueprintDock.PageCount > 0 ? blueprintDock.ActivePage.Controls[0] as BlueprintViewer : null;
+
+        private void WithActiveViewer(Action<BlueprintViewer> action)
+        {
+            if (ActiveViewer != null)
+            {
+                action(ActiveViewer);
+            }
+
+        }
+
+        public void HandleGlobalKeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (CtrlPVisible) return;
+            if (sender is TextBoxBase) return;
+
+            if (ActiveViewer == null) return;
+
+
+            if (ActiveViewer.Searching)
+            {
+                if (char.IsLetterOrDigit(e.KeyChar) || char.IsPunctuation(e.KeyChar))
+                    ActiveViewer.AppendSearchChar(e.KeyChar);
+                if (e.KeyChar == '\b')
+                    ActiveViewer.DeleteLastSearchChar();
+
+                return;
+            }
+
+
+            if (e.KeyChar == '!')
+            {
+                ActiveViewer.filter.Focus();
+            }
+            else if (e.KeyChar == 'j')
+            {
+                ActiveViewer.View.SoftRowSelection++;
+            }
+            else if (e.KeyChar == 'k')
+            {
+                ActiveViewer.View.SoftRowSelection--;
+            }
+            else if (e.KeyChar == '/')
+            {
+                ActiveViewer.BeginSearchForward();
+            }
+            else if (e.KeyChar == 'n')
+            {
+                ActiveViewer.View.NextMatch(1);
+            }
+            else if (e.KeyChar == 'N')
+            {
+                ActiveViewer.View.NextMatch(-1);
+            }
+            else if (e.KeyChar == ' ')
+            {
+                ActiveViewer.View.ToggleAtSoftSelection();
+            }
+        }
+
         public void HandleGlobalKeys(object sender, KeyEventArgs e)
         {
 
             if (e.KeyCode == Keys.P && ModifierKeys.HasFlag(Keys.Control))
             {
+                e.Handled = true;
                 ShowCtrlP();
+                return;
             }
             if (e.KeyCode == Keys.F && ModifierKeys.HasFlag(Keys.Control))
             {
+                e.Handled = true;
                 ShowCtrlP();
+                return;
             }
-            //if (e.Button == MouseButtons.XButton1)
-            //    (blueprintDock.ActivePage.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeBackOne);
-            //else if (e.Button == MouseButtons.XButton2)
-            //    (blueprintDock.ActivePage.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeForwardOne);
+
+
+            if (!CtrlPVisible)
+            {
+                if (sender is TextBoxBase input)
+                {
+                    if (e.KeyCode == Keys.Escape)
+                    {
+                        input.FindForm().ActiveControl = null;
+                    }
+                    return;
+                }
+
+                if (ActiveViewer?.Searching == true)
+                {
+                    if (e.KeyCode == Keys.Escape)
+                        ActiveViewer.StopSearching(false);
+
+                    if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Return)
+                        ActiveViewer.StopSearching(true);
+
+                    return;
+                }
+
+                if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Return)
+                {
+                    WithActiveViewer(viewer => viewer.View.FollowLinkAtSoftSelection());
+                }
+                else if (e.KeyCode == Keys.O && ModifierKeys.HasFlag(Keys.Control))
+                {
+                    WithActiveViewer(viewer => viewer.Navigate(NavigateTo.RelativeBackOne));
+                }
+                else if (e.KeyCode == Keys.I && ModifierKeys.HasFlag(Keys.Control))
+                {
+                    WithActiveViewer(viewer => viewer.Navigate(NavigateTo.RelativeForwardOne));
+                }
+                else if ((e.KeyCode == Keys.U && ModifierKeys.HasFlag(Keys.Control)) || e.KeyCode == Keys.PageUp)
+                {
+                    WithActiveViewer(viewer => viewer.View.SoftRowSelection -= viewer.View.VisibleRowCount / 2);
+                }
+                else if ((e.KeyCode == Keys.D && ModifierKeys.HasFlag(Keys.Control)) || e.KeyCode == Keys.PageDown)
+                {
+                    WithActiveViewer(viewer => viewer.View.SoftRowSelection += viewer.View.VisibleRowCount / 2);
+                }
+                else if (e.KeyCode == Keys.NumPad8)
+                {
+                    WithActiveViewer(v => v.View.SoftRowSelection--);
+                }
+                else if (e.KeyCode == Keys.NumPad2)
+                {
+                    WithActiveViewer(v => v.View.SoftRowSelection++);
+                }
+            }
         }
 
         public void HideCtrlP()
@@ -641,7 +762,7 @@ namespace BlueprintExplorer
         {
             ' ',
             '.',
-            '/',
+            //'/',
             ':',
         };
         private static void KillForwardLine(TextBox box)
@@ -843,8 +964,6 @@ namespace BlueprintExplorer
             {
                 bpView.ShowBlueprint(bp, flags);
             }
-
-
         }
 
         private List<BlueprintHandle> resultsCache = new();

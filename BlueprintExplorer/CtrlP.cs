@@ -50,6 +50,8 @@ namespace BlueprintExplorer
             root.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             root.MultiSelect = false;
             root.AllowUserToResizeRows = false;
+            root.AllowUserToAddRows = false;
+            root.AllowUserToDeleteRows = false;
 
             if (Form1.Dark)
             {
@@ -63,7 +65,14 @@ namespace BlueprintExplorer
             root.ShowCellToolTips = false;
 
             rootPanel.BorderStyle = BorderStyle.FixedSingle;
-            rootPanel.BackColor = Color.Navy;
+            if (Form1.Dark)
+            {
+                rootPanel.BackColor = Color.Navy;
+            }
+            else
+            {
+                rootPanel.BackColor = Color.MistyRose;
+            }
             root.TabStop = false;
 
             rootHost.HostedControls.Add("results", root);
@@ -71,11 +80,6 @@ namespace BlueprintExplorer
             rootHost.ShowControl("none");
 
             DoubleBuffered = true;
-        }
-
-        protected override void OnClick(EventArgs e)
-        {
-            Console.WriteLine("HELLO");
         }
 
         private void Root_MouseClick(object sender, MouseEventArgs e)
@@ -102,7 +106,6 @@ namespace BlueprintExplorer
         private void UpdateSize()
         {
             int neededHeight = root.Rows.GetRowsHeight(DataGridViewElementStates.None) - 33;
-            Console.WriteLine(neededHeight);
             if (neededHeight < 640)
             {
                 Height = neededHeight + 240;
@@ -125,6 +128,8 @@ namespace BlueprintExplorer
 
         private void TryScroll(int delta)
         {
+            if (root.Rows.Count == 0) return;
+
             int current = root.SelectedRow();
             int wanted = current + delta;
             if (wanted < 0) wanted = 0;
