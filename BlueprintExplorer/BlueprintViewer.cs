@@ -277,34 +277,48 @@ namespace BlueprintExplorer
         internal void BeginSearchBackward()
         {
             searchTerm.Enabled = true;
-            searchTerm.Text = "?";
 
             view.PrepareForSearch(-1);
+            SetSearchTerm("");
         }
 
         internal void BeginSearchForward()
         {
             searchTerm.Enabled = true;
-            searchTerm.Text = "/";
 
             view.PrepareForSearch(1);
+            SetSearchTerm("");
         }
         internal void DeleteLastSearchChar()
         {
-            if (searchTerm.Text.Length > 1)
-                searchTerm.Text = searchTerm.Text[..^1];
+            if (rawSearchTerm.Length > 0)
+                SetSearchTerm(rawSearchTerm[..^1]);
+        }
+
+        string rawSearchTerm;
+
+        private void SetSearchTerm(string term, bool propogate = true)
+        {
+            rawSearchTerm = term;
+            if (term.Length == 0 && !searchTerm.Enabled)
+                searchTerm.Text = "";
+            else
+                searchTerm.Text = (view.SearchDirection > 0 ? '/' : '?') + term;
+            if (propogate)
+                view.SearchTerm = term;
+
         }
 
         internal void AppendSearchChar(char ch)
         {
-            searchTerm.Text += ch;
-            view.SearchTerm = searchTerm.Text[1..];
+            SetSearchTerm(rawSearchTerm + ch);
         }
 
         internal void StopSearching(bool commit)
         {
             view.EndSearch(commit);
-            searchTerm.Text = "";
+            if (!commit)
+                SetSearchTerm("", false);
             searchTerm.Enabled = false;
         }
     }

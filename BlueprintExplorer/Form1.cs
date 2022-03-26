@@ -605,7 +605,7 @@ namespace BlueprintExplorer
 
         public void HideCtrlP()
         {
-            if (ctrlP.Visible)
+            if (CtrlPVisible)
             {
                 ctrlP.Hide();
             }
@@ -831,6 +831,8 @@ namespace BlueprintExplorer
 
         public static void InstallReadline(TextBox box)
         {
+            if (!BubblePrints.Settings.UseReadlineShortcuts) return;
+
             List<string> history = new();
             int historyIndex = -1;
 

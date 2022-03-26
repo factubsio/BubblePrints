@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 namespace BlueprintExplorer
@@ -1047,6 +1048,18 @@ namespace BlueprintExplorer
             int begin = direction > 0 ? 0 : Count - 1;
             int end = direction > 0 ? Count : -1;
 
+            Regex regex = null;
+            if (BubblePrints.Settings.RegexForLocalSearch)
+                regex = new(SearchTerm, _SearchTerm.Any(ch => char.IsUpper(ch)) ? RegexOptions.None : RegexOptions.IgnoreCase);
+
+            static bool Match(RowElement element, Regex regex, string term) 
+            {
+                if (regex == null)
+                    return element.key.ContainsIgnoreCase(term) || element.SearchableValue.ContainsIgnoreCase(term);
+                else
+                    return regex.IsMatch(element.key) || regex.IsMatch(element.SearchableValue);
+            }
+
             for (int candidate = begin; candidate != end; candidate += direction)
             {
                 var element = GetElement(candidate);
@@ -1054,7 +1067,7 @@ namespace BlueprintExplorer
 
                 if (sub == 0)
                 {
-                    if (element.key.ContainsIgnoreCase(SearchTerm) || element.SearchableValue.ContainsIgnoreCase(SearchTerm))
+                    if (Match(element, regex, SearchTerm))
                     {
                         MatchesSearch.Add(candidate);
                         Matches.Add(candidate);

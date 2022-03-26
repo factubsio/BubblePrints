@@ -182,6 +182,14 @@ namespace BlueprintExplorer
         [DisplayName("Check for new blueprints")]
         public bool CheckForNewBP { get; set; } = true;
 
+        [Description("If true, install readline-style shortcuts in most text boxes")]
+        [DisplayName("Readline shortcuts")]
+        public bool UseReadlineShortcuts { get; set; } = false;
+
+        [Description("If true, /searches inside blueprints will intepret the search term as a regular expression")]
+        [DisplayName("Regex for local searches")]
+        public bool RegexForLocalSearch { get; set; } = false;
+
         [Description("If true, disables any fun seasonal themes that may be in effect")]
         [DisplayName("Disable fun themes")]
         public bool NoSeasonalTheme { get; set; } = false;
