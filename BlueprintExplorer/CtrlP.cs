@@ -51,8 +51,10 @@ namespace BlueprintExplorer
 
             root.MouseClick += Root_MouseClick;
 
-            DoubleBuffered = true;
+            root.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(root, true);
+            root.ShowCellToolTips = false;
 
+            DoubleBuffered = true;
         }
 
         private void Root_MouseClick(object sender, MouseEventArgs e)
@@ -67,7 +69,6 @@ namespace BlueprintExplorer
                     Close();
                 }
             }
-            Console.WriteLine(e.Button);
         }
 
         public Form1 Daddy;
@@ -99,6 +100,20 @@ namespace BlueprintExplorer
             UpdateSize();
         }
 
+        private void TryScroll(int delta)
+        {
+            int current = root.SelectedRow();
+            int wanted = current + delta;
+            if (wanted < 0) wanted = 0;
+            if (wanted >= root.Rows.Count) wanted = root.Rows.Count - 1;
+
+            if (current != wanted)
+            {
+                root.Rows[wanted].Selected = true;
+                root.CurrentCell = root.Rows[wanted].Cells[0];
+            }
+        }
+
         private void Input_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Escape)
@@ -110,24 +125,30 @@ namespace BlueprintExplorer
                 e.Handled = true;
                 e.SuppressKeyPress = true;
 
-                int current = root.SelectedRow();
-                if (current > 0)
-                {
-                    root.Rows[current - 1].Selected = true;
-                    root.CurrentCell = root.Rows[current - 1].Cells[0];
-                }
+                TryScroll(-1);
+
             }
             if (e.KeyCode == Keys.Down || (e.KeyCode == Keys.N && ModifierKeys.HasFlag(Keys.Control)))
             {
                 e.Handled = true;
                 e.SuppressKeyPress = true;
 
-                int current = root.SelectedRow();
-                if (current < (root.Rows.Count - 1))
-                {
-                    root.Rows[current + 1].Selected = true;
-                    root.CurrentCell = root.Rows[current + 1].Cells[0];
-                }
+                TryScroll(1);
+            }
+
+            if (e.KeyCode == Keys.PageUp)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+
+                TryScroll(-16);
+            }
+            if (e.KeyCode == Keys.PageDown)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+
+                TryScroll(16);
             }
 
             if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Return)
@@ -153,6 +174,7 @@ namespace BlueprintExplorer
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
+            Capture = true;
             UpdateSize();
             if (savedVerticalScroll != -1)
             {

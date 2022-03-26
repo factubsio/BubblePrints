@@ -40,6 +40,7 @@ namespace BlueprintExplorer
             this.blueprintDock = new Krypton.Docking.KryptonDockableWorkspace();
             this.kDockManager = new Krypton.Docking.KryptonDockingManager();
             this.kGlobalManager = new Krypton.Toolkit.KryptonManager(this.components);
+            this.header = new BlueprintExplorer.BubbleLabel();
             this.panel1.SuspendLayout();
             this.controlBar.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.blueprintDock)).BeginInit();
@@ -52,7 +53,7 @@ namespace BlueprintExplorer
             this.panel1.Location = new System.Drawing.Point(0, 0);
             this.panel1.Name = "panel1";
             this.panel1.Padding = new System.Windows.Forms.Padding(9, 8, 9, 8);
-            this.panel1.Size = new System.Drawing.Size(2440, 82);
+            this.panel1.Size = new System.Drawing.Size(2440, 54);
             this.panel1.TabIndex = 1;
             // 
             // controlBar
@@ -68,12 +69,13 @@ namespace BlueprintExplorer
             this.controlBar.Controls.Add(this.settingsButton, 3, 0);
             this.controlBar.Controls.Add(this.availableVersions, 2, 0);
             this.controlBar.Controls.Add(this.notifications, 5, 0);
+            this.controlBar.Controls.Add(this.header, 1, 0);
             this.controlBar.Dock = System.Windows.Forms.DockStyle.Fill;
             this.controlBar.Location = new System.Drawing.Point(9, 8);
             this.controlBar.Name = "controlBar";
             this.controlBar.RowCount = 1;
             this.controlBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.controlBar.Size = new System.Drawing.Size(2422, 66);
+            this.controlBar.Size = new System.Drawing.Size(2422, 38);
             this.controlBar.TabIndex = 2;
             // 
             // helpButton
@@ -81,7 +83,7 @@ namespace BlueprintExplorer
             this.helpButton.Dock = System.Windows.Forms.DockStyle.Fill;
             this.helpButton.Location = new System.Drawing.Point(2261, 3);
             this.helpButton.Name = "helpButton";
-            this.helpButton.Size = new System.Drawing.Size(94, 60);
+            this.helpButton.Size = new System.Drawing.Size(94, 32);
             this.helpButton.TabIndex = 4;
             this.helpButton.Text = "Help";
             this.helpButton.UseVisualStyleBackColor = true;
@@ -92,7 +94,7 @@ namespace BlueprintExplorer
             this.settingsButton.Dock = System.Windows.Forms.DockStyle.Fill;
             this.settingsButton.Location = new System.Drawing.Point(2161, 3);
             this.settingsButton.Name = "settingsButton";
-            this.settingsButton.Size = new System.Drawing.Size(94, 60);
+            this.settingsButton.Size = new System.Drawing.Size(94, 32);
             this.settingsButton.TabIndex = 2;
             this.settingsButton.Text = "Settings";
             this.settingsButton.UseVisualStyleBackColor = true;
@@ -113,7 +115,7 @@ namespace BlueprintExplorer
             // notifications
             // 
             this.notifications.BackgroundImage = global::BlueprintExplorer.Properties.Resources.notification;
-            this.notifications.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
+            this.notifications.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
             this.notifications.Dock = System.Windows.Forms.DockStyle.Fill;
             this.notifications.FlatAppearance.BorderSize = 0;
             this.notifications.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -121,7 +123,7 @@ namespace BlueprintExplorer
             this.notifications.ForeColor = System.Drawing.SystemColors.ControlText;
             this.notifications.Location = new System.Drawing.Point(2361, 3);
             this.notifications.Name = "notifications";
-            this.notifications.Size = new System.Drawing.Size(58, 60);
+            this.notifications.Size = new System.Drawing.Size(58, 32);
             this.notifications.TabIndex = 5;
             this.notifications.Text = "1";
             this.notifications.UseVisualStyleBackColor = true;
@@ -134,7 +136,7 @@ namespace BlueprintExplorer
             | Krypton.Workspace.CompactFlags.PromoteLeafs)));
             this.blueprintDock.ContainerBackStyle = Krypton.Toolkit.PaletteBackStyle.FormCustom1;
             this.blueprintDock.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.blueprintDock.Location = new System.Drawing.Point(0, 82);
+            this.blueprintDock.Location = new System.Drawing.Point(0, 54);
             this.blueprintDock.Name = "blueprintDock";
             // 
             // 
@@ -143,7 +145,7 @@ namespace BlueprintExplorer
             this.blueprintDock.Root.WorkspaceControl = this.blueprintDock;
             this.blueprintDock.SeparatorStyle = Krypton.Toolkit.SeparatorStyle.LowProfile;
             this.blueprintDock.ShowMaximizeButton = false;
-            this.blueprintDock.Size = new System.Drawing.Size(2440, 1166);
+            this.blueprintDock.Size = new System.Drawing.Size(2440, 1194);
             this.blueprintDock.SplitterWidth = 5;
             this.blueprintDock.TabIndex = 0;
             this.blueprintDock.TabStop = true;
@@ -155,6 +157,15 @@ namespace BlueprintExplorer
             // kGlobalManager
             // 
             this.kGlobalManager.GlobalAllowFormChrome = false;
+            // 
+            // header
+            // 
+            this.header.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.header.Location = new System.Drawing.Point(3, 3);
+            this.header.Name = "header";
+            this.header.Size = new System.Drawing.Size(1952, 32);
+            this.header.TabIndex = 6;
+            this.header.Text = "LOADING...";
             // 
             // Form1
             // 
@@ -185,6 +196,7 @@ namespace BlueprintExplorer
         private Krypton.Docking.KryptonDockableWorkspace blueprintDock;
         private Krypton.Docking.KryptonDockingManager kDockManager;
         private Krypton.Toolkit.KryptonManager kGlobalManager;
+        private BubbleLabel header;
     }
 }
 

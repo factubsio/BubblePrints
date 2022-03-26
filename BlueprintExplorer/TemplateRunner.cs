@@ -34,7 +34,66 @@ namespace BlueprintExplorer
             return value;
         }
 
-        private static Regex regex = new("(@{.*?})");
+        public struct TemplateFragment
+        {
+            public bool IsVariable;
+
+            public bool IsError;
+
+            public string Raw;
+            public string Object;
+            public string Property;
+
+            public string[] Format;
+        }
+
+        public static IEnumerable<TemplateFragment> Iterate(string template)
+        {
+            var m = regex.Matches(template);
+
+            int copyFrom = 0;
+            for (int i = 0; i < m.Count; i++)
+            {
+                int copyTo = m[i].Index;
+                yield return new()
+                {
+                    IsVariable = false,
+                    Raw = template[copyFrom..copyTo],
+                };
+
+                copyFrom = m[i].Index + m[i].Length;
+
+                string[] key = m[i].Value[2..^1].Split(':', StringSplitOptions.RemoveEmptyEntries);
+                var type = key[0].Split('.');
+                if (type.Length != 2)
+                {
+                    yield return new() { IsError = true, Raw = m[i].Value, };
+                    continue;
+                }
+
+                yield return new()
+                {
+                    IsVariable = true,
+
+                    Raw = m[i].Value,
+                    Object = type[0],
+                    Property = type[1],
+
+                    Format = key.Length > 1 ? key[1..] : null,
+                };
+            }
+
+            if (copyFrom != template.Length)
+            {
+                yield return new()
+                {
+                    IsVariable = false,
+                    Raw = template[copyFrom..],
+                };
+            }
+        }
+
+    private static Regex regex = new("(@{.*?})");
         public static string Execute(string template, BlueprintHandle bp)
         {
             StringBuilder sb = new();

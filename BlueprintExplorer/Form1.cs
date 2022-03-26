@@ -192,6 +192,8 @@ namespace BlueprintExplorer
 
             InitializeComponent();
 
+            header.Font = new Font(FontFamily.GenericSansSerif, 14);
+
 
 
             Text = "BubblePrints - " + Application.ProductVersion;
@@ -329,16 +331,22 @@ namespace BlueprintExplorer
             };
 
             var progress = new BlueprintDB.ConnectionProgress();
+            header.Marquee = true;
 
             initialize = Task.Run(() => BlueprintDB.Instance.TryConnect(progress));
             initialize.ContinueWith(b =>
             {
                 ShowBlueprint(BlueprintDB.Instance.Blueprints.Values.First(), ShowFlags.F_UpdateHistory);
 
+                header.Marquee = false;
+                header.Text = "Press @{key.ctrl}-@{key.P} to search";
+
                 foreach (var v in BlueprintDB.Instance.Available)
                     availableVersions.Items.Add(v);
                 availableVersions.SelectedIndex = availableVersions.Items.Count - 1;
                 availableVersions.Enabled = true;
+
+                ShowCtrlP();
             }, TaskScheduler.FromCurrentSynchronizationContext());
 
 
@@ -354,16 +362,16 @@ namespace BlueprintExplorer
                         if (Good)
                             return;
 
-                        //if (omniSearch.Visible)
-                        //{
-                        //    omniSearch.Invoke(new Action(() =>
-                        //    {
-                        //        if (!Good)
-                        //        {
-                        //            omniSearch.Text = plane.PadLeft(plane.Length + frame) + $"{progress.Status}";
-                        //        }
-                        //    }));
-                        //}
+                        if (header.Visible)
+                        {
+                            header.Invoke(new Action(() =>
+                            {
+                                if (!Good)
+                                {
+                                    header.Text = plane + $"     {progress.Status}";
+                                }
+                            }));
+                        }
                         Thread.Sleep(33);
                     }
                 }
@@ -376,6 +384,8 @@ namespace BlueprintExplorer
         {
             if (!Good) return;
 
+            header.OverrideText = "";
+
             ctrlP ??= new CtrlP();
             ctrlP.Daddy = this;
             ctrlP.StartPosition = FormStartPosition.Manual;
@@ -384,6 +394,12 @@ namespace BlueprintExplorer
             ctrlP.Size = new Size(ClientSize.Width - 200, 80);
             ctrlP.input.Focus();
             ctrlP.ShowDialog(this);
+
+            if (ctrlP.input.Text.Length > 0)
+                header.Text2 = "   ---    current: " + ctrlP.input.Text;
+            else
+                header.Text2 = "";
+            header.OverrideText = null;
         }
 
 
