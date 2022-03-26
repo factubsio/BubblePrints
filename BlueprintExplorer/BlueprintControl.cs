@@ -301,7 +301,10 @@ namespace BlueprintExplorer
 
         private void UpdateRowHoverColor()
         {
-            RowSoftHoverColor = new(ControlPaint.Dark(Color.Coral, -0.8f));
+            if (Form1.Dark)
+                RowSoftHoverColor = new(Color.Maroon);
+            else
+                RowSoftHoverColor = new(ControlPaint.Dark(Color.Coral, -0.8f));
             RowHoverColor = new(ControlPaint.Dark(BackColor, -0.4f));
             RowLineGuide = new(ControlPaint.Light(BackColor, 0.1f), 2);
             RowPreviewHoverColor = new(ControlPaint.Dark(BackColor, -0.41f));
@@ -666,14 +669,15 @@ namespace BlueprintExplorer
             }
 
             bool isSearchMatch = MatchesSearch.Contains(row);
+            var matchColor = Form1.Dark ? Color.CornflowerBlue : Color.Blue;
             if (isSearchMatch)
-                valueColor = Color.Blue;
+                valueColor = matchColor;
 
 
             if (elem.PrimaryRow == row)
             {
                 float keyWidth = render.Graphics.MeasureString(elem.key, render.Bold).Width;
-                SolidBrush keyBrush = new(isSearchMatch ? Color.Blue : ForeColor);
+                SolidBrush keyBrush = new(isSearchMatch ? matchColor : ForeColor);
                 render.Graphics.DrawString(elem.key, render.Bold, keyBrush, new PointF(xOffset, 0));
                 float lineY = RowHeight / 2.0f;
                 render.Graphics.DrawLine(RowLineGuide, xOffset + keyWidth + 3, lineY, NameColumnWidth - 3, lineY);
@@ -1018,6 +1022,9 @@ namespace BlueprintExplorer
 
         public void NextMatch(int direction)
         {
+            if (lastSearchDirection == 0) return;
+
+            UpdateSearchMatches(lastSearchDirection);
             if (Matches.Count == 0) return;
 
             int match = GetNextMatch(direction);
