@@ -45,7 +45,7 @@ namespace BlueprintExplorer
 
             if (Form1.Dark)
             {
-                BubbleTheme.DarkenControls(input, root);
+                BubbleTheme.DarkenControls(this, rootPanel, input, root, closeHintLabel);
                 BubbleTheme.DarkenStyles(root.DefaultCellStyle, root.ColumnHeadersDefaultCellStyle);
             }
 
@@ -53,6 +53,8 @@ namespace BlueprintExplorer
 
             root.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(root, true);
             root.ShowCellToolTips = false;
+
+            rootPanel.BorderStyle = BorderStyle.FixedSingle;
 
             DoubleBuffered = true;
         }

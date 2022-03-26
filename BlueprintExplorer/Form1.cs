@@ -173,19 +173,26 @@ namespace BlueprintExplorer
                     return JsonSerializer.Deserialize<JsonElement>(raw);
                 }).ContinueWith(t =>
                 {
-                    var json = t.Result;
-                    if (json.TryGetProperty("tag_name", out var tag))
+                    try
                     {
-                        long latest = ParseVersion(tag.GetString()[1..]);
-                        if (latest > version)
+                        var json = t.Result;
+                        if (json.TryGetProperty("tag_name", out var tag))
                         {
-                            AddNotification(new()
+                            long latest = ParseVersion(tag.GetString()[1..]);
+                            if (latest > version)
                             {
-                                Message = "An update is available (" + tag + ")",
-                                Action = () => Process.Start("explorer", json.GetProperty("assets")[0].GetProperty("browser_download_url").GetString()),
-                                ActionText = "Download now",
-                            });
+                                AddNotification(new()
+                                {
+                                    Message = "An update is available (" + tag + ")",
+                                    Action = () => Process.Start("explorer", json.GetProperty("assets")[0].GetProperty("browser_download_url").GetString()),
+                                    ActionText = "Download now",
+                                });
+                            }
                         }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex);
                     }
                 }, TaskScheduler.FromCurrentSynchronizationContext());
             }

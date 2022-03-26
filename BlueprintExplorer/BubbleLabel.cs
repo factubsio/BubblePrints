@@ -90,7 +90,7 @@ namespace BlueprintExplorer
                 if (Text?.Length == 0) return SizeF.Empty;
 
                 TextRenderer.DrawText(g, Text, label.Font, new Point((int)g.Transform.OffsetX, 0), label.ForeColor);
-                return g.MeasureString(Text, label.Font);
+                return TextRenderer.MeasureText(Text, label.Font);
             }
         }
 
@@ -151,35 +151,38 @@ namespace BlueprintExplorer
 
         private void InvalidateFragments(string template, List<IFragment> fragments)
         {
-            var rawFragments = TemplateRunner.Iterate(template);
-
             fragments.Clear();
-            foreach (var raw in rawFragments)
+            if (template != null)
             {
-                if (raw.IsError)
-                {
-                    fragments.Add(new TextFragment() { Text = "ERROR:<" + raw.Raw + ">" });
-                    continue;
-                }
+                var rawFragments = TemplateRunner.Iterate(template);
 
-                if (!raw.IsVariable)
+                foreach (var raw in rawFragments)
                 {
-                    fragments.Add(new TextFragment() { Text = raw.Raw });
-                }
-                else
-                {
-                    if (raw.Object == "key")
+                    if (raw.IsError)
                     {
-                        fragments.Add(new KeyFragment() { Key = raw.Property });
+                        fragments.Add(new TextFragment() { Text = "ERROR:<" + raw.Raw + ">" });
                         continue;
                     }
 
-                    //object obj = null;
-                    //if (obj is Bitmap img)
-                    //{
-                    //    fragments.Add(new ImageFragment() { img = img });
+                    if (!raw.IsVariable)
+                    {
+                        fragments.Add(new TextFragment() { Text = raw.Raw });
+                    }
+                    else
+                    {
+                        if (raw.Object == "key")
+                        {
+                            fragments.Add(new KeyFragment() { Key = raw.Property });
+                            continue;
+                        }
 
-                    //}
+                        //object obj = null;
+                        //if (obj is Bitmap img)
+                        //{
+                        //    fragments.Add(new ImageFragment() { img = img });
+
+                        //}
+                    }
                 }
             }
 
