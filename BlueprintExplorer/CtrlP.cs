@@ -12,8 +12,16 @@ namespace BlueprintExplorer
 {
     public partial class CtrlP : Form
     {
+        private DataGridView root;
+        private Label noResults;
         public CtrlP()
         {
+            root = new();
+            noResults = new();
+            noResults.Text = "Start typing to see results";
+            noResults.TextAlign = ContentAlignment.MiddleCenter;
+            noResults.Font = new Font(noResults.Font.FontFamily, 26f);
+
             InitializeComponent();
             Form1.InstallReadline(input);
             input.KeyDown += Input_KeyDown;
@@ -55,10 +63,16 @@ namespace BlueprintExplorer
             root.ShowCellToolTips = false;
 
             rootPanel.BorderStyle = BorderStyle.FixedSingle;
+            rootPanel.BackColor = Color.Navy;
             root.TabStop = false;
+
+            rootHost.HostedControls.Add("results", root);
+            rootHost.HostedControls.Add("none", noResults);
+            rootHost.ShowControl("none");
 
             DoubleBuffered = true;
         }
+
         protected override void OnClick(EventArgs e)
         {
             Console.WriteLine("HELLO");
@@ -82,18 +96,16 @@ namespace BlueprintExplorer
 
         private void Input_TextChanged(object sender, EventArgs e)
         {
-            if (input.Text.Length > 0)
-            {
-                Daddy.InvalidateResults(input.Text);
-            }
+            Daddy.InvalidateResults(input.Text);
         }
 
         private void UpdateSize()
         {
-            int neededHeight = root.Rows.GetRowsHeight(DataGridViewElementStates.None);
+            int neededHeight = root.Rows.GetRowsHeight(DataGridViewElementStates.None) - 33;
+            Console.WriteLine(neededHeight);
             if (neededHeight < 640)
             {
-                Height = neededHeight + 82;
+                Height = neededHeight + 240;
             }
             else
             {
@@ -104,6 +116,10 @@ namespace BlueprintExplorer
         public void SetResults(List<BlueprintHandle> results)
         {
             root.DataSource = results;
+            if (results.Count > 0)
+                rootHost.ShowControl("results");
+            else
+                rootHost.ShowControl("none");
             UpdateSize();
         }
 

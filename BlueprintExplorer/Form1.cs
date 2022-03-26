@@ -136,7 +136,7 @@ namespace BlueprintExplorer
         {
             pendingNotifications = pendingNotifications.Where(n => !n.Complete).ToList();
 
-            if (pendingNotifications.Count == 0)
+            if (true || pendingNotifications.Count == 0)
             {
                 controlBar.ColumnStyles[^1].Width = 0;
             }
@@ -396,34 +396,44 @@ namespace BlueprintExplorer
 
         }
 
+        private Size CtrlPSize => new(ClientSize.Width - 310, 75);
+
         protected override void OnMove(EventArgs e)
         {
             base.OnMove(e);
 
-            if (ctrlP?.Visible == true)
+            if (CtrlPVisible)
             {
-                var search = PointToScreen(new Point(100, 1));
+                var search = PointToScreen(new Point(100, 10));
                 ctrlP.Location = new Point(search.X, search.Y);
             }
         }
 
+        protected override void OnResizeEnd(EventArgs e)
+        {
+            base.OnResizeEnd(e);
 
-        private int CtrlPWidth => ClientSize.Width - 375;
+            if (CtrlPVisible)
+            {
+                ctrlP.Show();
+            }
+        }
 
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
 
-            if (ctrlP?.Visible == true)
+            if (CtrlPVisible)
             {
-                ctrlP.Size = new Size(CtrlPWidth, 80);
+                ctrlP.Size = CtrlPSize;
             }
         }
 
+        private bool CtrlPVisible => ctrlP?.Visible == true;
 
         public void ShowCtrlP()
         {
-            if (!Good || ctrlP?.Visible == true) return;
+            if (!Good || CtrlPVisible) return;
 
             header.OverrideText = "";
 
@@ -436,9 +446,9 @@ namespace BlueprintExplorer
             }
 
             ctrlP.StartPosition = FormStartPosition.Manual;
-            var search = PointToScreen(new Point(100, 1));
+            var search = PointToScreen(new Point(100, 10));
             ctrlP.Location = new Point(search.X, search.Y);
-            ctrlP.Size = new Size(CtrlPWidth, 80);
+            ctrlP.Size = CtrlPSize;
             ctrlP.input.Focus();
             ctrlP.Show(this);
 

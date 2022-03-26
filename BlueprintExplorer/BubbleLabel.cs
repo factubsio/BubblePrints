@@ -89,7 +89,7 @@ namespace BlueprintExplorer
             {
                 if (Text?.Length == 0) return SizeF.Empty;
 
-                TextRenderer.DrawText(g, Text, label.Font, new Point((int)g.Transform.OffsetX, 0), label.ForeColor);
+                TextRenderer.DrawText(g, Text, label.Font, new Point((int)g.Transform.OffsetX, (int)g.Transform.OffsetY), label.ForeColor);
                 return TextRenderer.MeasureText(Text, label.Font);
             }
         }
@@ -102,8 +102,9 @@ namespace BlueprintExplorer
 
             public SizeF Render(Graphics g, BubbleLabel label)
             {
-                int ratio = Meta ? 2 : 1;
-                int height = label.Height - 2;
+                double ratio = Meta ? 2 : 1;
+                if (Key == "esc") ratio = 1.5;
+                int height = Math.Min(label.Height - 2, label.Font.Height - 2);
                 int width = (int)(ratio * height);
 
                 var pen = new Pen(label._ForeBrush, 3);
@@ -217,6 +218,14 @@ namespace BlueprintExplorer
             {
                 e.Graphics.TranslateTransform(_MarqueePos, 0);
             }
+
+            var needed = Font.Height;
+            var have = Height;
+            if (have > needed) {
+                int padding = (have - needed) / 2;
+                e.Graphics.TranslateTransform(0, padding);
+            }
+
 
             if (_OverrideText != null)
             {

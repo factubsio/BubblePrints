@@ -30,11 +30,10 @@
         {
             this.rootTable = new System.Windows.Forms.TableLayoutPanel();
             this.input = new System.Windows.Forms.TextBox();
-            this.root = new System.Windows.Forms.DataGridView();
             this.closeHintLabel = new BlueprintExplorer.BubbleLabel();
+            this.rootHost = new BlueprintExplorer.BubbleMultiHost();
             this.rootPanel = new System.Windows.Forms.Panel();
             this.rootTable.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.root)).BeginInit();
             this.rootPanel.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -44,15 +43,14 @@
             this.rootTable.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootTable.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 180F));
             this.rootTable.Controls.Add(this.input, 0, 0);
-            this.rootTable.Controls.Add(this.root, 0, 1);
             this.rootTable.Controls.Add(this.closeHintLabel, 1, 0);
+            this.rootTable.Controls.Add(this.rootHost, 0, 1);
             this.rootTable.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootTable.Location = new System.Drawing.Point(6, 2);
             this.rootTable.Name = "rootTable";
             this.rootTable.RowCount = 2;
-            this.rootTable.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 75F));
+            this.rootTable.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 77F));
             this.rootTable.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootTable.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
             this.rootTable.Size = new System.Drawing.Size(1707, 660);
             this.rootTable.TabIndex = 0;
             // 
@@ -65,29 +63,26 @@
             this.input.Size = new System.Drawing.Size(1521, 71);
             this.input.TabIndex = 1;
             // 
-            // root
-            // 
-            this.root.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.rootTable.SetColumnSpan(this.root, 2);
-            this.root.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.root.Location = new System.Drawing.Point(3, 78);
-            this.root.Name = "root";
-            this.root.RowHeadersWidth = 62;
-            this.root.RowTemplate.Height = 33;
-            this.root.Size = new System.Drawing.Size(1701, 579);
-            this.root.TabIndex = 2;
-            // 
             // closeHintLabel
             // 
-            this.closeHintLabel.Location = new System.Drawing.Point(1530, 16);
-            this.closeHintLabel.Margin = new System.Windows.Forms.Padding(3, 16, 3, 3);
+            this.closeHintLabel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.closeHintLabel.Location = new System.Drawing.Point(1530, 3);
             this.closeHintLabel.Marquee = false;
             this.closeHintLabel.Name = "closeHintLabel";
             this.closeHintLabel.OverrideText = null;
-            this.closeHintLabel.Size = new System.Drawing.Size(174, 34);
+            this.closeHintLabel.Size = new System.Drawing.Size(174, 71);
             this.closeHintLabel.TabIndex = 3;
             this.closeHintLabel.Text = "press @{key.esc} to cancel";
             this.closeHintLabel.Text2 = null;
+            // 
+            // rootHost
+            // 
+            this.rootTable.SetColumnSpan(this.rootHost, 2);
+            this.rootHost.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.rootHost.Location = new System.Drawing.Point(3, 80);
+            this.rootHost.Name = "rootHost";
+            this.rootHost.Size = new System.Drawing.Size(1701, 577);
+            this.rootHost.TabIndex = 4;
             // 
             // rootPanel
             // 
@@ -110,7 +105,6 @@
             this.Text = "CtrlP";
             this.rootTable.ResumeLayout(false);
             this.rootTable.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.root)).EndInit();
             this.rootPanel.ResumeLayout(false);
             this.ResumeLayout(false);
 
@@ -120,8 +114,8 @@
 
         private System.Windows.Forms.TableLayoutPanel rootTable;
         public System.Windows.Forms.TextBox input;
-        private System.Windows.Forms.DataGridView root;
         private BubbleLabel closeHintLabel;
         private System.Windows.Forms.Panel rootPanel;
+        private BubbleMultiHost rootHost;
     }
 }
