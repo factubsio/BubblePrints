@@ -701,20 +701,21 @@ namespace BlueprintExplorer
                 Toggle(elem);
             }
         }
-        protected override void OnMouseDown(MouseEventArgs e)
-        {
-            if (e.Button == MouseButtons.XButton1)
-            {
-                OnNavigate?.Invoke(NavigateTo.RelativeBackOne);
-            }
-            else if (e.Button == MouseButtons.XButton2)
-            {
-                OnNavigate?.Invoke(NavigateTo.RelativeForwardOne);
-            }
-        }
+        //protected override void OnMouseDown(MouseEventArgs e)
+        //{
+        //    if (e.Button == MouseButtons.XButton1)
+        //    {
+        //        OnNavigate?.Invoke(NavigateTo.RelativeBackOne);
+        //    }
+        //    else if (e.Button == MouseButtons.XButton2)
+        //    {
+        //        OnNavigate?.Invoke(NavigateTo.RelativeForwardOne);
+        //    }
+        //}
 
         protected override void OnMouseClick(MouseEventArgs e)
         {
+            base.OnMouseClick(e);
             bool valid = GetCurrent(out var elem);
             if (e.Button == MouseButtons.Left && valid)
             {

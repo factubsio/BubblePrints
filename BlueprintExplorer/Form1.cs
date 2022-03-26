@@ -271,9 +271,17 @@ namespace BlueprintExplorer
                 kGlobalManager.GlobalPaletteMode = Krypton.Toolkit.PaletteModeManager.SparkleOrange;
             };
 
+
             this.AddMouseClickRecursively(HandleXbuttons);
 
             this.AddKeyDownRecursively(HandleGlobalKeys);
+
+            header.MouseClick -= HandleXbuttons;
+
+            header.MouseClick += (sender, e) =>
+            {
+                ShowCtrlP();
+            };
 
             controlBar.ColumnStyles[^1].Width = 0;
 
@@ -288,6 +296,7 @@ namespace BlueprintExplorer
 
             settingsButton.Click += (sender, evt) =>
             {
+                HideCtrlP();
                 new SettingsView().ShowDialog();
             };
 
@@ -339,6 +348,7 @@ namespace BlueprintExplorer
 
             var progress = new BlueprintDB.ConnectionProgress();
             header.Marquee = true;
+            header.Dock = DockStyle.Fill;
 
             initialize = Task.Run(() => BlueprintDB.Instance.TryConnect(progress));
             initialize.ContinueWith(b =>
@@ -346,7 +356,7 @@ namespace BlueprintExplorer
                 ShowBlueprint(BlueprintDB.Instance.Blueprints.Values.First(), ShowFlags.F_UpdateHistory);
 
                 header.Marquee = false;
-                header.Text = "Press @{key.ctrl}-@{key.P} to search";
+                header.Text = "Press @{key.ctrl}-@{key.P} to search (or click here)";
 
                 foreach (var v in BlueprintDB.Instance.Available)
                     availableVersions.Items.Add(v);
@@ -386,21 +396,57 @@ namespace BlueprintExplorer
 
         }
 
+        protected override void OnMove(EventArgs e)
+        {
+            base.OnMove(e);
+
+            if (ctrlP?.Visible == true)
+            {
+                var search = PointToScreen(new Point(100, 1));
+                ctrlP.Location = new Point(search.X, search.Y);
+            }
+        }
+
+
+        private int CtrlPWidth => ClientSize.Width - 375;
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+
+            if (ctrlP?.Visible == true)
+            {
+                ctrlP.Size = new Size(CtrlPWidth, 80);
+            }
+        }
+
 
         public void ShowCtrlP()
         {
-            if (!Good) return;
+            if (!Good || ctrlP?.Visible == true) return;
 
             header.OverrideText = "";
 
-            ctrlP ??= new CtrlP();
-            ctrlP.Daddy = this;
+            if (ctrlP == null)
+            {
+                ctrlP = new();
+                ctrlP.Daddy = this;
+                ctrlP.VisibleChanged += CtrlP_VisibleChanged;
+
+            }
+
             ctrlP.StartPosition = FormStartPosition.Manual;
             var search = PointToScreen(new Point(100, 1));
             ctrlP.Location = new Point(search.X, search.Y);
-            ctrlP.Size = new Size(ClientSize.Width - 200, 80);
+            ctrlP.Size = new Size(CtrlPWidth, 80);
             ctrlP.input.Focus();
-            ctrlP.ShowDialog(this);
+            ctrlP.Show(this);
+
+        }
+
+        private void CtrlP_VisibleChanged(object sender, EventArgs e)
+        {
+            if (ctrlP.Visible) return;
 
             if (ctrlP.input.Text.Length > 0)
                 header.Text2 = "   ---    current: " + ctrlP.input.Text;
@@ -408,7 +454,6 @@ namespace BlueprintExplorer
                 header.Text2 = "";
             header.OverrideText = null;
         }
-
 
         public void HandleGlobalKeys(object sender, KeyEventArgs e)
         {
@@ -427,12 +472,22 @@ namespace BlueprintExplorer
             //    (blueprintDock.ActivePage.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeForwardOne);
         }
 
+        public void HideCtrlP()
+        {
+            if (ctrlP.Visible)
+            {
+                ctrlP.Hide();
+            }
+        }
+
         private void HandleXbuttons(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.XButton1)
                 (blueprintDock.ActivePage.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeBackOne);
             else if (e.Button == MouseButtons.XButton2)
                 (blueprintDock.ActivePage.Controls[0] as BlueprintViewer).Navigate(NavigateTo.RelativeForwardOne);
+
+            HideCtrlP();
         }
 
         private void ResultsGrid_MouseDown(object sender, MouseEventArgs e)

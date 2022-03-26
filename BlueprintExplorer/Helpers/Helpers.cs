@@ -32,6 +32,7 @@ namespace BlueprintExplorer
         }
 
         public static void AddMouseClickRecursively(this Control root, MouseEventHandler handler) => ForEachControl(root, c => c.MouseClick += handler);
+        public static void AddMouseDownRecursively(this Control root, MouseEventHandler handler) => ForEachControl(root, c => c.MouseDown += handler);
         public static void AddKeyDownRecursively(this Control root, KeyEventHandler handler) => ForEachControl(root, c => c.KeyDown += handler);
     }
 

@@ -146,6 +146,8 @@ namespace BlueprintExplorer
                 Navigate(NavigateTo.RelativeBackOne);
             else if (e.Button == MouseButtons.XButton2)
                 Navigate(NavigateTo.RelativeForwardOne);
+
+            (ParentForm as Form1)?.HideCtrlP();
         }
 
         public void ShowBlueprint(BlueprintHandle handle, ShowFlags flags)

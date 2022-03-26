@@ -55,8 +55,13 @@ namespace BlueprintExplorer
             root.ShowCellToolTips = false;
 
             rootPanel.BorderStyle = BorderStyle.FixedSingle;
+            root.TabStop = false;
 
             DoubleBuffered = true;
+        }
+        protected override void OnClick(EventArgs e)
+        {
+            Console.WriteLine("HELLO");
         }
 
         private void Root_MouseClick(object sender, MouseEventArgs e)
@@ -68,7 +73,7 @@ namespace BlueprintExplorer
                 {
                     root.Rows[row].Selected = true;
                     Daddy.ShowBlueprint(row, ModifierKeys.HasFlag(Keys.Control) || e.Button == MouseButtons.Middle);
-                    Close();
+                    Hide();
                 }
             }
         }
@@ -120,7 +125,7 @@ namespace BlueprintExplorer
         {
             if (e.KeyCode == Keys.Escape)
             {
-                Close();
+                Hide();
             }
             if (e.KeyCode == Keys.Up || (e.KeyCode == Keys.P && ModifierKeys.HasFlag(Keys.Control)))
             {
@@ -161,28 +166,26 @@ namespace BlueprintExplorer
 
                 Daddy.ShowBlueprint(root.SelectedRow(), ModifierKeys.HasFlag(Keys.Control));
 
-                Close();
+                Hide();
             }
         }
 
-        protected override void OnClosed(EventArgs e)
+        protected override void OnDeactivate(EventArgs e)
         {
-            base.OnClosed(e);
             savedVerticalScroll = root.FirstDisplayedScrollingRowIndex;
         }
 
         private int savedVerticalScroll = -1;
 
-        protected override void OnShown(EventArgs e)
+        protected override void OnActivated(EventArgs e)
         {
-            base.OnShown(e);
-            Capture = true;
             UpdateSize();
             if (savedVerticalScroll != -1)
             {
                 root.FirstDisplayedScrollingRowIndex = savedVerticalScroll;
             }
             input.Focus();
+            base.OnActivated(e);
         }
     }
 }
