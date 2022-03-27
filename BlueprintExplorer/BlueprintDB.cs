@@ -19,6 +19,27 @@ namespace BlueprintExplorer
 {
     public partial class BlueprintDB
     {
+        private static void ExtractKeyWords(HashSet<string> result, StringBuilder buffer, string input)
+        {
+            buffer.Clear();
+            foreach (var ch in input)
+            {
+                if (char.IsLetterOrDigit(ch))
+                    buffer.Append(ch);
+                else if (ch is '\'' or '-' or '_')
+                    continue;
+                else
+                {
+                    if (buffer.Length > 0)
+                    {
+                        result.Add(buffer.ToString().ToLower());
+                        buffer.Clear();
+                    }
+                }
+            }
+            if (buffer.Length > 0)
+                result.Add(buffer.ToString().ToLower());
+        }
 
         public static readonly string ImportFolderBase = @"D:\WOTR-1.2-DEBUG";
 
@@ -27,6 +48,8 @@ namespace BlueprintExplorer
         bool importNew = false;
         bool forceLastKnown = false;
         #endregion
+
+        private Dictionary<string, List<int>> _IndexByWord = new();
 
         private static BlueprintDB _Instance;
         public static BlueprintDB Instance => _Instance ??= new();
@@ -100,7 +123,7 @@ namespace BlueprintExplorer
 
         public List<GameVersion> Available = new() { };
 
-        private readonly GameVersion LastKnown = new(1, 2, 0, 'A', 1);
+        private readonly GameVersion LastKnown = new(1, 2, 0, 'A', 2);
 
         private readonly string filenameRoot = "blueprints_raw";
         private readonly string extension = "binz";
@@ -259,11 +282,15 @@ namespace BlueprintExplorer
                     defaults = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(File.ReadAllText(@"D:\bp_defaults.json"));
                 }
 
+
+
                 Dictionary<string, string> TypenameToGuid = new();
 
                 progress.EstimatedTotal = bpDump.Entries.Count(e => e.Name.EndsWith(".jbp"));
 
                 HashSet<string> referencedTypes = new();
+
+                int index = 0;
 
                 foreach (var entry in bpDump.Entries)
                 {
@@ -300,8 +327,11 @@ namespace BlueprintExplorer
                         handle.ComponentIndex = referencedTypes.Select(typeId => GuidToFlatIndex[typeId]).ToArray();
 
                         AddBlueprint(handle);
-                        progress.Current++;
 
+
+
+                        progress.Current++;
+                        index++;
                     }
                     catch (Exception e)
                     {
@@ -311,9 +341,10 @@ namespace BlueprintExplorer
                     }   
                 }
 
+
+
                 Console.WriteLine("COMPLETE, press a key");
                 Console.ReadKey();
-                Console.WriteLine("Continuing");
             }
             else
             {
@@ -475,20 +506,32 @@ namespace BlueprintExplorer
                             }
                             defaults[key] = map;
                         }
+                    }
 
+                    var searchIndex = ctx.Open(reader.Get((ushort)ChunkTypes.SearchIndex)?.Main);
+                    if (searchIndex != null)
+                    {
+                        int kCount = searchIndex.ReadInt32();
+                        for (int i = 0; i < kCount; i++)
+                        {
+                            string key = searchIndex.ReadString();
+                            int refCount = searchIndex.ReadInt32();
+                            List<int> references = new();
+                            for (int r = 0; r < refCount; r++)
+                            {
+                                references.Add(searchIndex.Read7BitEncodedInt());
+                            }
+                            _IndexByWord.Add(key, references);
+                        }
                     }
                 });
 
-                float loadTime = watch.ElapsedMilliseconds;
-                Console.WriteLine($"Loaded {cache.Count} blueprints in {watch.ElapsedMilliseconds}ms");
-
-                var addWatch = new Stopwatch();
-                addWatch.Start();
                 foreach (var bp in tasks.SelectMany(t => t.Result))
                 {
                     AddBlueprint(bp);
                 }
                 loadMeta.Wait();
+                Console.WriteLine($"Loaded {cache.Count} blueprints in {watch.ElapsedMilliseconds}ms");
 
 
                 BubblePrints.Settings.LastLoaded = Path.GetFileName(fileToOpen);
@@ -528,12 +571,13 @@ namespace BlueprintExplorer
 
             if (generateOutput)
             {
+                progress.Current = 0;
 #pragma warning disable CS0162 // Unreachable code detected
                 try
                 {
                     Console.WriteLine("Generating");
                     File.WriteAllLines(@"D:\bp_types.txt", GuidToFullTypeName.Select(kv => $"{kv.Key} {kv.Value}"));
-                    WriteBlueprints();
+                    WriteBlueprints(progress);
                 }
                 catch (Exception ex)
                 {
@@ -555,14 +599,19 @@ namespace BlueprintExplorer
             public bool Good => !(IsBad || IsNatural || IsSecond);
         }
 
-        private void WriteBlueprints()
+        private void WriteBlueprints(ConnectionProgress progress)
         {
+
+            progress.EstimatedTotal += 3;
+            progress.Current = 0;
             int biggestString = 0;
             int biggestStringZ = 0;
             int biggestRefList = 0;
             string mostReferred = "";
 
             Dictionary<Guid, List<Guid>> References = new();
+            HashSet<string> keyWords = new();
+            StringBuilder word = new();
 
             foreach (var bp in cache)
             {
@@ -628,6 +677,8 @@ namespace BlueprintExplorer
                     comps.Write(c.ComponentIndex.Length);
                     foreach (var index in c.ComponentIndex)
                         comps.Write(index);
+
+                    progress.Current++;
                 }
 
                 current?.Dispose();
@@ -637,6 +688,69 @@ namespace BlueprintExplorer
                 var rawLangDict = File.ReadAllBytes(Path.Combine(ImportFolderBase, @"Wrath_Data\StreamingAssets\Localization\enGB.json"));
                 file.Write((ushort)ChunkTypes.Strings, 0, rawLangDict);
 
+
+                var stringDictRaw = JsonSerializer.Deserialize<JsonElement>(rawLangDict).GetProperty("strings");
+                foreach (var kv in stringDictRaw.EnumerateObject())
+                {
+                    Strings[kv.Name] = kv.Value.GetString();
+                }
+
+
+                int handleIndex = 0;
+                foreach (var handle in cache)
+                {
+                    keyWords.Clear();
+
+                    foreach (var element in handle.Elements)
+                    {
+                        if (element.key == null || element.levelDelta < 0) continue;
+
+                        ExtractKeyWords(keyWords, word, element.key);
+
+                        string localisedStr = JsonExtensions.ParseAsString(element.Node);
+                        if (localisedStr is not null)
+                        {
+                            if (localisedStr is not "<string-not-present>" and not "<null-string>")
+                                ExtractKeyWords(keyWords, word, localisedStr);
+                        }
+                        else if (element.value != null)
+                        {
+                            ExtractKeyWords(keyWords, word, element.value);
+                        }
+
+                    }
+
+                    keyWords.Remove("the");
+                    keyWords.Remove("a");
+                    keyWords.Remove("i");
+                    keyWords.Remove("if");
+                    keyWords.Remove("this");
+                    keyWords.Remove("that");
+                    keyWords.Remove("and");
+
+                    foreach (var keyWord in keyWords)
+                    {
+                        if (_IndexByWord.TryGetValue(keyWord, out var list))
+                            list.Add(handleIndex);
+                        else
+                            _IndexByWord[keyWord] = new() { handleIndex };
+                    }
+
+                    handleIndex++;
+                }
+
+                Console.WriteLine("unique words: " + _IndexByWord.Count);
+                ulong sum = 0;
+                foreach (var (k, list) in _IndexByWord)
+                {
+                    sum += (ulong)list.Count;
+                }
+
+                Console.WriteLine("total index references: " + sum);
+
+                Console.WriteLine("Continuing");
+
+
                 using (var types = file.Begin((ushort)ChunkTypes.TypeNames))
                 {
                     types.Stream.Write(GuidToFullTypeName.Count);
@@ -645,6 +759,8 @@ namespace BlueprintExplorer
                         types.Stream.Write(k);
                         types.Stream.Write(GuidToFullTypeName[k]);
                     }
+
+                    progress.Current++;
                 }
 
                 using (var chunk = file.Begin((ushort)ChunkTypes.Defaults))
@@ -660,8 +776,23 @@ namespace BlueprintExplorer
                             chunk.Stream.Write(sub.Value);
                         }
                     }
+
+                    progress.Current++;
                 }
 
+                using (var chunk = file.Begin((ushort)ChunkTypes.SearchIndex))
+                {
+                    chunk.Stream.Write(_IndexByWord.Count);
+                    foreach (var (k, list) in _IndexByWord)
+                    {
+                        chunk.Stream.Write(k);
+                        chunk.Stream.Write(list.Count);
+                        foreach (var i in list)
+                            chunk.Stream.Write7BitEncodedInt(i);
+                    }
+
+                    progress.Current++;
+                }
             }
             Console.WriteLine($"biggestString: {biggestString}, biggestStringZ: {biggestStringZ}, mostReferred: {mostReferred} ({biggestRefList})");
         }
@@ -680,12 +811,67 @@ namespace BlueprintExplorer
             bp.PrimeMatches(2);
         }
 
+        public class IndexSearchState
+        {
+            public Dictionary<int, Dictionary<string, float>> results = new();
+        };
+
         public List<BlueprintHandle> SearchBlueprints(string searchText, int matchBuffer, CancellationToken cancellationToken)
         {
             if (searchText?.Length == 0)
                 return cache;
 
             List<BlueprintHandle> toSearch = cache;
+
+            var results = new List<BlueprintHandle>() { Capacity = cache.Count };
+            if (searchText[0] == '#')
+            {
+                StringBuilder buffer = new();
+                HashSet<string> searchTerms = new();
+                ExtractKeyWords(searchTerms, buffer, searchText);
+                int numberOfShortTerms = searchTerms.Count(w => w.Length < 3);
+                if (searchTerms.Count - numberOfShortTerms > 1)
+                    searchTerms.RemoveWhere(w => w.Length < 3);
+
+                Dictionary<int, Dictionary<string, float>> resultFilter = new();
+
+                foreach (var (indexKey, list) in _IndexByWord)
+                {
+                    var matchingTerms = searchTerms.Where(t => indexKey.ContainsIgnoreCase(t)).Select(term => (term, term.Length / (float)indexKey.Length));
+                    if (matchingTerms.Any())
+                    {
+                        foreach (var i in list)
+                        {
+                            if (!resultFilter.TryGetValue(i, out var score))
+                            {
+                                score = new Dictionary<string, float>();
+                                resultFilter[i] = score;
+                            }
+                            foreach (var t in matchingTerms)
+                            {
+                                if (score.TryGetValue(t.term, out var currentScore))
+                                {
+                                    if (t.Item2 > currentScore)
+                                        score[t.term] = t.Item2;
+                                }
+                                else
+                                {
+                                    score.Add(t.term, t.Item2);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                var ranked = resultFilter.OrderByDescending(e => e.Value.Sum(kv => kv.Value));
+
+                foreach (var r in ranked.Select(e => e.Key))
+                {
+                    results.Add(cache[r]);
+                }
+
+                return results;
+            }
 
             List<string> passThrough = searchText.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
 
@@ -729,7 +915,6 @@ namespace BlueprintExplorer
 
             searchText = string.Join(" ", passThrough.Where(c => c.Length > 0)).ToLower();
 
-            var results = new List<BlueprintHandle>() { Capacity = cache.Count };
             MatchQuery query = new(searchText, BlueprintHandle.MatchProvider);
             foreach (var handle in toSearch)
             {

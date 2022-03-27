@@ -1052,6 +1052,14 @@ namespace BlueprintExplorer
             if (BubblePrints.Settings.RegexForLocalSearch)
                 regex = new(SearchTerm, _SearchTerm.Any(ch => char.IsUpper(ch)) ? RegexOptions.None : RegexOptions.IgnoreCase);
 
+            static bool MatchRaw(string line, Regex regex, string term) 
+            {
+                if (regex == null)
+                    return line.ContainsIgnoreCase(term);
+                else
+                    return regex.IsMatch(line);
+            }
+
             static bool Match(RowElement element, Regex regex, string term) 
             {
                 if (regex == null)
@@ -1065,14 +1073,24 @@ namespace BlueprintExplorer
                 var element = GetElement(candidate);
                 int sub = candidate - element.PrimaryRow;
 
-                if (sub == 0)
+                if (element.Lines != null && element.Lines.Count > 0)
                 {
-                    if (Match(element, regex, SearchTerm))
+                    if (MatchRaw(element.Lines[sub], regex, SearchTerm))
                     {
                         MatchesSearch.Add(candidate);
                         Matches.Add(candidate);
                     }
-
+                }
+                else
+                {
+                    if (sub == 0)
+                    {
+                        if (Match(element, regex, SearchTerm))
+                        {
+                            MatchesSearch.Add(candidate);
+                            Matches.Add(candidate);
+                        }
+                    }
                 }
             }
         }

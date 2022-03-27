@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using static BlueprintExplorer.BlueprintHandle;
@@ -31,10 +34,25 @@ namespace BlueprintExplorer
         {
             BubblePrints.Install();
 
-            //var prev = new BlueprintDB();
             //var prevProgress = new BlueprintDB.ConnectionProgress();
-            //var prevLoad = prev.TryConnect(prevProgress, @"C:\Users\worce\AppData\Local\BubblePrints\blueprints_raw_1.2.0f_1.binz");
+            //var load = Task.Run(() => BlueprintDB.Instance.TryConnect(prevProgress));
 
+            //var print = Task.Run(() =>
+            //{
+            //    while (true)
+            //    {
+            //        Console.WriteLine(prevProgress.Status);
+            //        if (load.IsCompleted)
+            //            return;
+
+            //        Thread.Sleep(500);
+            //    }
+
+            //});
+
+            //print.Wait();
+
+            //return;
 
             //var curr = new BlueprintDB();
             //var currProgress = new BlueprintDB.ConnectionProgress();
@@ -113,7 +131,8 @@ namespace BlueprintExplorer
             Application.Run(new Form1());
 
         }
-        
+
+
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool SetProcessDPIAware();
     }

@@ -20,7 +20,6 @@ namespace BlueprintExplorer
     public partial class Form1 : BubbleprintsForm
     {
 
-        private BlueprintDB db => BlueprintDB.Instance;
         private static bool dark;
         bool Good => initialize?.IsCompleted ?? false;
 
@@ -376,7 +375,7 @@ namespace BlueprintExplorer
                         if (Good)
                             return;
 
-                        if (header.Visible)
+                        if (!header.IsDisposed && header.Visible)
                         {
                             header.Invoke(new Action(() =>
                             {
@@ -454,6 +453,9 @@ namespace BlueprintExplorer
         private void CtrlP_VisibleChanged(object sender, EventArgs e)
         {
             if (ctrlP.Visible) return;
+
+            Activate();
+
 
             if (ctrlP.input.Text.Length > 0)
                 header.Text2 = "   ---    current: " + ctrlP.input.Text;
@@ -738,12 +740,12 @@ namespace BlueprintExplorer
 
             if (matchBuffer == 1)
             {
-                overlappedSearch = db.SearchBlueprintsAsync(searchTerm, cancellation.Token, matchBuffer);
+                overlappedSearch = BlueprintDB.Instance.SearchBlueprintsAsync(searchTerm, cancellation.Token, matchBuffer);
                 search = overlappedSearch;
             }
             else
             {
-                search = db.SearchBlueprintsAsync(searchTerm, cancellation.Token, matchBuffer);
+                search = BlueprintDB.Instance.SearchBlueprintsAsync(searchTerm, cancellation.Token, matchBuffer);
             }
 
             search.ContinueWith(task =>

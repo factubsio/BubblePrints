@@ -56,11 +56,19 @@ namespace BlueprintExplorer
             DoubleBuffered = true;
         }
 
+        int _MarqueeSpeed = 4;
+        int _LastRenderedWidth = 0;
+
         private void OnMarqueeTick(object sender, EventArgs e)
         {
             if (!_Marquee) return;
 
-            _MarqueePos += 4;
+            _MarqueePos += _MarqueeSpeed;
+
+            if (_MarqueeSpeed > 0 && (_MarqueePos + _LastRenderedWidth) >= Width)
+                _MarqueeSpeed = -_MarqueeSpeed;
+            else if (_MarqueeSpeed < 0 && _MarqueePos <= 0)
+                _MarqueeSpeed = -_MarqueeSpeed;
 
             Invalidate();
         }
@@ -244,6 +252,8 @@ namespace BlueprintExplorer
                 var advance = frag.Render(e.Graphics, this);
                 e.Graphics.TranslateTransform(advance.Width, 0);
             }
+
+            _LastRenderedWidth = (int)e.Graphics.Transform.OffsetX;
         }
     }
 }

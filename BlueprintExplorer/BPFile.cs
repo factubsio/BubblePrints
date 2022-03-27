@@ -17,6 +17,7 @@ namespace BlueprintExplorer
         TypeNames,
         ComponentNames,
         Defaults,
+        SearchIndex,
     }
 
     public struct ChunkSubTypes
@@ -167,6 +168,7 @@ namespace BlueprintExplorer
                 if (data.Length > 1024)
                 {
                     compressedLength = LZ4Codec.Encode(data, CompressionBuffer.AsSpan<byte>(), LZ4Level.L10_OPT);
+                    Console.WriteLine("Writing chunk with length: " + data.Length + ", compressed: " + compressedLength);
                 }
 
                 Stream.Write((UInt32)compressedLength);
