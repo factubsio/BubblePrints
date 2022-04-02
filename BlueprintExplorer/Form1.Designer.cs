@@ -150,7 +150,7 @@ namespace BlueprintExplorer
             | Krypton.Workspace.CompactFlags.PromoteLeafs)));
             this.blueprintDock.ContainerBackStyle = Krypton.Toolkit.PaletteBackStyle.FormCustom1;
             this.blueprintDock.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.blueprintDock.Location = new System.Drawing.Point(0, 400);
+            this.blueprintDock.Location = new System.Drawing.Point(3, 3);
             this.blueprintDock.Name = "blueprintDock";
             // 
             // 
@@ -159,7 +159,7 @@ namespace BlueprintExplorer
             this.blueprintDock.Root.WorkspaceControl = this.blueprintDock;
             this.blueprintDock.SeparatorStyle = Krypton.Toolkit.SeparatorStyle.LowProfile;
             this.blueprintDock.ShowMaximizeButton = false;
-            this.blueprintDock.Size = new System.Drawing.Size(2440, 794);
+            this.blueprintDock.Size = new System.Drawing.Size(2434, 1188);
             this.blueprintDock.SplitterWidth = 5;
             this.blueprintDock.TabIndex = 0;
             this.blueprintDock.TabStop = true;
@@ -178,7 +178,7 @@ namespace BlueprintExplorer
             this.blueprintDockContainer.Dock = System.Windows.Forms.DockStyle.Fill;
             this.blueprintDockContainer.Location = new System.Drawing.Point(0, 54);
             this.blueprintDockContainer.Name = "blueprintDockContainer";
-            this.blueprintDockContainer.Padding = new System.Windows.Forms.Padding(0, 400, 0, 0);
+            this.blueprintDockContainer.Padding = new System.Windows.Forms.Padding(3);
             this.blueprintDockContainer.Size = new System.Drawing.Size(2440, 1194);
             this.blueprintDockContainer.TabIndex = 3;
             // 

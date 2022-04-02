@@ -408,16 +408,16 @@ namespace BlueprintExplorer
 
         private void UpdatePinResults(bool pinned)
         {
-            var blueprintPadding = blueprintDockContainer.Margin;
+            var blueprintPadding = blueprintDockContainer.Padding;
             blueprintPadding.Top = pinned ? 400 : 3;
-            blueprintDockContainer.Margin = blueprintPadding;
+            blueprintDockContainer.Padding = blueprintPadding;
 
             ctrlP.Pinned = BubblePrints.Settings.PinSearchResults;
             ctrlP.PinnedHeight = CtrlPPinnedHeight;
         }
 
-        private Size CtrlPSize => new(ClientSize.Width - (ctrlP.Pinned ? 212 : 310), ctrlP.Pinned ? CtrlPPinnedHeight : blueprintDockContainer.Margin.Top);
-        private int CtrlPPinnedHeight => blueprintDockContainer.Margin.Top + topBarContainer.Height - 2;
+        private Size CtrlPSize => new(ClientSize.Width - (ctrlP.Pinned ? 212 : 310), ctrlP.Pinned ? CtrlPPinnedHeight : blueprintDockContainer.Padding.Top);
+        private int CtrlPPinnedHeight => blueprintDockContainer.Padding.Top + topBarContainer.Height - 2;
         private Point CtrlPPos => PointToScreen(new(ctrlP.Pinned ? 2 : 100, 2));
 
         protected override void OnMove(EventArgs e)
