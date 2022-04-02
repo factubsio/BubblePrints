@@ -190,6 +190,10 @@ namespace BlueprintExplorer
         [DisplayName("Regex for local searches")]
         public bool RegexForLocalSearch { get; set; } = false;
 
+        [Description("If true, the search results will always be shown")]
+        [DisplayName("Pin search results")]
+        public bool PinSearchResults { get; set; } = false;
+
         [Description("If true, disables any fun seasonal themes that may be in effect")]
         [DisplayName("Disable fun themes")]
         public bool NoSeasonalTheme { get; set; } = false;

@@ -31,30 +31,32 @@ namespace BlueprintExplorer
         {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
-            this.panel1 = new System.Windows.Forms.Panel();
+            this.topBarContainer = new System.Windows.Forms.Panel();
             this.controlBar = new System.Windows.Forms.TableLayoutPanel();
             this.helpButton = new System.Windows.Forms.Button();
             this.settingsButton = new System.Windows.Forms.Button();
             this.availableVersions = new System.Windows.Forms.ComboBox();
             this.notifications = new System.Windows.Forms.Button();
+            this.header = new BlueprintExplorer.BubbleLabel();
             this.blueprintDock = new Krypton.Docking.KryptonDockableWorkspace();
             this.kDockManager = new Krypton.Docking.KryptonDockingManager();
             this.kGlobalManager = new Krypton.Toolkit.KryptonManager(this.components);
-            this.header = new BlueprintExplorer.BubbleLabel();
-            this.panel1.SuspendLayout();
+            this.blueprintDockContainer = new System.Windows.Forms.Panel();
+            this.topBarContainer.SuspendLayout();
             this.controlBar.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.blueprintDock)).BeginInit();
+            this.blueprintDockContainer.SuspendLayout();
             this.SuspendLayout();
             // 
-            // panel1
+            // topBarContainer
             // 
-            this.panel1.Controls.Add(this.controlBar);
-            this.panel1.Dock = System.Windows.Forms.DockStyle.Top;
-            this.panel1.Location = new System.Drawing.Point(0, 0);
-            this.panel1.Name = "panel1";
-            this.panel1.Padding = new System.Windows.Forms.Padding(9, 8, 9, 8);
-            this.panel1.Size = new System.Drawing.Size(2440, 54);
-            this.panel1.TabIndex = 1;
+            this.topBarContainer.Controls.Add(this.controlBar);
+            this.topBarContainer.Dock = System.Windows.Forms.DockStyle.Top;
+            this.topBarContainer.Location = new System.Drawing.Point(0, 0);
+            this.topBarContainer.Name = "topBarContainer";
+            this.topBarContainer.Padding = new System.Windows.Forms.Padding(9, 8, 9, 8);
+            this.topBarContainer.Size = new System.Drawing.Size(2440, 54);
+            this.topBarContainer.TabIndex = 1;
             // 
             // controlBar
             // 
@@ -128,6 +130,18 @@ namespace BlueprintExplorer
             this.notifications.Text = "1";
             this.notifications.UseVisualStyleBackColor = true;
             // 
+            // header
+            // 
+            this.header.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.header.Location = new System.Drawing.Point(3, 3);
+            this.header.Marquee = false;
+            this.header.Name = "header";
+            this.header.OverrideText = null;
+            this.header.Size = new System.Drawing.Size(1952, 32);
+            this.header.TabIndex = 6;
+            this.header.Text = "LOADING...";
+            this.header.Text2 = null;
+            // 
             // blueprintDock
             // 
             this.blueprintDock.ActivePage = null;
@@ -136,7 +150,7 @@ namespace BlueprintExplorer
             | Krypton.Workspace.CompactFlags.PromoteLeafs)));
             this.blueprintDock.ContainerBackStyle = Krypton.Toolkit.PaletteBackStyle.FormCustom1;
             this.blueprintDock.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.blueprintDock.Location = new System.Drawing.Point(0, 54);
+            this.blueprintDock.Location = new System.Drawing.Point(0, 400);
             this.blueprintDock.Name = "blueprintDock";
             // 
             // 
@@ -145,7 +159,7 @@ namespace BlueprintExplorer
             this.blueprintDock.Root.WorkspaceControl = this.blueprintDock;
             this.blueprintDock.SeparatorStyle = Krypton.Toolkit.SeparatorStyle.LowProfile;
             this.blueprintDock.ShowMaximizeButton = false;
-            this.blueprintDock.Size = new System.Drawing.Size(2440, 1194);
+            this.blueprintDock.Size = new System.Drawing.Size(2440, 794);
             this.blueprintDock.SplitterWidth = 5;
             this.blueprintDock.TabIndex = 0;
             this.blueprintDock.TabStop = true;
@@ -158,14 +172,15 @@ namespace BlueprintExplorer
             // 
             this.kGlobalManager.GlobalAllowFormChrome = false;
             // 
-            // header
+            // blueprintDockContainer
             // 
-            this.header.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.header.Location = new System.Drawing.Point(3, 3);
-            this.header.Name = "header";
-            this.header.Size = new System.Drawing.Size(1952, 32);
-            this.header.TabIndex = 6;
-            this.header.Text = "LOADING...";
+            this.blueprintDockContainer.Controls.Add(this.blueprintDock);
+            this.blueprintDockContainer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.blueprintDockContainer.Location = new System.Drawing.Point(0, 54);
+            this.blueprintDockContainer.Name = "blueprintDockContainer";
+            this.blueprintDockContainer.Padding = new System.Windows.Forms.Padding(0, 400, 0, 0);
+            this.blueprintDockContainer.Size = new System.Drawing.Size(2440, 1194);
+            this.blueprintDockContainer.TabIndex = 3;
             // 
             // Form1
             // 
@@ -173,21 +188,22 @@ namespace BlueprintExplorer
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.BlueprintFont = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             this.ClientSize = new System.Drawing.Size(2440, 1248);
-            this.Controls.Add(this.blueprintDock);
-            this.Controls.Add(this.panel1);
+            this.Controls.Add(this.blueprintDockContainer);
+            this.Controls.Add(this.topBarContainer);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.LinkFont = new System.Drawing.Font("Consolas", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             this.Name = "Form1";
             this.Text = "BlueprintDB";
-            this.panel1.ResumeLayout(false);
+            this.topBarContainer.ResumeLayout(false);
             this.controlBar.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.blueprintDock)).EndInit();
+            this.blueprintDockContainer.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
 
         #endregion
-        private System.Windows.Forms.Panel panel1;
+        private System.Windows.Forms.Panel topBarContainer;
         private System.Windows.Forms.TableLayoutPanel controlBar;
         private System.Windows.Forms.Button settingsButton;
         private System.Windows.Forms.ComboBox availableVersions;
@@ -197,6 +213,7 @@ namespace BlueprintExplorer
         private Krypton.Docking.KryptonDockingManager kDockManager;
         private Krypton.Toolkit.KryptonManager kGlobalManager;
         private BubbleLabel header;
+        private System.Windows.Forms.Panel blueprintDockContainer;
     }
 }
 

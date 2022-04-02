@@ -196,9 +196,22 @@ namespace BlueprintExplorer
 
             header.Font = new Font(FontFamily.GenericSansSerif, 14);
 
-
-
             Text = "BubblePrints - " + Application.ProductVersion;
+
+            ctrlP = new();
+            ctrlP.Daddy = this;
+            ctrlP.VisibleChanged += CtrlP_VisibleChanged;
+
+            UpdatePinResults(BubblePrints.Settings.PinSearchResults);
+
+
+            BubblePrints.OnSettingsChanged += () =>
+            {
+                if (ctrlP.Pinned != BubblePrints.Settings.PinSearchResults)
+                {
+                    UpdatePinResults(BubblePrints.Settings.PinSearchResults);
+                }
+            };
 
             Load += (sender, e) =>
             {
@@ -264,6 +277,7 @@ namespace BlueprintExplorer
                 NewBlueprintViewer();
 
                 kGlobalManager.GlobalPaletteMode = Krypton.Toolkit.PaletteModeManager.SparkleOrange;
+
             };
 
 
@@ -320,15 +334,14 @@ namespace BlueprintExplorer
 
             if (Dark)
             {
-                BubbleTheme.DarkenControls( panel1, settingsButton, helpButton);
+                BubbleTheme.DarkenControls(topBarContainer, settingsButton, helpButton, blueprintDockContainer);
                 Invalidate();
             }
 
 
-
             if (SeasonalOverlay.InSeason)
             {
-                BubbleTheme.SeasonControls(panel1, settingsButton, helpButton);
+                BubbleTheme.SeasonControls(topBarContainer, settingsButton, helpButton);
             }
 
             var loadType = BlueprintDB.Instance.GetLoadType();
@@ -341,6 +354,7 @@ namespace BlueprintExplorer
                 BlueprintDB.GoingToLoad.FromNewImport => "IMPORTING",
                 _ => throw new Exception(),
             };
+
 
             var progress = new BlueprintDB.ConnectionProgress();
             header.Marquee = true;
@@ -392,7 +406,19 @@ namespace BlueprintExplorer
 
         }
 
-        private Size CtrlPSize => new(ClientSize.Width - 310, 75);
+        private void UpdatePinResults(bool pinned)
+        {
+            var blueprintPadding = blueprintDockContainer.Margin;
+            blueprintPadding.Top = pinned ? 400 : 3;
+            blueprintDockContainer.Margin = blueprintPadding;
+
+            ctrlP.Pinned = BubblePrints.Settings.PinSearchResults;
+            ctrlP.PinnedHeight = CtrlPPinnedHeight;
+        }
+
+        private Size CtrlPSize => new(ClientSize.Width - (ctrlP.Pinned ? 212 : 310), ctrlP.Pinned ? CtrlPPinnedHeight : blueprintDockContainer.Margin.Top);
+        private int CtrlPPinnedHeight => blueprintDockContainer.Margin.Top + topBarContainer.Height - 2;
+        private Point CtrlPPos => PointToScreen(new(ctrlP.Pinned ? 2 : 100, 2));
 
         protected override void OnMove(EventArgs e)
         {
@@ -400,8 +426,7 @@ namespace BlueprintExplorer
 
             if (CtrlPVisible)
             {
-                var search = PointToScreen(new Point(100, 10));
-                ctrlP.Location = new Point(search.X, search.Y);
+                ctrlP.Location = CtrlPPos;
             }
         }
 
@@ -433,17 +458,8 @@ namespace BlueprintExplorer
 
             header.OverrideText = "";
 
-            if (ctrlP == null)
-            {
-                ctrlP = new();
-                ctrlP.Daddy = this;
-                ctrlP.VisibleChanged += CtrlP_VisibleChanged;
-
-            }
-
             ctrlP.StartPosition = FormStartPosition.Manual;
-            var search = PointToScreen(new Point(100, 10));
-            ctrlP.Location = new Point(search.X, search.Y);
+            ctrlP.Location = CtrlPPos;
             ctrlP.Size = CtrlPSize;
             ctrlP.input.Focus();
             ctrlP.Show(this);
@@ -607,7 +623,7 @@ namespace BlueprintExplorer
 
         public void HideCtrlP()
         {
-            if (CtrlPVisible)
+            if (CtrlPVisible && !ctrlP.Pinned)
             {
                 ctrlP.Hide();
             }
@@ -759,6 +775,7 @@ namespace BlueprintExplorer
         CtrlP ctrlP;
 
         public static bool Dark { get => dark; set => dark = value; }
+
 
         private static readonly char[] wordSeparators =
         {
@@ -951,6 +968,7 @@ namespace BlueprintExplorer
                     cell.SelectedPage = parent;
                 }
 
+                Show();
             }
         }
 

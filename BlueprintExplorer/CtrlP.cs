@@ -12,6 +12,30 @@ namespace BlueprintExplorer
 {
     public partial class CtrlP : Form
     {
+        private bool _Pinned = false;
+        public bool Pinned
+        {
+            get => _Pinned;
+            set
+            {
+                if (_Pinned == value) return;
+                _Pinned = value;
+                UpdatePinned();
+            }
+        }
+        private int _PinnedHeight;
+        public int PinnedHeight
+        {
+            get => _PinnedHeight;
+            set
+            {
+                _PinnedHeight = value;
+
+                if (!_Pinned || Height == value) return;
+
+                UpdatePinned();
+            }
+        }
         private DataGridView root;
         private Label noResults;
         public CtrlP()
@@ -91,7 +115,7 @@ namespace BlueprintExplorer
                 {
                     root.Rows[row].Selected = true;
                     Daddy.ShowBlueprint(row, ModifierKeys.HasFlag(Keys.Control) || e.Button == MouseButtons.Middle);
-                    Hide();
+                    Daddy.HideCtrlP();
                 }
             }
         }
@@ -103,8 +127,19 @@ namespace BlueprintExplorer
             Daddy.InvalidateResults(input.Text);
         }
 
+        private void UpdatePinned()
+        {
+            closeHintLabel.OverrideText = _Pinned ? "<pinned>" : null;
+            UpdateSize();
+        }
+
         private void UpdateSize()
         {
+            if (Pinned)
+            {
+                Height = PinnedHeight;
+                return;
+            }
             int neededHeight = root.Rows.GetRowsHeight(DataGridViewElementStates.None) - 33;
             if (neededHeight < 640)
             {
@@ -146,7 +181,7 @@ namespace BlueprintExplorer
         {
             if (e.KeyCode == Keys.Escape)
             {
-                Hide();
+                Daddy.HideCtrlP();
             }
             if (e.KeyCode == Keys.Up || (e.KeyCode == Keys.P && ModifierKeys.HasFlag(Keys.Control)))
             {
@@ -187,7 +222,7 @@ namespace BlueprintExplorer
 
                 Daddy.ShowBlueprint(root.SelectedRow(), ModifierKeys.HasFlag(Keys.Control));
 
-                Hide();
+                Daddy.HideCtrlP();
             }
         }
 
