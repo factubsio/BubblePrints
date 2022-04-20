@@ -1036,7 +1036,7 @@ namespace BlueprintExplorer
 
         }
 
-        private string _SearchTerm;
+        private string _SearchTerm = "";
 
         private void UpdateSearchMatches(int direction)
         {
