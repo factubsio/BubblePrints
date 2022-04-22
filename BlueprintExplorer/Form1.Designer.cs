@@ -87,6 +87,7 @@ namespace BlueprintExplorer
             this.helpButton.Name = "helpButton";
             this.helpButton.Size = new System.Drawing.Size(94, 32);
             this.helpButton.TabIndex = 4;
+            this.helpButton.TabStop = false;
             this.helpButton.Text = "Help";
             this.helpButton.UseVisualStyleBackColor = true;
             this.helpButton.Click += new System.EventHandler(this.helpButton_Click);
@@ -98,6 +99,7 @@ namespace BlueprintExplorer
             this.settingsButton.Name = "settingsButton";
             this.settingsButton.Size = new System.Drawing.Size(94, 32);
             this.settingsButton.TabIndex = 2;
+            this.settingsButton.TabStop = false;
             this.settingsButton.Text = "Settings";
             this.settingsButton.UseVisualStyleBackColor = true;
             // 
@@ -127,6 +129,7 @@ namespace BlueprintExplorer
             this.notifications.Name = "notifications";
             this.notifications.Size = new System.Drawing.Size(58, 32);
             this.notifications.TabIndex = 5;
+            this.notifications.TabStop = false;
             this.notifications.Text = "1";
             this.notifications.UseVisualStyleBackColor = true;
             // 

@@ -103,7 +103,19 @@ namespace BlueprintExplorer
             rootHost.HostedControls.Add("none", noResults);
             rootHost.ShowControl("none");
 
+            this.ShowInTaskbar = false;
+
             DoubleBuffered = true;
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                var defaultParams = base.CreateParams;
+                defaultParams.ExStyle |= 0x80;
+                return defaultParams;
+            }
         }
 
         private void Root_MouseClick(object sender, MouseEventArgs e)
@@ -235,6 +247,7 @@ namespace BlueprintExplorer
 
         protected override void OnActivated(EventArgs e)
         {
+            Owner = Daddy;
             UpdateSize();
             if (savedVerticalScroll != -1)
             {

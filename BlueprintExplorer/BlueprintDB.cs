@@ -123,7 +123,7 @@ namespace BlueprintExplorer
 
         public List<GameVersion> Available = new() { };
 
-        private readonly GameVersion LastKnown = new(1, 2, 0, 'A', 2);
+        private readonly GameVersion LastKnown = new(1, 3, 0, 'i', 0);
 
         private readonly string filenameRoot = "blueprints_raw";
         private readonly string extension = "binz";

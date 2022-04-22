@@ -575,6 +575,8 @@ namespace BlueprintExplorer
                     if (e.KeyCode == Keys.Escape)
                     {
                         input.FindForm().ActiveControl = null;
+                        e.SuppressKeyPress = true;
+                        e.Handled = true;
                     }
                     return;
                 }
@@ -582,10 +584,18 @@ namespace BlueprintExplorer
                 if (ActiveViewer?.Searching == true)
                 {
                     if (e.KeyCode == Keys.Escape)
+                    {
                         ActiveViewer.StopSearching(false);
+                        e.SuppressKeyPress = true;
+                        e.Handled = true;
+                    }
 
                     if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Return)
+                    {
                         ActiveViewer.StopSearching(true);
+                        e.SuppressKeyPress = true;
+                        e.Handled = true;
+                    }
 
                     return;
                 }
