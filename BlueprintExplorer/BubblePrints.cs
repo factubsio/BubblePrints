@@ -125,7 +125,23 @@ namespace BlueprintExplorer
 
             BubblePrints.NotifyTemplatesChanged(oldCount, GeneratorTemplate?.Length ?? 0);
         }
+        internal void SetColumnSize(int index, int value)
+        {
+            if (value != SearchColumnSizesDefault[index])
+                SearchColumnSizes[index] = value;
+            else
+                SearchColumnSizes[index] = -1;
+        }
 
+        internal int GetColumnSize(int index)
+        {
+            int savedValue = SearchColumnSizes[index];
+
+            if (savedValue == -1)
+                return SearchColumnSizesDefault[index];
+            else
+                return savedValue;
+        }
 
         public SettingsProxy() { }
 
@@ -211,6 +227,11 @@ namespace BlueprintExplorer
         [DisplayName("Generator template")]
         //[DesignerSerializationVisibility(DesignerSerializationVisibility.Content)]
         public Template[] GeneratorTemplate { get; set; }
+
+        [Description("Column widths for search results (only takes effect when BubblePrints loads, automatically updated if you resize the columns)")]
+        [DisplayName("Search column widths")]
+        public int[] SearchColumnSizes { get; set; } = new int[]{-1, -1, -1};
+        private readonly static int[] SearchColumnSizesDefault = new int[]{800, 600, 450};
     }
 
     public class Template

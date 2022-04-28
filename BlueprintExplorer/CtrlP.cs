@@ -59,15 +59,24 @@ namespace BlueprintExplorer
             root.Columns.Add("Name", "Name");
             root.Columns.Add("Type", "Type");
             root.Columns.Add("Guid", "Guid");
-            root.Columns[0].Width = 800;
+
+            root.Columns[0].Width = BubblePrints.Settings.GetColumnSize(0);
             root.Columns[0].DataPropertyName = "Name";
             root.Columns[0].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
 
-            root.Columns[1].Width = 600;
+            root.Columns[1].Width = BubblePrints.Settings.GetColumnSize(1);
             root.Columns[1].DataPropertyName = "Type";
 
-            root.Columns[2].Width = 450;
+            root.Columns[2].Width = BubblePrints.Settings.GetColumnSize(2);
             root.Columns[2].DataPropertyName = "GuidText";
+
+            root.ColumnWidthChanged += (sender, e) =>
+            {
+                BubblePrints.Settings.SetColumnSize(0, root.Columns[0].Width);
+                BubblePrints.Settings.SetColumnSize(1, root.Columns[1].Width);
+                BubblePrints.Settings.SetColumnSize(2, root.Columns[2].Width);
+                BubblePrints.SaveSettings();
+            };
 
             root.RowHeadersVisible = false;
             root.ColumnHeadersVisible = false;
