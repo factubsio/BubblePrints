@@ -41,7 +41,7 @@ namespace BlueprintExplorer
                 result.Add(buffer.ToString().ToLower());
         }
 
-        public static readonly string ImportFolderBase = @"D:\WOTR-1.2-DEBUG";
+        public static readonly string ImportFolderBase = @"D:\WOTR-1.3-DEBUG";
 
         #region DEV
         bool generateOutput = false;
@@ -123,7 +123,7 @@ namespace BlueprintExplorer
 
         public List<GameVersion> Available = new() { };
 
-        private readonly GameVersion LastKnown = new(1, 3, 0, 'i', 0);
+        private readonly GameVersion LastKnown = new(1, 3, 0, 'i', 1);
 
         private readonly string filenameRoot = "blueprints_raw";
         private readonly string extension = "binz";
