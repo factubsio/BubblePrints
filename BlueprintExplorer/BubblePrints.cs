@@ -214,6 +214,10 @@ namespace BlueprintExplorer
         [DisplayName("Disable fun themes")]
         public bool NoSeasonalTheme { get; set; } = false;
 
+        [Description("If true, the filter value is shared between all blueprint views")]
+        [DisplayName("Share blueprint filter")]
+        public bool ShareBlueprintFilter { get; set; } = false;
+
         [ReadOnly(true)]
         [Description("This path will be used if the 'check for updates' is false, or if there is no connectivity to check for any later version")]
         [DisplayName("Most recent blueprints loaded")]

@@ -545,7 +545,8 @@ namespace BlueprintExplorer
                 else
                 {
                     VerticalScroll.Value = 0;
-                    _Filter = "";
+                    if (!BubblePrints.Settings.ShareBlueprintFilter)
+                        _Filter = "";
                     ValidateFilter(null);
                     OnFilterChanged?.Invoke(_Filter);
                 }

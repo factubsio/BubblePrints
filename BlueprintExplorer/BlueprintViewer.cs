@@ -42,6 +42,23 @@ namespace BlueprintExplorer
         private BlueprintControl view;
         bool refShownFirstTime = true;
 
+        private static event Action SharedFilterChanged;
+
+        private static string _SharedFilter;
+        private static string SharedFilter
+        {
+            get => _SharedFilter;
+            set
+            {
+                if (_SharedFilter != value)
+                {
+                    _SharedFilter = value;
+                    if (BubblePrints.Settings.ShareBlueprintFilter)
+                        SharedFilterChanged?.Invoke();
+                }
+            }
+        }
+
         public BlueprintViewer()
         {
             references = new();
@@ -118,6 +135,12 @@ namespace BlueprintExplorer
                 Clipboard.SetText(result);
             };
 
+            if (BubblePrints.Settings.ShareBlueprintFilter)
+            {
+                filter.Text = SharedFilter;
+                view.Filter = SharedFilter;
+            }
+
             view.OnPathHovered += path =>
             {
                 currentPath.Text = path ?? "-";
@@ -126,11 +149,24 @@ namespace BlueprintExplorer
             view.OnFilterChanged += filterValue =>
             {
                 filter.Text = filterValue;
+                SharedFilter = filterValue;
             };
 
             view.OnNavigate += Navigate;
 
-            filter.TextChanged += (sender, e) => view.Filter = filter.Text;
+            filter.TextChanged += (sender, e) =>
+            {
+                view.Filter = filter.Text;
+                SharedFilter = filter.Text;
+            };
+
+            SharedFilterChanged += () =>
+            {
+                if (SharedFilter != filter.Text)
+                    filter.Text = SharedFilter;
+            };
+
+
             if (Form1.Dark)
             {
                 BubbleTheme.DarkenControls(view, filter, references, openExternal, copyTemplate, templatesList, currentPath);
