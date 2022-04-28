@@ -19,7 +19,7 @@ namespace BlueprintExplorer.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -111,11 +111,8 @@ namespace BlueprintExplorer.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {\rtf1\ansi\ansicpg1252\deff0\nouicompat{\fonttbl{\f0\froman\fprq2\fcharset0 Calibri;}{\f1\froman\fprq2\fcharset0 Liberation Serif;}{\f2\froman\fprq2\fcharset0 Lucida Console;}{\f3\fnil\fcharset0 Lucida Console;}{\f4\fnil\fcharset2 Symbol;}}
-        ///{\colortbl ;\red221\green221\blue221;\red0\green0\blue0;\red192\green192\blue192;}
-        ///{\*\generator Riched20 10.0.19041}\viewkind4\uc1 
-        ///\pard\nowidctlpar\hyphpar0\sa200\sl276\slmult1\kerning1\b\f0\fs28\lang1033 SETTINGS\b0\f1\fs24\lang2057\par
-        ///\f0\fs22\lang1033 Some th [rest of string was truncated]&quot;;.
+        ///   Looks up a localized string similar to {\rtf1\ansi\deff3\adeflang1025
+        ///{\fonttbl{\f0\froman\fprq2\fcharset0 Times New Roman;}{\f1\froman\fprq2\fcharset2 Symbol;}{\f2\fswiss\fprq2\fcharset0 Arial;}{\f3\froman\fprq2\fcharset0 Liberation Serif{\*\falt Times New Roman};}{\f4\fmodern\fprq1\fcharset0 Liberation Mono{\*\falt Courier New};}{\f5\fswiss\fprq2\fcharset0 Liberation Sans{\*\falt Arial};}{\f6\froman\fprq2\fcharset0 Calibri;}{\f7\froman\fprq2\fcharset0 Lucida Console;}{\f8\fmodern\fprq1\fcharset0 NSimSun;}{\f9\fnil\fprq2\fcharset0 Microsoft Ya [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string help {
             get {

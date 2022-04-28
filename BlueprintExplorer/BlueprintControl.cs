@@ -1044,7 +1044,7 @@ namespace BlueprintExplorer
             MatchesSearch.Clear();
             Matches.Clear();
 
-            if (_SearchTerm.Length == 0) return;
+            if (_SearchTerm.Length == 0 || direction == 0) return;
 
             int begin = direction > 0 ? 0 : Count - 1;
             int end = direction > 0 ? Count : -1;

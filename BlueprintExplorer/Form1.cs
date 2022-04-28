@@ -512,7 +512,7 @@ namespace BlueprintExplorer
 
             if (ActiveViewer.Searching)
             {
-                if (char.IsLetterOrDigit(e.KeyChar) || char.IsPunctuation(e.KeyChar))
+                if (char.IsLetterOrDigit(e.KeyChar) || char.IsPunctuation(e.KeyChar) || e.KeyChar == ' ')
                     ActiveViewer.AppendSearchChar(e.KeyChar);
                 if (e.KeyChar == '\b')
                     ActiveViewer.DeleteLastSearchChar();

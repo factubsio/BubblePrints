@@ -33,10 +33,10 @@ namespace BlueprintExplorer
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             this.topBarContainer = new System.Windows.Forms.Panel();
             this.controlBar = new System.Windows.Forms.TableLayoutPanel();
-            this.helpButton = new System.Windows.Forms.Button();
-            this.settingsButton = new System.Windows.Forms.Button();
+            this.helpButton = new NonFocusButton();
+            this.settingsButton = new NonFocusButton();
             this.availableVersions = new System.Windows.Forms.ComboBox();
-            this.notifications = new System.Windows.Forms.Button();
+            this.notifications = new NonFocusButton();
             this.header = new BlueprintExplorer.BubbleLabel();
             this.blueprintDock = new Krypton.Docking.KryptonDockableWorkspace();
             this.kDockManager = new Krypton.Docking.KryptonDockingManager();

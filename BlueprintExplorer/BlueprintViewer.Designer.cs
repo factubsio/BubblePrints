@@ -37,12 +37,12 @@ namespace BlueprintExplorer
             this.searchTerm = new System.Windows.Forms.TextBox();
             this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
             this.currentPath = new System.Windows.Forms.TextBox();
-            this.openExternal = new System.Windows.Forms.Button();
-            this.copyTemplate = new System.Windows.Forms.Button();
+            this.openExternal = new NonFocusButton();
+            this.copyTemplate = new NonFocusButton();
             this.label1 = new System.Windows.Forms.Label();
             this.filter = new System.Windows.Forms.TextBox();
             this.templatesList = new System.Windows.Forms.ComboBox();
-            this.toggleReferencesVisible = new Krypton.Toolkit.KryptonCheckButton();
+            this.toggleReferencesVisible = new NonFocusKryptonCheckButton();
             this.tableLayoutPanel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.kryptonSplitContainer1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.kryptonSplitContainer1.Panel1)).BeginInit();
