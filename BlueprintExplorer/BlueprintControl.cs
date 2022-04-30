@@ -179,6 +179,8 @@ namespace BlueprintExplorer
             private string _Path;
             public string Type;
             internal string Default;
+            public string Extra = "";
+            internal bool LinkStale;
 
             internal void AllChildren(Action<RowElement> p)
             {
@@ -232,7 +234,7 @@ namespace BlueprintExplorer
             public bool HasChildren => Children.Count > 0;
             public bool HasLink => link != null;
 
-            public string SearchableValue => value ?? ValueStyled?.Raw ?? "";
+            public string SearchableValue => (value ?? ValueStyled?.Raw ?? "") + Extra;
 
             private string CalculatePath()
             {
@@ -395,7 +397,7 @@ namespace BlueprintExplorer
                     Parent = null,
                     String = null,
                     RowCount = 1,
-                    Collapsed = true,
+                    Collapsed = !BubblePrints.Settings.BlueprintNameExpanded,
                 });
                 Elements.Add(new ()
                 {
@@ -458,6 +460,20 @@ namespace BlueprintExplorer
                             IsObj = e.isObj,
                             Collapsed = totalRows != 0 && !BubblePrints.Settings.EagerExpand && currentLevel > 0,
                         };
+
+                        if (row.HasLink)
+                        {
+                            if (BlueprintDB.Instance.Blueprints.TryGetValue(Guid.Parse(row.link), out var target))
+                            {
+                                row.LinkStale = false;
+                                row.Extra = "  -> " + target.Name + " :" + target.TypeName;
+                            }
+                            else
+                            {
+                                row.LinkStale = true;
+                                row.Extra = "  -> STALE";
+                            }
+                        }
 
                         if (e.isObj && e.HasType)
                         {
@@ -627,7 +643,6 @@ namespace BlueprintExplorer
 
             float xOffset = 48 + elem.level * LevelIndent;
 
-            var extra = "";
             if (elem.HasLink) 
             {
                 if (BackColor.GetBrightness() < 0.5f)
@@ -635,15 +650,9 @@ namespace BlueprintExplorer
                 else
                     valueColor = Color.DarkGreen;
 
-                if (BlueprintDB.Instance.Blueprints.TryGetValue(Guid.Parse(elem.link), out var target))
-                {
-                    extra = "  -> " + target.Name + " :" + target.TypeName;
-                }
-                else
-                {
+                if (elem.LinkStale)
                     valueColor = Color.Gray;
-                    extra = "  -> STALE";
-                }
+
                 valueFont = LinkFont;
             }
             else if (elem.value is "null" or "NULL" or "[0]")
@@ -690,7 +699,7 @@ namespace BlueprintExplorer
                     var brush = new SolidBrush(valueColor);
                     if (elem.ValueStyled == null)
                     {
-                        var str = elem.value + extra;
+                        var str = elem.value + elem.Extra;
                         if (str.Length > 0)
                         {
                             right += render.Graphics.MeasureString(str, valueFont).Width;
@@ -843,6 +852,10 @@ namespace BlueprintExplorer
                 if (jbpCompatible && elem.key == "Blueprint ID") {
                     value = "!bp_" + value;
                 }
+
+                if (elem.IsObj && elem.Type != null && !jbpCompatible)
+                    value = elem.Type;
+
                 if (string.IsNullOrWhiteSpace(value))
                     return;
                 Clipboard.SetText(value);

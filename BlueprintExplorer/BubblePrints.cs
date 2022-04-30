@@ -235,6 +235,11 @@ namespace BlueprintExplorer
         [Description("Column widths for search results (only takes effect when BubblePrints loads, automatically updated if you resize the columns)")]
         [DisplayName("Search column widths")]
         public int[] SearchColumnSizes { get; set; } = new int[]{-1, -1, -1};
+
+        [Description("If true, the first item in the blueprint view (name, id, type) will be expanded by default")]
+        [DisplayName("Expand blueprint name")]
+        public bool BlueprintNameExpanded { get; set; } = false;
+
         private readonly static int[] SearchColumnSizesDefault = new int[]{800, 600, 450};
     }
 
