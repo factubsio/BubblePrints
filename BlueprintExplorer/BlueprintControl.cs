@@ -856,6 +856,9 @@ namespace BlueprintExplorer
                 if (elem.IsObj && elem.Type != null && !jbpCompatible)
                     value = elem.Type;
 
+                if (elem.String != null)
+                    value = elem.String;
+
                 if (string.IsNullOrWhiteSpace(value))
                     return;
                 Clipboard.SetText(value);
