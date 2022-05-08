@@ -97,7 +97,7 @@ namespace BlueprintExplorer
             {
                 if (json)
                 {
-                    if (stack.Peek().Children > 0)
+                    if (stack.Peek().Children > 1)
                         stream.Write(',');
                     stream.WriteLine();
                 }
