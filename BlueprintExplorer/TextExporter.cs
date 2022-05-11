@@ -133,6 +133,7 @@ namespace BlueprintExplorer
             {
                 stack.Push(new());
                 stack.Peek().IsObj = true;
+                stack.Peek().Children++;
                 stream.WriteLine("{");
                 level++;
                 WriteLine("guid", blueprint.GuidText, null);

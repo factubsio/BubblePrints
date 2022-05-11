@@ -386,6 +386,8 @@ namespace BlueprintExplorer
             int totalRows = 0;
             if (DisplayedObject == null) return;
 
+            int worstCaseWidth = 600;
+
             if (DisplayedObject != null)
             {
                 Elements.Add(new ()
@@ -534,6 +536,13 @@ namespace BlueprintExplorer
                             row.RowCount = lines.Count;
                         }
 
+                        float keyWidth = g.MeasureString(row.key, Bold).Width;
+                        float xOffset = 48 + row.level * LevelIndent;
+                        float x = xOffset - LevelIndent * 0.5f;
+
+                        if (x + keyWidth > worstCaseWidth)
+                            worstCaseWidth = (int)(x + keyWidth + 64.0f);
+
                         stack.Peek()?.Children.Add(row);
                         row.PrimaryRow = totalRows;
                         Elements.Add(row);
@@ -545,6 +554,8 @@ namespace BlueprintExplorer
                         }
                     }
                 }
+
+                NameColumnWidth = worstCaseWidth;
             }
             AutoScroll = true;
             _SoftRowSelection = 0;
@@ -727,17 +738,17 @@ namespace BlueprintExplorer
                     }
 
 
-                    if (elem.Default != null)
-                    {
-                        if (!empty)
-                        {
-                            right += 64;
-                            if (right < NameColumnWidth + 400)
-                                right = NameColumnWidth + 400;
-                        }
+                    //if (elem.Default != null)
+                    //{
+                    //    if (!empty)
+                    //    {
+                    //        right += 64;
+                    //        if (right < NameColumnWidth + 400)
+                    //            right = NameColumnWidth + 400;
+                    //    }
 
-                        render.Graphics.DrawString("[default: " + elem.Default + "]", Font, Brushes.Gray, new PointF(right, 0));
-                    }
+                    //    render.Graphics.DrawString("[default: " + elem.Default + "]", Font, Brushes.Gray, new PointF(right, 0));
+                    //}
                 }
             }
 

@@ -681,6 +681,7 @@ namespace BlueprintExplorer
                 TextExporter.Export(stream, blueprint);
             }
             var editor = BubblePrints.Settings.Editor;
+            
             if (editor == null || !File.Exists(editor))
                 editor = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "notepad.exe");
             string[] args = BubblePrints.Settings.ExternalEditorTemplate.Split(' ', StringSplitOptions.RemoveEmptyEntries);
