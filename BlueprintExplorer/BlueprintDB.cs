@@ -123,7 +123,7 @@ namespace BlueprintExplorer
 
         public List<GameVersion> Available = new() { };
 
-        private readonly GameVersion LastKnown = new(1, 3, 2, 'c', 0);
+        private readonly GameVersion LastKnown = new(1, 3, 4, 'e', 0);
 
         private readonly string filenameRoot = "blueprints_raw";
         private readonly string extension = "binz";
@@ -220,6 +220,55 @@ namespace BlueprintExplorer
         }
 
         private Dictionary<string, Dictionary<string, string>> defaults = new();
+        private Dictionary<string, Dictionary<string, Type>> fieldTypes = new();
+        private Dictionary<string, Type> nullDict = new();
+
+        private IEnumerable<(string name, Type type)> FieldTypes(Type of)
+        {
+            if (of.BaseType != null)
+                foreach (var t in FieldTypes(of.BaseType))
+                    yield return t;
+
+            foreach (var f in of.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+                yield return (f.Name, f.FieldType);
+        }
+
+        public Type TypeForField(string typename, string field)
+        {
+            if (BubblePrints.Wrath == null || typename == null)
+                return null;
+
+            if (fieldTypes.TryGetValue(typename, out var fields))
+            {
+                if (fields.TryGetValue(field, out var fieldType))
+                    return fieldType;
+                return null;
+            }
+            else
+            {
+                var t = BubblePrints.Wrath.GetType(typename);
+                if (t == null)
+                {
+                    fieldTypes[typename] = nullDict;
+                    return null;
+                }
+
+                var fieldTypeDict = new Dictionary<string, Type>();
+
+                foreach (var prop in t.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                    fieldTypeDict[prop.Name] = prop.PropertyType;
+
+                foreach (var (fname, ftype) in FieldTypes(t))
+                    fieldTypeDict[fname] = ftype;
+
+                fieldTypes[typename] = fieldTypeDict;
+
+                if (fieldTypeDict.TryGetValue(field, out var fieldType))
+                    return fieldType;
+
+                return null;
+            }
+        }
         public string DefaultForField(string typename, string field)
         {
             if (typename == null || !defaults.TryGetValue(typename, out var map))

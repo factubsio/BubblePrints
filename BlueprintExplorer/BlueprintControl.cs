@@ -487,8 +487,53 @@ namespace BlueprintExplorer
                             row.TypeFull = e.MaybeType.FullName;
                         }
 
+                        if (e.isObj && !e.HasType)
+                        {
+                            var parent = stack.Peek();
+                            if (!parent.IsObj)
+                            {
+                                row.TypeFull = parent.TypeFull;
+                                row.Type = parent.Type;
+                            }
+                            else
+                            {
+                                var type = BlueprintDB.Instance.TypeForField(parent.TypeFull, e.key);
+                                if (type != null)
+                                {
+                                    row.TypeFull = type.FullName;
+                                    row.Type = type.Name;
+                                }
+                            }
+                        }
+
+                        if (e.levelDelta > 0 && !e.isObj)
+                        {
+                            var parent = stack.Peek();
+                            var type = BlueprintDB.Instance.TypeForField(parent.TypeFull, e.key);
+
+                            if (type != null)
+                            {
+                                if (type.GenericTypeArguments.Length == 1)
+                                    type = type.GenericTypeArguments[0];
+                                else if (type.HasElementType)
+                                    type = type.GetElementType();
+
+                                row.TypeFull = type.FullName;
+                                row.Type = type.Name;
+                            }
+                        }
+
+                        if (row.key == "m_IntValue" && row.Parent.TypeFull == "Kingmaker.Blueprints.Classes.Spells.SpellDescriptorWrapper")
+                        {
+                            List<StyledString.StyleSpan> spans = new();
+                            spans.Add(new(row.value + "    -    ", StyleFlags.Bold));
+                            spans.Add(new(Enum.Parse(BubblePrints.Wrath.GetType("Kingmaker.Blueprints.Classes.Spells.SpellDescriptor"), row.value).ToString(), 0));
+                            row.ValueStyled = new(spans);
+                        }
+
                         if (row.key == "$type" && row.Parent != null)
                             continue;
+
 
                         if (e.levelDelta == 0 && row.Parent != null)
                         {
