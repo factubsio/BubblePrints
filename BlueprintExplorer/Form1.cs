@@ -379,7 +379,7 @@ namespace BlueprintExplorer
 
             new Thread(() =>
             {
-                string plane = $"{loadString}-🛬";
+                string plane = $"{loadString}---";
                 const int frames = 90;
 
                 while (true)

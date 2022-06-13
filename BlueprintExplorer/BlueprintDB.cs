@@ -123,7 +123,7 @@ namespace BlueprintExplorer
 
         public List<GameVersion> Available = new() { };
 
-        private readonly GameVersion LastKnown = new(1, 3, 4, 'e', 0);
+        private readonly GameVersion LastKnown = new(1, 3, 5, 'e', 0);
 
         private readonly string filenameRoot = "blueprints_raw";
         private readonly string extension = "binz";
@@ -487,13 +487,18 @@ namespace BlueprintExplorer
                         //    refId = (ushort)ChunkSubTypes.Blueprints.Components;
                         var refs = bundleContext.Open(bundle.ForSubType((ushort)ChunkSubTypes.Blueprints.References));
 
+                        HashSet<Guid> seen = new();
+
                         for (int i = 0; i < res.Count; i++)
                         {
+                            seen.Clear();
                             int refCount = refs.ReadInt32();
                             for (int r = 0; r < refCount; r++)
                             {
                                 refs.Read(guid_cache);
-                                res[i].BackReferences.Add(new Guid(guid_cache));
+                                Guid g = new(guid_cache);
+                                if (seen.Add(g))
+                                    res[i].BackReferences.Add(g);
                             }
 
                         }
