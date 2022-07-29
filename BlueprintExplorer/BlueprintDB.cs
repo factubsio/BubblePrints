@@ -123,7 +123,7 @@ namespace BlueprintExplorer
 
         public List<GameVersion> Available = new() { };
 
-        private readonly GameVersion LastKnown = new(1, 3, 5, 'e', 0);
+        private readonly GameVersion LastKnown = new(1, 4, 0, 'd', 0);
 
         private readonly string filenameRoot = "blueprints_raw";
         private readonly string extension = "binz";
@@ -390,10 +390,7 @@ namespace BlueprintExplorer
                     }   
                 }
 
-
-
                 Console.WriteLine("COMPLETE, press a key");
-                Console.ReadKey();
             }
             else
             {
@@ -425,7 +422,11 @@ namespace BlueprintExplorer
                             {
                                 progress.Current = e.ProgressPercentage;
                             };
-                            await client.DownloadFileTaskAsync(latestVersionUrl, fileToOpen);
+                            string tmp = Path.Combine(CacheDir, "binz_download.tmp");
+                            if (File.Exists(tmp))
+                                File.Delete(tmp);
+                            await client.DownloadFileTaskAsync(latestVersionUrl, tmp);
+                            File.Move(tmp, fileToOpen);
                             break;
                         case GoingToLoad.FromCache:
                             fileToOpen = Path.Combine(CacheDir, FileName);
