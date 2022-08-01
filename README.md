@@ -1,3 +1,12 @@
+## Download from releases, unpack, run .exe
+
+If you get an error like:
+
+![image](https://user-images.githubusercontent.com/65080026/182197199-09169d7f-ff30-428c-82bd-1bdd415636a4.png)
+
+install:
+
+https://dotnet.microsoft.com/download/dotnet/thank-you/runtime-desktop-5.0.0-windows-x64-installer
 
 
 ## v0.23.x is EXPERIMENTAL
