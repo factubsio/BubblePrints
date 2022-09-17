@@ -33,10 +33,10 @@ namespace BlueprintExplorer
     }
 
 
-    static class JsonExtensions
+    public static class JsonExtensions
     {
         public static bool ContainsIgnoreCase(this string haystack, string needle) => haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
-        public static string ParseAsString(JsonElement node)
+        public static string ParseAsString(this JsonElement node)
         {
             if (node.ValueKind != JsonValueKind.Object)
                 return null;
@@ -135,6 +135,19 @@ namespace BlueprintExplorer
                 throw new Exception("invalid type query??");
         }
 
+        public static JsonElement Find(this JsonElement elem, params string[] path)
+        {
+            var curr = elem;
+            foreach (var component in path)
+            {
+                if (curr.ValueKind == JsonValueKind.Null)
+                    break;
+
+                curr = curr.GetProperty(component);
+            }
+            return curr;
+        }
+
         public static bool True(this JsonElement elem, string child)
         {
             return elem.TryGetProperty(child, out var ch) && ch.ValueKind == JsonValueKind.True;
@@ -146,6 +159,24 @@ namespace BlueprintExplorer
             if (!elem.TryGetProperty(child, out var childNode))
                 return null;
             return childNode.GetString();
+        }
+
+        public static BlueprintHandle Resolve(this JsonElement elem, params string[] path)
+        {
+            var child = elem.Find(path);
+            var link = BlueprintHandle.ParseReference(child.GetString());
+            if (link != null && BlueprintDB.Instance.Blueprints.TryGetValue(System.Guid.Parse(link), out var bp))
+                return bp;
+            return null;
+
+        }
+        public static BlueprintHandle Resolve(this JsonElement elem)
+        {
+            var link = BlueprintHandle.ParseReference(elem.GetString());
+            if (link != null && BlueprintDB.Instance.Blueprints.TryGetValue(System.Guid.Parse(link), out var bp))
+                return bp;
+            return null;
+
         }
         public static float Float(this JsonElement elem, string child)
         {
@@ -264,7 +295,7 @@ namespace BlueprintExplorer
             return _Matches[index];
         }
 
-        internal JsonElement EnsureObj
+        public JsonElement EnsureObj
         {
             get
             {

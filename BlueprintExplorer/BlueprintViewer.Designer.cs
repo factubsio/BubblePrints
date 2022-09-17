@@ -37,12 +37,12 @@ namespace BlueprintExplorer
             this.searchTerm = new System.Windows.Forms.TextBox();
             this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
             this.currentPath = new System.Windows.Forms.TextBox();
-            this.openExternal = new NonFocusButton();
-            this.copyTemplate = new NonFocusButton();
+            this.openExternal = new BlueprintExplorer.NonFocusButton();
+            this.copyTemplate = new BlueprintExplorer.NonFocusButton();
             this.label1 = new System.Windows.Forms.Label();
             this.filter = new System.Windows.Forms.TextBox();
             this.templatesList = new System.Windows.Forms.ComboBox();
-            this.toggleReferencesVisible = new NonFocusKryptonCheckButton();
+            this.toggleReferencesVisible = new BlueprintExplorer.NonFocusKryptonCheckButton();
             this.tableLayoutPanel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.kryptonSplitContainer1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.kryptonSplitContainer1.Panel1)).BeginInit();
@@ -248,16 +248,16 @@ namespace BlueprintExplorer
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.FlowLayoutPanel historyBread;
-        private System.Windows.Forms.Button openExternal;
         private System.Windows.Forms.TextBox currentPath;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel2;
-        private System.Windows.Forms.Button copyTemplate;
         private System.Windows.Forms.ComboBox templatesList;
         private Krypton.Toolkit.KryptonSplitContainer kryptonSplitContainer1;
-        private Krypton.Toolkit.KryptonCheckButton toggleReferencesVisible;
         public System.Windows.Forms.TextBox filter;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.TableLayoutPanel tableLayoutPanel3;
         private System.Windows.Forms.TextBox searchTerm;
+        private NonFocusButton openExternal;
+        private NonFocusButton copyTemplate;
+        private NonFocusKryptonCheckButton toggleReferencesVisible;
     }
 }

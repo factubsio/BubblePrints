@@ -32,7 +32,7 @@ namespace BlueprintExplorer
 
         public static Assembly Wrath;
 
-        internal static void Install()
+        public static void Install()
         {
 #if DEBUG
             AllocConsole();

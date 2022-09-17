@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Web;
 
 namespace BlueprintExplorer
 {
@@ -32,10 +33,13 @@ namespace BlueprintExplorer
             void Quote(string str)
             {
                 if (json)
+                {
                     stream.Write('"');
-                stream.Write(str);
-                if (json)
+                    stream.Write(HttpUtility.JavaScriptStringEncode(str));
                     stream.Write('"');
+                }
+                else
+                    stream.Write(str);
             }
 
             void WriteMultiLine(string key, string value)
@@ -155,7 +159,10 @@ namespace BlueprintExplorer
                 else if (elem.levelDelta > 0)
                 {
                     stack.Peek().Children++;
-                    Open(elem.key, elem.isObj);
+                    if (stack.Count == 2)
+                        Open("__root", elem.isObj);
+                    else
+                        Open(elem.key, elem.isObj);
                     stack.Push(new() { IsObj = elem.isObj });
                     level++;
 

@@ -5,6 +5,7 @@
     <TargetFramework>net5.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>bubbleprint.ico</ApplicationIcon>
+	<RollForward>Major</RollForward>
     <StartupObject />
     <Version>0.0.1</Version>
     <SignAssembly>false</SignAssembly>
