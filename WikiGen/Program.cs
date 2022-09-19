@@ -1,11 +1,9 @@
 ﻿using BlueprintExplorer;
+using BubbleAssets;
 using FontTested;
-using K4os.Compression.LZ4;
-using K4os.Compression.LZ4.Streams;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -13,35 +11,15 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using WikiGen.Assets;
 
 namespace WikiGen
 {
-    public class BlueprintReferencedAssets
-    {
-        public List<BlueprintAssetReference> m_Entries { get; set; } = new();
-    }
-    public class BlueprintAssetReference
-    {
-        public string AssetId { get; set; }
-        public long FileId { get; set; }
-        public UnityAssetReference Asset { get; set; }
-    }
-    public class UnityAssetReference
-    {
-        public int m_FileID { get; set; }
-        public long m_PathID { get; set; }
-    }
-
 
     public static class Program
     {
@@ -71,69 +49,25 @@ namespace WikiGen
         public static void Main(string[] args)
         {
             BubblePrints.Install();
-            Console.WriteLine("Here");
-
-            var references = JsonSerializer.Deserialize<BlueprintReferencedAssets>(File.ReadAllText(@"D:\wrath-data-raw\MonoBehaviour\BlueprintReferencedAssets.json"));
-            Dictionary<string, UnityAssetReference> refToAsset = new();
-
-            foreach (var entry in references.m_Entries)
-                refToAsset[entry.AssetId] = entry.Asset;
-
-            AssetContext context = new();
-            context.AddDirectory(@"D:\steamlib\steamapps\common\Pathfinder Second Adventure\Bundles\");
-            //context.AddBundle(@"D:\steamlib\steamapps\common\Pathfinder Second Adventure\Bundles\blueprint.assets", true);
-
-            Console.WriteLine(string.Join(", ", context.assetsByBundle["blueprint.assets"]));
+            borderImage = Bitmap.FromFile(@"D:\wrath-data-raw\Sprite\circle_border.png");
 
             TextureDecoder.ForceLoaded();
 
-            //foreach (var assets in assetIndex.Values)
-            //{
-            //    int id = 1;
+            BlueprintAssetsContext blueprintContext = new(@"D:\wrath-data-raw\MonoBehaviour\BlueprintReferencedAssets.json");
 
-            //    foreach (var ext in assets.Externals)
-            //    {
-            //        //if (cabToBundle.TryGetValue(ext.fileName, out var bundle))
-            //        //{
-            //        //    Console.WriteLine($"resolved depdendency [{id}] {ext.fileName} -> {bundle}");
-            //        //}
-            //        //else
-            //        //{
-            //        //    Console.WriteLine($" *** error: could not resolve depdendency [{id}] {ext.fileName}");
-            //        //}
+            AssetContext assets = new();
+            assets.AddDirectory(@"D:\steamlib\steamapps\common\Pathfinder Second Adventure\Bundles\");
 
-            //        id++;
-            //    }
+            var blueprintAssets = assets.assetsByBundle["blueprint.assets"][0];
 
-            //    Console.WriteLine("target: " + assets.TargetPlatform);
+            if (blueprintContext.TryGetValue("cc0dee2c595dea14d8058008d0b5e441", out var wolfieAsset)) {
+                var ptrToSprite = new PPtr<Sprite>(wolfieAsset, blueprintAssets);
+                if (blueprintContext.TryRenderSprite(ptrToSprite.Object, out var image))
+                {
+                    image.Save(@"D:\wolfie.png");
+                }
+            }
 
-            //    foreach (var info in assets.ObjectIndex)
-            //    {
-
-            //        //Console.WriteLine("object of type: " + objType);
-
-            //        if (assets.TargetPlatform == BuildTarget.NoTarget)
-            //            objReader.ReadUInt32();
-
-            //        //if (objType == ClassIDType.MonoBehaviour)
-            //        //{
-            //        //    var gameObj = objReader.ReadPtr();
-            //        //    byte enabled = objReader.ReadByte();
-            //        //    objReader.AlignStream();
-            //        //    var scriptRef = objReader.ReadPtr();
-            //        //    var name = objReader.ReadAlignedString();
-
-            //        //    if (name == "BlueprintReferencedAssets")
-            //        //    {
-            //        //        Console.WriteLine("Found blueprint referenced assets");
-            //        //        objReader.Reset();
-            //        //        Console.WriteLine(TreeDumper.ReadTypeString(info.serializedType.TypeTree, objReader));
-            //        //    }
-
-            //        //}
-
-            //    }
-            //}
 
             var progress = new BlueprintDB.ConnectionProgress();
             var load = Task.Run(() => BlueprintDB.Instance.TryConnect(progress));
@@ -203,13 +137,17 @@ namespace WikiGen
 
             //}
 
-            HashSet<string> iconRequests = new();
+            HashSet<IconRequest> iconRequests = new();
 
+            var bpRoot = BlueprintDB.Instance.Blueprints[Guid.Parse("2d77316c72b9ed44f888ceefc2a131f6")];
 
-            foreach (var clazz in bpByType["Kingmaker.Blueprints.Classes.BlueprintCharacterClass"])
+            var classList = new List<String>();
+
+            foreach (var clazzRef in bpRoot.EnsureObj.Find("Progression", "m_CharacterClasses").EnumerateArray())
             {
                 Dictionary<Guid, LocalReference> features = new();
                 List<BlueprintHandle> allFeatures = new();
+                List<LocalReference> allFeatureReferences = new();
 
                 LocalReference AddFeature(BlueprintHandle bp)
                 {
@@ -219,17 +157,21 @@ namespace WikiGen
                         localRef = new(bp, features.Count);
                         features.Add(key, localRef);
                         allFeatures.Add(bp);
+                        allFeatureReferences.Add(localRef);
 
                         var iconGuid = bp.obj.Find("m_Icon", "guid");
 
                         string iconRequest = null;
 
-                        if (iconGuid.ValueKind != JsonValueKind.Null)
+
+                        if (!iconGuid.Nullish())
                             iconRequest = iconGuid.GetString();
                         else
                             iconRequest = "gen__" + GetAbilityAcronym(bp.EnsureObj.Find("m_DisplayName").ParseAsString());
 
-                        iconRequests.Add(iconRequest);
+                        //Console.WriteLine($"requesting icon: {bp.Name} -> {iconRequest}");
+
+                        iconRequests.Add((iconRequest, localRef));
                         localRef.icon = iconRequest;
                     }
                     return localRef;
@@ -243,31 +185,42 @@ namespace WikiGen
                     return localRef.index;
                 }
 
-                using var outStream = File.Create($"{target}/class.{clazz.Value.Name}.json");
-                var obj = clazz.Value.EnsureObj;
-                var progression = obj.Resolve("m_Progression");
+                var clazzBp = clazzRef.DeRef();
+
+                using var outStream = File.Create($"{target}/class.{clazzBp.Name}.json");
+                var obj = clazzBp.EnsureObj;
+
+                if (!obj.TryDeRef(out var progression, "m_Progression"))
+                {
+                    throw new Exception();
+                }
 
                 var prog = new ClassProgression();
 
+                // Get the base set of features for the class
                 var levelEntries = progression.EnsureObj.Find("LevelEntries");
                 foreach (var levelEntry in levelEntries.EnumerateArray())
                 {
                     int level = levelEntry.Int("Level");
                     foreach (var feature in levelEntry.Find("m_Features").EnumerateArray())
                     {
-                        var featureBp = feature.Resolve();
+                        var featureBp = feature.DeRef();
+
                         if (featureBp.EnsureObj.True("HideInUI")) continue;
                         var reference = AddFeature(featureBp);
                         prog.FeatureByLevel[level].Add(reference);
                     }
                 }
 
+                // Parse the explicit ui groups (should also draw lines between them?)
                 foreach (var uiGroupJson in progression.obj.Find("UIGroups").EnumerateArray())
                 {
                     var set = new UIGroup();
                     foreach (var f in uiGroupJson.Find("m_Features").EnumerateArray())
                     {
-                        int index = LookupFeature(f.Resolve());
+                        var featureBp = f.DeRef();
+
+                        int index = LookupFeature(featureBp);
                         if (index != -1)
                             set.contains.Add(index);
 
@@ -277,19 +230,92 @@ namespace WikiGen
                     prog.UIGroups.Add(set);
                 }
 
+                foreach (var archRef in obj.Find("m_Archetypes").EnumerateArray())
+                {
+                    var archBp = archRef.DeRef();
+
+                    ArchetypeProgression arch = new();
+
+                    var archObj = archBp.EnsureObj;
+
+                    arch.Name = archObj.Find("LocalizedName").ParseAsString();
+                    arch.Id = archBp.GuidText;
+
+                    foreach (var levelEntry in archBp.EnsureObj.Find("RemoveFeatures").EnumerateArray())
+                    {
+                        int level = levelEntry.Int("Level");
+
+                        if (!arch.add.TryGetValue(level, out var remove))
+                        {
+                            remove = new();
+                            arch.remove[level] = remove;
+                        }
+
+                        foreach (var f in levelEntry.Find("m_Features").EnumerateArray())
+                        {
+                            remove.Add(LookupFeature(f.DeRef()));
+                        }
+                    }
+
+                    foreach (var levelEntry in archBp.EnsureObj.Find("AddFeatures").EnumerateArray())
+                    {
+                        int level = levelEntry.Int("Level");
+                        if (!arch.add.TryGetValue(level, out var add))
+                        {
+                            add = new();
+                            arch.add[level] = add;
+                        }
+
+                        foreach (var f in levelEntry.Find("m_Features").EnumerateArray())
+                        {
+                            var featureBp = f.DeRef();
+                            if (featureBp.EnsureObj.True("HideInUI")) continue;
+
+                            add.Add(AddFeature(featureBp).index);
+                        }
+
+                        //if (clazzBp.Name == "BloodragerClass" && arch.Name == "Primalist")
+                        //{
+                        //    int x = 1;
+
+                        //}
+                    }
+
+                    prog.archetypes.Add(arch);
+                }
+
+                // Convert the features into a layout (a set of rows where each row can only have one feature per level)
                 for (int level = 1; level <= 20; level++)
                 {
                     foreach (var feature in prog.FeatureByLevel[level])
                     {
-                        int row = prog.LookupGroup(feature.index);
-                        if (!prog.LookupRow(row).Set(level, feature))
-                        {
-                            LevelRow overflow = new();
-                            prog.Rows[prog.FakeRow++] = overflow;
-                            overflow.Set(level, feature);
-                        }
+                        LayoutFeature(prog, prog, level, feature);
                     }
                 }
+
+                // Merge rows with only one entry into a previous row (that is not part of a ui group)
+                MergeRows(allFeatureReferences, prog.Rows.Values);
+
+                foreach (var arch in prog.archetypes)
+                {
+                    arch.Rows = prog.Rows.ToDictionary(kv => kv.Key, kv => kv.Value.Clone());
+                    foreach (var removeAtLevel in arch.remove)
+                    {
+                        foreach (var f in removeAtLevel.Value)
+                        {
+                            arch.FindFeature(removeAtLevel.Key, f)?.SetAddRemove(-1);
+                        }
+                    }
+                    foreach (var addAtLevel in arch.add)
+                    {
+                        foreach (var f in addAtLevel.Value)
+                        {
+                            LayoutFeature(prog, arch, addAtLevel.Key, allFeatureReferences[f], 1);
+                        }
+                    }
+                    MergeRows(allFeatureReferences, arch.Rows.Values);
+                }
+
 
                 using var jsonWriter = new Utf8JsonWriter(outStream, new()
                 {
@@ -298,6 +324,14 @@ namespace WikiGen
 
                 jsonWriter.WriteStartObject();
 
+
+                jsonWriter.WriteStartArray("__ui-groups");
+                foreach (var uiGroup in prog.UIGroups)
+                {
+                    jsonWriter.WriteArray(null, uiGroup.contains);
+                }
+                jsonWriter.WriteEndArray();
+
                 jsonWriter.WriteStartArray("features");
                 foreach (var featureRef in features.Values.OrderBy(x => x.index))
                 {
@@ -305,73 +339,83 @@ namespace WikiGen
                     if (feature.EnsureObj.True("HideInUI")) continue;
 
                     jsonWriter.WriteStartObject();
+                    jsonWriter.WriteNumber("__index", featureRef.index);
                     jsonWriter.WriteString("name", feature.EnsureObj.Find("m_DisplayName").ParseAsString());
                     jsonWriter.WriteString("desc", feature.EnsureObj.Find("m_Description").ParseAsString());
                     jsonWriter.WriteString("icon", featureRef.icon);
                     jsonWriter.WriteEndObject();
                 }
                 jsonWriter.WriteEndArray();
-                jsonWriter.WriteStartArray("progression");
-                foreach (var entry in prog.FeatureByLevel)
-                {
-                    jsonWriter.WriteStartArray();
-                    foreach (var f in entry)
-                    {
-                        jsonWriter.WriteNumberValue(f.index);
-                    }
-                    jsonWriter.WriteEndArray();
-                }
-                jsonWriter.WriteEndArray();
 
-                jsonWriter.WriteStartArray("__ui-groups");
-                foreach (var group in prog.UIGroups)
-                {
-                    jsonWriter.WriteStartArray();
-                    foreach (var f in group.contains)
-                    {
-                        jsonWriter.WriteNumberValue(f);
-                    }
-                    jsonWriter.WriteEndArray();
-                }
-                jsonWriter.WriteEndArray();
+                jsonWriter.WriteString("name", obj.Find("LocalizedName").ParseAsString());
 
-                jsonWriter.WriteString("name", clazz.Value.obj.Find("LocalizedName").ParseAsString());
+                WriteLayout(prog.Rows.Values, jsonWriter);
 
-                jsonWriter.WriteStartArray("layout");
-                foreach (var group in prog.Rows.Values)
+                jsonWriter.WriteStartArray("archetypes");
+                foreach (var arch in prog.archetypes)
                 {
-                    jsonWriter.WriteStartArray();
-                    for (int l = 1; l <= 20; l++)
-                    {
-                        if (group.FeatureByLevel[l] != null)
-                        {
-                            jsonWriter.WriteStartObject();
-                            jsonWriter.WriteNumber("level", l);
-                            jsonWriter.WriteNumber("feature", group.FeatureByLevel[l].index);
-                            jsonWriter.WriteNumber("rank", group.FeatureByLevel[l].rank);
-                            jsonWriter.WriteString("__debug", allFeatures[group.FeatureByLevel[l].index].Name);
-                            jsonWriter.WriteEndObject();
-                        }
-                    }
-                    jsonWriter.WriteEndArray();
+                    jsonWriter.WriteStartObject();
+
+                    jsonWriter.WriteString("name", arch.Name);
+                    jsonWriter.WriteString("id", arch.Id);
+                    WriteLayout(arch.Rows.Values, jsonWriter);
+
+                    //jsonWriter.WriteStartArray("add");
+                    //foreach (var r in arch.add)
+                    //{
+                    //    jsonWriter.WriteStartObject();
+                    //    jsonWriter.WriteNumber("level", r.Key);
+
+                    //    jsonWriter.WriteArray("features", r.Value);
+
+                    //    jsonWriter.WriteEndObject();
+                    //}
+                    //jsonWriter.WriteEndArray();
+
+                    //jsonWriter.WriteStartArray("remove");
+                    //foreach (var r in arch.remove)
+                    //{
+                    //    jsonWriter.WriteStartObject();
+                    //    jsonWriter.WriteNumber("level", r.Key);
+
+                    //    jsonWriter.WriteArray("features", r.Value);
+
+                    //    jsonWriter.WriteEndObject();
+                    //}
+                    //jsonWriter.WriteEndArray();
+
+                    jsonWriter.WriteEndObject();
                 }
                 jsonWriter.WriteEndArray();
 
                 jsonWriter.WriteEndObject();
+
+                classList.Add($@"new(""{clazzBp.Name}"",");
+                classList.Add(string.Join(", ", prog.archetypes.Select(a => '"' + a.Name + '"')));
+                classList.Add($@"),");
             }
 
-            var blueprintAssets = context.assetsByBundle["blueprint.assets"][0];
+            File.WriteAllLines(@"D:\classes.txt", classList);
 
             using var saber = new SaberRenderer((Bitmap)Bitmap.FromFile(@"D:\font_atlas.png"), File.ReadAllLines(@"D:\font_atlas.txt"));
 
             int fromName = 0;
             int iconNotFound = 0;
             int iconFound = 0;
+            int cacheHit = 0;
+
 
             var placeholderBackground = Bitmap.FromFile(@"D:\wrath-data-raw\Sprite\UI_PlaceHolderIcon7.png");
 
-            foreach (var request in iconRequests)
+
+            foreach (var (request, requestor) in iconRequests.OrderBy(r => r.request))
             {
+                string filename = $@"D:\wrath-wiki\wwwroot\icons\{request}.png";
+                if (File.Exists(filename)) {
+                    cacheHit++;
+                    continue;
+                }
+
                 if (request.StartsWith("gen__"))
                 {
                     Bitmap buffer = new(64, 64, PixelFormat.Format32bppArgb);
@@ -380,10 +424,12 @@ namespace WikiGen
                     using (var g = Graphics.FromImage(buffer))
                     {
                         g.SmoothingMode = SmoothingMode.AntiAlias;
-                        g.FillEllipse(brush, new(Point.Empty, buffer.Size));
+                        g.FillEllipse(brush, new(0, 0, buffer.Width - 1, buffer.Height - 1));
                     }
 
-                    saber.Render(request[5..], buffer, new()
+                    var acronym = request[5..];
+
+                    saber.Render(acronym, buffer, new()
                     {
                         Thickness = 0.5f,
                         Softness = 0.6f,
@@ -393,278 +439,245 @@ namespace WikiGen
 
                         Color = new(0.8f, 0.7f, 0.5f),
 
-                        TextScale = 0.5f,
+                        TextScale = acronym.Length == 3 ? 0.4f : 0.5f,
                         LetterSpacing = -9,
 
                         Clear = false,
-
+                        Baseline = 20,
                     });
 
+                    using (var g = Graphics.FromImage(buffer))
+                    {
+                        g.SmoothingMode = SmoothingMode.AntiAlias;
+                        g.DrawImage(borderImage, new Rectangle(0, 0, 64, 64));
+                    }
 
-                    buffer.Save($@"D:\wrath-wiki\wwwroot\icons\{request}.png");
+
+                    buffer.Save(filename);
                     fromName++;
                 }
                 else
                 {
-                    if (!refToAsset.TryGetValue(request, out var assetRef))
+                    if (!blueprintContext.TryGetValue(request, out var assetRef))
                     {
                         Console.WriteLine("Could not find asset...");
                         iconNotFound++;
                         continue;
                     }
 
-                    if (assetRef.m_FileID == 0)
-                    {
-                        var spriteInfo = blueprintAssets.Resolve(assetRef.m_PathID);
-                        EmitSprite(request, spriteInfo);
-                    }
+                    PPtr<Sprite> ptr = new(assetRef, blueprintAssets);
+                    EmitSprite((request, requestor), ptr.Object);
+
                     iconFound++;
                 }
             }
 
-            Console.WriteLine($"{iconRequests.Count} requests for icons, {fromName} generated from name, {iconFound} icons found, {iconNotFound} icons NOT found");
+            Console.WriteLine($"{iconRequests.Count} requests for icons, {cacheHit} already cached, {fromName} generated from name, {iconFound} icons found, {iconNotFound} icons NOT found");
         }
 
-        private static void EmitSprite(string id, ObjectInfo spriteInfo)
+        private static void LayoutFeature(ClassProgression prog, IProgressionLayout layout, int level, LocalReference feature, int addRemove = 0)
         {
-            if (spriteInfo.ClassType != ClassIDType.Sprite)
-                throw new Exception("not a sprite");
-            var objReader = new VersionedReader(spriteInfo);
-            var sprite = new Sprite(objReader);
+            var (uiGroup, row) = prog.LookupGroup(feature.index);
+            if (!layout.LookupRow(row, uiGroup).Set(level, feature, addRemove))
+            {
+                LevelRow addto = new()
+                {
+                    IsOverflow = true,
+                };
+                addto.Set(level, feature, addRemove);
+                layout.AddFake(addto);
+            }
+        }
 
-            if (sprite.m_RD.texture.Identifier == 0)
-                throw new Exception("No texture");
+        private static void MergeRows(List<LocalReference> allFeatureReferences, IEnumerable<LevelRow> rows)
+        {
+            List<LevelRow> mergeRows = rows.Where(r => r.MergeTarget).ToList();
 
-            if (sprite.m_RD.texture.FileIndex != 0)
-                throw new Exception("texture is in a different bundle");
+            for (int i = 1; i < mergeRows.Count; i++)
+            {
+                var feature = mergeRows[i].FeatureByLevel.First(x => x != null);
 
-            var texInfo = spriteInfo.Owner.Resolve(sprite.m_RD.texture.Identifier);
+                for (int b = 0; b < i; b++)
+                {
+                    if (mergeRows[b].Count > 0 && mergeRows[b].FeatureByLevel[feature.level] == null)
+                    {
+                        mergeRows[b].Set(feature.level, allFeatureReferences[feature.index], feature.addRemove);
+                        mergeRows[i].Remove(feature.level);
+                        break;
+                    }
+                }
+            }
+        }
 
-            if (texInfo.ClassType != ClassIDType.Texture2D)
-                throw new Exception("texture is not Texture2D");
+        private static void WriteLayout(IEnumerable<LevelRow> rows, Utf8JsonWriter jsonWriter)
+        {
+            jsonWriter.WriteStartArray("layout");
+            foreach (var group in rows)
+            {
+                jsonWriter.WriteStartArray();
+                for (int l = 1; l <= 20; l++)
+                {
+                    if (group.FeatureByLevel[l] != null)
+                    {
+                        jsonWriter.WriteStartObject();
+                        jsonWriter.WriteNumber("level", l);
+                        jsonWriter.WriteNumber("feature", group.FeatureByLevel[l].index);
+                        jsonWriter.WriteNumber("rank", group.FeatureByLevel[l].rank);
+                        jsonWriter.WriteNumber("archType", group.FeatureByLevel[l].addRemove);
+                        jsonWriter.WriteEndObject();
+                    }
+                }
+                jsonWriter.WriteEndArray();
+            }
+            jsonWriter.WriteEndArray();
+        }
 
-            var texReader = new VersionedReader(texInfo);
-            var tex = new Texture2D(texReader);
+        private static Dictionary<string, byte[]> atlasCache = new();
+        private static Image borderImage;
 
-            VersionedReader resourceStream;
+        private static void EmitSprite(IconRequest request, Sprite sprite)
+        {
+            var id = request.request;
+
+            Rectf cut = sprite.m_Rect;
+            Texture2D tex;
+            string atlasKey = null;
+
+            if (sprite.m_SpriteAtlas.Identifier != 0)
+            {
+                var atlas = sprite.m_SpriteAtlas.Object;
+
+                if (!atlas.m_RenderDataMap.TryGetValue(sprite.m_RenderDataKey, out var spriteAtlasData))
+                {
+                    Console.Error.WriteLine($"atlased sprite does not have the atlasData for requestor: {request.requestor.handle.Name}");
+                    return;
+                }
+
+                cut = spriteAtlasData.textureRect;
+                tex = spriteAtlasData.texture.Object;
+                atlasKey = $"{spriteAtlasData.texture.FileIndex}/{spriteAtlasData.texture.Identifier}";
+            }
+            else if (sprite.m_RD.texture.Identifier != 0)
+            {
+                tex = sprite.m_RD.texture.Object;
+            }
+            else
+            {
+                throw new Exception("No texture source for sprite");
+            }
+
+            AssetFileReader resourceStream;
 
             if (tex.m_StreamData?.path != null)
             {
                 resourceStream = new(
-                    version: texInfo.Owner.Version,
-                    target: texInfo.Owner.TargetPlatform,
-                    stream: texInfo.Owner.Context.resourceStreams[Path.GetFileName(tex.m_StreamData.path)].Based(tex.m_StreamData.offset, tex.m_StreamData.size),
+                    tex.Owner,
+                    stream: tex.Owner.Context.resourceStreams[Path.GetFileName(tex.m_StreamData.path)].Based(tex.m_StreamData.offset, tex.m_StreamData.size),
                     endian: EndianType.Little);
             }
             else
             {
                 resourceStream = new(
-                    version: texInfo.Owner.Version,
-                    target: texInfo.Owner.TargetPlatform,
-                    stream: texInfo.Owner.blockStream.Based(texInfo.Owner.blockStream.Position, tex.image_data_size),
+                    tex.Owner,
+                    stream: tex.Owner.blockStream.Based(tex.Owner.blockStream.Position, tex.image_data_size),
                     endian: EndianType.Little);
             }
 
             var converter = new Texture2DConverter(resourceStream, tex);
-            var buff = BigArrayPool<byte>.Shared.Rent(tex.m_Width * tex.m_Height * 4);
+
+            bool returnBuf = true;
+            byte[] buff = null;
             try
             {
-                if (converter.DecodeTexture2D(buff))
+                if (atlasKey != null)
                 {
-                    const PixelFormat format = PixelFormat.Format32bppArgb;
-                    var bmp = new Bitmap(tex.m_Width, tex.m_Height, format);
-                    Rectangle rect = new(0, 0, bmp.Width, bmp.Height);
-
-                    var data = bmp.LockBits(rect, ImageLockMode.ReadWrite, format);
-                    IntPtr ptr = data.Scan0;
-                    Marshal.Copy(buff, 0, ptr, data.Stride * data.Height);
-                    bmp.UnlockBits(data);
-                    bmp.RotateFlip(RotateFlipType.RotateNoneFlipY);
-
-                    Bitmap dest = new(tex.m_Width, tex.m_Height, format);
-                    TextureBrush brush = new(bmp);
-
-                    using (var g = Graphics.FromImage(dest))
+                    if (!atlasCache.TryGetValue(atlasKey, out buff))
                     {
-                        g.SmoothingMode = SmoothingMode.AntiAlias;
-                        g.FillEllipse(brush, rect);
+                        buff = BigArrayPool<byte>.Shared.Rent(tex.m_Width * tex.m_Height * 4);
+                        converter.DecodeTexture2D(buff);
+                        atlasCache[atlasKey] = buff;
                     }
 
-
-                    dest.Save($@"D:\wrath-wiki\wwwroot\icons\{id}.png");
+                    returnBuf = false;
                 }
+                else
+                {
+                    buff = BigArrayPool<byte>.Shared.Rent(tex.m_Width * tex.m_Height * 4);
+                    converter.DecodeTexture2D(buff);
+                }
+
+
+                const PixelFormat format = PixelFormat.Format32bppArgb;
+                var bmp = new Bitmap((int)cut.width, (int)cut.height, format);
+                Rectangle rect = new(0, 0, bmp.Width, bmp.Height);
+
+                var data = bmp.LockBits(rect, ImageLockMode.ReadWrite, format);
+                IntPtr ptr = data.Scan0;
+                if (cut.x != 0 || cut.y != 0 || cut.width != tex.m_Width || cut.height != tex.m_Height)
+                {
+                    for (int ly = 0; ly < cut.height; ly++)
+                    {
+                        int input_y = (int)(ly + cut.y);
+                        int input_x = (int)cut.x;
+
+                        Marshal.Copy(buff, (int)((input_y * tex.m_Width + input_x) * 4), ptr + ly * data.Stride, data.Stride);
+                    }
+                }
+                else
+                {
+                    Marshal.Copy(buff, 0, ptr, data.Stride * data.Height);
+                }
+                bmp.UnlockBits(data);
+                bmp.RotateFlip(RotateFlipType.RotateNoneFlipY);
+
+                Bitmap dest = new(64, 64, format);
+                TextureBrush brush = new(bmp);
+
+                using (var g = Graphics.FromImage(dest))
+                {
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    g.FillEllipse(brush, new(0, 0, 64 - 1, 64 - 1));
+                    g.DrawImage(borderImage, new Rectangle(0, 0, 65, 65));
+                }
+
+
+                dest.Save($@"D:\wrath-wiki\wwwroot\icons\{id}.png");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                Console.Error.WriteLine(ex.StackTrace);
             }
             finally
             {
-                BigArrayPool<byte>.Shared.Return(buff);
+                if (buff != null && returnBuf)
+                    BigArrayPool<byte>.Shared.Return(buff);
             }
         }
     }
 
-
-    public class FileIdentifier
+    public static class JsonWriterExt
     {
-        public Guid guid;
-        public int type; //enum { kNonAssetType = 0, kDeprecatedCachedAssetType = 1, kSerializedAssetType = 2, kMetaAssetType = 3 };
-        public string pathName;
+        public static void WriteArray(this Utf8JsonWriter writer, string propName, IEnumerable<double> values) => WriteArray(writer, propName, values, v => writer.WriteNumberValue(v));
 
-        //custom
-        public string fileName;
+        public static void WriteArray(this Utf8JsonWriter writer, string propName, IEnumerable<int> values) => WriteArray(writer, propName, values, v => writer.WriteNumberValue(v));
 
-        public AssetFile Resolved;
-    }
+        public static void WriteArray(this Utf8JsonWriter writer, string propName, IEnumerable<float> values) => WriteArray(writer, propName, values, v => writer.WriteNumberValue(v));
 
-    public class LocalSerializedObjectIdentifier
-    {
-        public int FileIndex;
-        public long Identifier;
-
-        public override string ToString() => $"file:{FileIndex} id:{Identifier}";
-
-    }
-
-    public class TypeTreeNode
-    {
-        public string Type;
-        public string Name;
-        public int ByteSize;
-        public int Index;
-        public int TypeFlags; //IsArray
-        public int Version;
-        public int MetaFlag;
-        public int Level;
-        public uint TypeStrOffset;
-        public uint NameStrOffset;
-        public ulong RefTypeHash;
-    }
-
-    public enum AssVer
-    {
-        Unsupported = 1,
-        Unknown_2 = 2,
-        Unknown_3 = 3,
-        /// <summary>
-        /// 1.2.0 to 2.0.0
-        /// </summary>
-        Unknown_5 = 5,
-        /// <summary>
-        /// 2.1.0 to 2.6.1
-        /// </summary>
-        Unknown_6 = 6,
-        /// <summary>
-        /// 3.0.0b
-        /// </summary>
-        Unknown_7 = 7,
-        /// <summary>
-        /// 3.0.0 to 3.4.2
-        /// </summary>
-        Unknown_8 = 8,
-        /// <summary>
-        /// 3.5.0 to 4.7.2
-        /// </summary>
-        Unknown_9 = 9,
-        /// <summary>
-        /// 5.0.0aunk1
-        /// </summary>
-        Unknown_10 = 10,
-        /// <summary>
-        /// 5.0.0aunk2
-        /// </summary>
-        HasScriptTypeIndex = 11,
-        /// <summary>
-        /// 5.0.0aunk3
-        /// </summary>
-        Unknown_12 = 12,
-        /// <summary>
-        /// 5.0.0aunk4
-        /// </summary>
-        HasTypeTreeHashes = 13,
-        /// <summary>
-        /// 5.0.0unk
-        /// </summary>
-        Unknown_14 = 14,
-        /// <summary>
-        /// 5.0.1 to 5.4.0
-        /// </summary>
-        SupportsStrippedObject = 15,
-        /// <summary>
-        /// 5.5.0a
-        /// </summary>
-        RefactoredClassId = 16,
-        /// <summary>
-        /// 5.5.0unk to 2018.4
-        /// </summary>
-        RefactorTypeData = 17,
-        /// <summary>
-        /// 2019.1a
-        /// </summary>
-        RefactorShareableTypeTreeData = 18,
-        /// <summary>
-        /// 2019.1unk
-        /// </summary>
-        TypeTreeNodeWithTypeFlags = 19,
-        /// <summary>
-        /// 2019.2
-        /// </summary>
-        SupportsRefObject = 20,
-        /// <summary>
-        /// 2019.3 to 2019.4
-        /// </summary>
-        StoresTypeDependencies = 21,
-        /// <summary>
-        /// 2020.1 to x
-        /// </summary>
-        LargeFilesSupport = 22
-    }
-
-    public class BasedStream : Stream
-    {
-        public readonly Stream BaseStream;
-        public readonly long BaseOffset;
-        public readonly long _Length;
-
-        public BasedStream(Stream baseStream, long offset, long length)
+        public static void WriteArray(this Utf8JsonWriter writer, string propName, IEnumerable<string> values) => WriteArray(writer, propName, values, v => writer.WriteStringValue(v));
+        public static void WriteArray<T>(this Utf8JsonWriter writer, string propName, IEnumerable<T> values, Action<T> writeAction)
         {
-            BaseStream = baseStream;
-            BaseOffset = offset;
-            _Length = length;
-            Position = 0;
+            if (propName != null)
+                writer.WriteStartArray(propName);
+            else
+                writer.WriteStartArray();
+
+            foreach (var value in values)
+                writeAction(value);
+
+            writer.WriteEndArray();
         }
 
-        public override bool CanRead => BaseStream.CanRead;
-
-        public override bool CanSeek => BaseStream.CanSeek;
-
-        public override bool CanWrite => BaseStream.CanWrite;
-
-        public override long Length => _Length;
-
-        public override long Position
-        {
-            get => BaseStream.Position - BaseOffset;
-            set => BaseStream.Position = value + BaseOffset;
-        }
-
-        public override void Flush() => BaseStream.Flush();
-        public override int Read(byte[] buffer, int offset, int count) => BaseStream.Read(buffer, offset, count);
-        public override long Seek(long offset, SeekOrigin origin)
-        {
-            switch (origin)
-            {
-                case SeekOrigin.Begin:
-                    Position = offset;
-                    break;
-                case SeekOrigin.Current:
-                    Position += offset;
-                    break;
-                case SeekOrigin.End:
-                    Position = Length - offset;
-                    break;
-            }
-            return Position;
-        }
-        public override void SetLength(long value) => BaseStream.SetLength(value);
-        public override void Write(byte[] buffer, int offset, int count) => BaseStream.Write(buffer, offset, count);
     }
 
     public class LocalReference
@@ -696,15 +709,35 @@ namespace WikiGen
 
     public class FeatureEntry
     {
+        public int addRemove = 0;
         public int index = -1;
         public int rank = -1;
+        public int level = -1;
+
+        internal void SetAddRemove(int addRemove) => this.addRemove = addRemove;
     }
 
     public class LevelRow
     {
+        public int Count = 0;
+        public bool HasMultipleOfFeature = false;
+        public bool IsOverflow = false;
+        public bool IsUIGroup = false;
         public FeatureEntry[] FeatureByLevel = new FeatureEntry[21];
 
-        public bool Set(int level, LocalReference feature)
+        public bool MergeTarget
+        {
+            get
+            {
+                if (Count == 0) return false;
+                if (IsUIGroup) return false;
+                if (HasMultipleOfFeature) return false;
+
+                return true;
+            }
+        }
+
+        public bool Set(int level, LocalReference feature, int addRemove = 0)
         {
             if (FeatureByLevel[level] != null)
                 return false;
@@ -718,34 +751,139 @@ namespace WikiGen
                     rank = prev.rank + 1;
             }
 
+            HasMultipleOfFeature |= FeatureByLevel.Any(x => x?.index == feature.index);
+
             FeatureByLevel[level] = new()
             {
                 index = feature.index,
-                rank = rank
+                rank = rank,
+                level = level,
+                addRemove = addRemove,
             };
+
+
+            Count++;
             return true;
+        }
+
+        internal void Remove(int level)
+        {
+            if (FeatureByLevel[level] == null)
+                throw new Exception("Double free");
+            FeatureByLevel[level] = null;
+            Count--;
+        }
+
+        public LevelRow Clone()
+        {
+            LevelRow ret = new()
+            {
+                Count = this.Count,
+                IsOverflow = this.IsOverflow,
+                IsUIGroup = this.IsUIGroup,
+                HasMultipleOfFeature = this.HasMultipleOfFeature,
+            };
+            for (int i = 0; i < FeatureByLevel.Length; i++)
+            {
+                var f = FeatureByLevel[i];
+                if (f == null)
+                    continue;
+                ret.FeatureByLevel[i] = new()
+                {
+                    addRemove = f.addRemove,
+                    index = f.index,
+                    level = f.level,
+                    rank = f.rank,
+
+                };
+            }
+            return ret;
         }
     }
 
-    public class ClassProgression
+    public interface IProgressionLayout
+    {
+        void AddFake(LevelRow addto);
+        LevelRow LookupRow(int row, bool uiGroup);
+    }
+
+    public class ArchetypeProgression : IProgressionLayout
+    {
+        public string Name;
+        public string Id;
+
+        public Dictionary<int, List<int>> remove = new();
+        public Dictionary<int, List<int>> add = new();
+        public Dictionary<int, LevelRow> Rows = new();
+        public LevelRow LookupRow(int row, bool uiGroup)
+        {
+            if (!Rows.TryGetValue(row, out var levelRow))
+            {
+                levelRow = new()
+                {
+                    IsUIGroup = uiGroup
+                };
+                if (row == -1)
+                    levelRow.IsOverflow = true;
+                Rows[row] = levelRow;
+            }
+            return levelRow;
+        }
+
+        internal FeatureEntry FindFeature(int level, int f)
+        {
+            foreach (var row in Rows.Values)
+            {
+                if (row.FeatureByLevel[level]?.index == f)
+                {
+                    return row.FeatureByLevel[level];
+                }
+            }
+            return null;
+        }
+
+        public void AddFake(LevelRow row)
+        {
+            Rows[FakeRow++] = row;
+        }
+
+        int FakeRow = -100000;
+    }
+
+    public class ClassProgression : IProgressionLayout
     {
         public List<LocalReference>[] FeatureByLevel = new List<LocalReference>[21];
 
         public List<UIGroup> UIGroups = new();
 
         public Dictionary<int, LevelRow> Rows = new();
+        public List<ArchetypeProgression> archetypes = new();
         public int FakeRow = -100000;
 
-        public int LookupGroup(int feature)
+        public (bool, int) LookupGroup(int feature)
         {
-            return UIGroups.FirstOrDefault(set => set.Contains(feature))?.Id ?? feature;
+            var id = UIGroups.Find(set => set.Contains(feature));
+            if (id != null)
+                return (true, id.Id);
+            return (false, feature);
+        }
+        public void AddFake(LevelRow row)
+        {
+            Rows[FakeRow++] = row;
         }
 
-        public LevelRow LookupRow(int row)
+        public LevelRow LookupRow(int row, bool uiGroup)
         {
             if (!Rows.TryGetValue(row, out var levelRow))
             {
-                levelRow = new();
+                levelRow = new()
+                {
+                    IsUIGroup = uiGroup
+                };
+
+                if (row == -1)
+                    levelRow.IsOverflow = true;
+
                 Rows[row] = levelRow;
             }
             return levelRow;
@@ -757,6 +895,19 @@ namespace WikiGen
             {
                 FeatureByLevel[i] = new();
             }
+        }
+    }
+
+    internal record struct IconRequest(string request, LocalReference requestor)
+    {
+        public static implicit operator (string request, LocalReference requestor)(IconRequest value)
+        {
+            return (value.request, value.requestor);
+        }
+
+        public static implicit operator IconRequest((string request, LocalReference requestor) value)
+        {
+            return new IconRequest(value.request, value.requestor);
         }
     }
 }

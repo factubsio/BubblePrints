@@ -15,7 +15,7 @@ namespace WikiGen.Assets
 
     public class Texture2DConverter
     {
-        private VersionedReader reader;
+        private AssetFileReader reader;
         private int m_Width;
         private int m_Height;
         private TextureFormat m_TextureFormat;
@@ -23,7 +23,7 @@ namespace WikiGen.Assets
         private BuildTarget platform;
         private int outPutSize;
 
-        public Texture2DConverter(VersionedReader reader, Texture2D m_Texture2D)
+        public Texture2DConverter(AssetFileReader reader, Texture2D m_Texture2D)
         {
             this.reader = reader;
             m_Width = m_Texture2D.m_Width;

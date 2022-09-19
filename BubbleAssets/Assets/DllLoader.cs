@@ -31,8 +31,8 @@ namespace WikiGen.Assets
 
         private static string GetDirectedDllDirectory()
         {
-            var localPath = Process.GetCurrentProcess().MainModule.FileName;
-            var localDir = Path.GetDirectoryName(localPath);
+            var localPath = Process.GetCurrentProcess()!.MainModule!.FileName;
+            var localDir = Path.GetDirectoryName(localPath)!;
 
             var subDir = Environment.Is64BitProcess ? "x64" : "x86";
 

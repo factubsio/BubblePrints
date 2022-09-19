@@ -9,12 +9,12 @@ namespace WikiGen.Assets
 {
     public class SecondarySpriteTexture
     {
-        public LocalSerializedObjectIdentifier texture;
+        public PPtr<Texture2D> texture;
         public string name;
 
-        public SecondarySpriteTexture(VersionedReader reader)
+        public SecondarySpriteTexture(AssetFileReader reader)
         {
-            texture = reader.ReadPtr();
+            texture = reader.ReadPtr<Texture2D>(reader.File);
             name = reader.ReadCString();
         }
     }
@@ -49,7 +49,7 @@ namespace WikiGen.Assets
         public SpritePackingRotation packingRotation;
         public SpriteMeshType meshType;
 
-        public SpriteSettings(VersionedReader reader)
+        public SpriteSettings(AssetFileReader reader)
         {
             settingsRaw = reader.ReadUInt32();
 
@@ -65,7 +65,7 @@ namespace WikiGen.Assets
     {
         public Vector3 pos;
 
-        public SpriteVertex(VersionedReader reader)
+        public SpriteVertex(AssetFileReader reader)
         {
             pos = reader.ReadVector3();
         }
@@ -74,16 +74,14 @@ namespace WikiGen.Assets
 
     public class SpriteRenderData
     {
-        public LocalSerializedObjectIdentifier texture;
-        public LocalSerializedObjectIdentifier alphaTexture;
-        public SecondarySpriteTexture[] secondaryTextures;
+        public PPtr<Texture2D> texture;
+        public PPtr<Texture2D> alphaTexture;
+        public SecondarySpriteTexture[]? secondaryTextures;
         public SubMesh[] m_SubMeshes;
         public byte[] m_IndexBuffer;
         public VertexData m_VertexData;
-        public SpriteVertex[] vertices;
-        public ushort[] indices;
-        public Matrix4x4[] m_Bindpose;
-        public BoneWeights4[] m_SourceSkin;
+        public Matrix4x4[]? m_Bindpose;
+        public BoneWeights4[]? m_SourceSkin;
         public Rectf textureRect;
         public Vector2 textureRectOffset;
         public Vector2 atlasRectOffset;
@@ -91,15 +89,18 @@ namespace WikiGen.Assets
         public Vector4 uvTransform;
         public float downscaleMultiplier;
 
-        public SpriteRenderData(VersionedReader reader)
+        //public SpriteVertex[] vertices;
+        //public ushort[] indices;
+
+        public SpriteRenderData(AssetFileReader reader)
         {
             var version = reader.Version;
 
-            texture = reader.ReadPtr();
-            if (version.Major > 5 || version.Major == 5 && version.Minor >= 2) //5.2 and up
-            {
-                alphaTexture = reader.ReadPtr();
-            }
+            texture = reader.ReadPtr<Texture2D>();
+            //if (version.Major > 5 || version.Major == 5 && version.Minor >= 2) //5.2 and up
+            //{
+                alphaTexture = reader.ReadPtr<Texture2D>();
+            //}
 
             if (version.Major >= 2019) //2019 and up
             {
@@ -111,8 +112,8 @@ namespace WikiGen.Assets
                 }
             }
 
-            if (version.Major > 5 || version.Major == 5 && version.Minor >= 6) //5.6 and up
-            {
+            //if (version.Major > 5 || version.Major == 5 && version.Minor >= 6) //5.6 and up
+            //{
                 var m_SubMeshesSize = reader.ReadInt32();
                 m_SubMeshes = new SubMesh[m_SubMeshesSize];
                 for (int i = 0; i < m_SubMeshesSize; i++)
@@ -124,11 +125,11 @@ namespace WikiGen.Assets
                 reader.AlignStream();
 
                 m_VertexData = new VertexData(reader);
-            }
-            else
-            {
-                throw new Exception("unsupported version");
-            }
+            //}
+            //else
+            //{
+            //    throw new Exception("unsupported version");
+            //}
 
             if (version.Major >= 2018) //2018 and up
             {
@@ -137,6 +138,7 @@ namespace WikiGen.Assets
                 if (version.Major == 2018 && version.Minor < 2) //2018.2 down
                 {
                     var m_SourceSkinSize = reader.ReadInt32();
+                    m_SourceSkin = new BoneWeights4[m_SourceSkinSize];
                     for (int i = 0; i < m_SourceSkinSize; i++)
                     {
                         m_SourceSkin[i] = new BoneWeights4(reader);
@@ -158,14 +160,14 @@ namespace WikiGen.Assets
         }
     }
 
-    public class Rectf
+    public struct Rectf
     {
         public float x;
         public float y;
         public float width;
         public float height;
 
-        public Rectf(VersionedReader reader)
+        public Rectf(AssetFileReader reader)
         {
             x = reader.ReadSingle();
             y = reader.ReadSingle();
@@ -174,8 +176,7 @@ namespace WikiGen.Assets
         }
     }
 
-    public sealed class Sprite
-    {
+    public sealed class Sprite : AssetObject {
         public Rectf m_Rect;
         public Vector2 m_Offset;
         public Vector4 m_Border;
@@ -184,13 +185,15 @@ namespace WikiGen.Assets
         public uint m_Extrude;
         public bool m_IsPolygon;
         public KeyValuePair<Guid, long> m_RenderDataKey;
-        public string[] m_AtlasTags;
-        public LocalSerializedObjectIdentifier m_SpriteAtlas;
+
+        public string[]? m_AtlasTags;
+        public PPtr<SpriteAtlas>? m_SpriteAtlas;
+        public Vector2[][]? m_PhysicsShape;
+
         public SpriteRenderData m_RD;
-        public Vector2[][] m_PhysicsShape;
         public string Name;
 
-        public Sprite(VersionedReader reader)
+        public Sprite(AssetFileReader reader) : base(reader.File)
         {
             Name = reader.ReadAlignedString();
             var version = reader.Version;
@@ -213,7 +216,7 @@ namespace WikiGen.Assets
 
                 m_AtlasTags = reader.ReadStringArray();
 
-                m_SpriteAtlas = reader.ReadPtr();
+                m_SpriteAtlas = reader.ReadPtr<SpriteAtlas>();
             }
 
             m_RD = new SpriteRenderData(reader);

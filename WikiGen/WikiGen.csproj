@@ -17,18 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BlueprintExplorer\BlueprintExplorer.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="x64\AssetStudioFBXNative.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="x64\fmod.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="x64\Texture2DDecoderNative.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <ProjectReference Include="..\BubbleAssets\BubbleAssets.csproj" />
   </ItemGroup>
 
 </Project>

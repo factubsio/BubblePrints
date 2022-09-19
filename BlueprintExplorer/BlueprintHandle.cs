@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Drawing.Design;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -135,12 +136,14 @@ namespace BlueprintExplorer
                 throw new Exception("invalid type query??");
         }
 
+        public static bool Nullish(this JsonElement elem) => elem.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
         public static JsonElement Find(this JsonElement elem, params string[] path)
         {
             var curr = elem;
             foreach (var component in path)
             {
-                if (curr.ValueKind == JsonValueKind.Null)
+                if (curr.ValueKind == JsonValueKind.Null || curr.ValueKind == JsonValueKind.Undefined)
                     break;
 
                 curr = curr.GetProperty(component);
@@ -160,24 +163,33 @@ namespace BlueprintExplorer
                 return null;
             return childNode.GetString();
         }
-
-        public static BlueprintHandle Resolve(this JsonElement elem, params string[] path)
+        public static BlueprintHandle DeRef(this JsonElement elem)
         {
-            var child = elem.Find(path);
-            var link = BlueprintHandle.ParseReference(child.GetString());
-            if (link != null && BlueprintDB.Instance.Blueprints.TryGetValue(System.Guid.Parse(link), out var bp))
-                return bp;
-            return null;
-
+            if (!elem.TryDeRef(out var bp))
+                throw new Exception("could not derefence blueprint from json element: " + elem);
+            return bp;
         }
-        public static BlueprintHandle Resolve(this JsonElement elem)
+
+        public static bool TryDeRef(this JsonElement elem, out BlueprintHandle bp)
         {
             var link = BlueprintHandle.ParseReference(elem.GetString());
-            if (link != null && BlueprintDB.Instance.Blueprints.TryGetValue(System.Guid.Parse(link), out var bp))
-                return bp;
-            return null;
+
+            if (link != null && BlueprintDB.Instance.Blueprints.TryGetValue(System.Guid.Parse(link), out bp))
+            {
+                return true;
+
+            }
+
+            bp = null;
+            return false;
 
         }
+        public static bool TryDeRef(this JsonElement elem, out BlueprintHandle bp, params string[] path)
+        {
+            var child = elem.Find(path);
+            return child.TryDeRef(out bp);
+        }
+
         public static float Float(this JsonElement elem, string child)
         {
             if (elem.TryGetProperty(child, out var prop))

@@ -28,12 +28,13 @@ namespace WikiGen.Assets
             }
         }
 
-        public static LocalSerializedObjectIdentifier ReadPtr(this BinaryReader reader)
+        public static PPtr<T> ReadPtr<T>(this BinaryReader reader, AssetFile inFile)
         {
-            LocalSerializedObjectIdentifier id = new();
-            id.FileIndex = reader.ReadInt32();
-            id.Identifier = reader.ReadInt64();
-            return id;
+            return new(fileIndex: reader.ReadInt32(), identifier: reader.ReadInt64(), sourceFile: inFile);
+        }
+        public static PPtr<T> ReadPtr<T>(this AssetFileReader reader)
+        {
+            return reader.ReadPtr<T>(inFile: reader.File);
         }
 
         public static string ReadAlignedString(this BinaryReader reader)

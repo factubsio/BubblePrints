@@ -4,7 +4,12 @@ namespace WikiGen.Assets
 {
     public class ObjectInfo
     {
-        public AssetFile Owner;
+        public readonly AssetFile Owner;
+
+        public ObjectInfo(AssetFile owner)
+        {
+            Owner = owner;
+        }
 
         public ClassIDType ClassType
         {
@@ -30,6 +35,6 @@ namespace WikiGen.Assets
         public byte stripped;
 
         public long m_PathID;
-        public SerializedType serializedType;
+        public SerializedType serializedType = new();
     }
 }

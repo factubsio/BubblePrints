@@ -8,7 +8,7 @@ namespace WikiGen.Assets
 {
     public static class TreeDumper
     {
-        public static string ReadTypeString(List<TypeTreeNode> nodes, VersionedReader reader)
+        public static string ReadTypeString(List<TypeTreeNode> nodes, AssetFileReader reader)
         {
             reader.Reset();
             var sb = new StringBuilder();
@@ -24,13 +24,13 @@ namespace WikiGen.Assets
             return sb.ToString();
         }
 
-        private static void ReadStringValue(StringBuilder sb, List<TypeTreeNode> m_Nodes, VersionedReader reader, ref int i)
+        private static void ReadStringValue(StringBuilder sb, List<TypeTreeNode> m_Nodes, AssetFileReader reader, ref int i)
         {
             var m_Node = m_Nodes[i];
             var level = m_Node.Level;
             var varTypeStr = m_Node.Type;
             var varNameStr = m_Node.Name;
-            object value = null;
+            object value = "";
             var append = true;
             var align = (m_Node.MetaFlag & 0x4000) != 0;
             switch (varTypeStr)

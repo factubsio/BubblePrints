@@ -31,7 +31,7 @@ namespace WikiGen.Assets
         public uint vertexCount;
         public AABB localAABB;
 
-        public SubMesh(VersionedReader reader)
+        public SubMesh(AssetFileReader reader)
         {
             var version = reader.Version;
 
@@ -53,18 +53,18 @@ namespace WikiGen.Assets
             {
                 firstVertex = reader.ReadUInt32();
                 vertexCount = reader.ReadUInt32();
-                localAABB = new AABB(reader);
+                localAABB = new(reader);
             }
         }
     }
 
 
-    public class AABB
+    public struct AABB
     {
         public Vector3 m_Center;
         public Vector3 m_Extent;
 
-        public AABB(VersionedReader reader)
+        public AABB(AssetFileReader reader)
         {
             m_Center = reader.ReadVector3();
             m_Extent = reader.ReadVector3();
@@ -82,7 +82,7 @@ namespace WikiGen.Assets
 
         public StreamInfo() { }
 
-        public StreamInfo(VersionedReader reader)
+        public StreamInfo(AssetFileReader reader)
         {
             channelMask = reader.ReadUInt32();
             offset = reader.ReadUInt32();
@@ -102,7 +102,7 @@ namespace WikiGen.Assets
 
         public ChannelInfo() { }
 
-        public ChannelInfo(VersionedReader reader)
+        public ChannelInfo(AssetFileReader reader)
         {
             stream = reader.ReadByte();
             offset = reader.ReadByte();
@@ -119,7 +119,7 @@ namespace WikiGen.Assets
         public StreamInfo[] m_Streams;
         public byte[] m_DataSize;
 
-        public VertexData(VersionedReader reader)
+        public VertexData(AssetFileReader reader)
         {
             var version = reader.Version;
 
@@ -137,16 +137,16 @@ namespace WikiGen.Assets
                 m_Channels[i] = new ChannelInfo(reader);
             }
 
-            GetStreams(version);
+            var streamCount = m_Channels.Max(x => x.stream) + 1;
+            m_Streams = new StreamInfo[streamCount];
+            GetStreams(version, streamCount);
 
             m_DataSize = reader.ReadUInt8Array();
             reader.AlignStream();
         }
 
-        private void GetStreams(Version version)
+        private void GetStreams(Version version, int streamCount)
         {
-            var streamCount = m_Channels.Max(x => x.stream) + 1;
-            m_Streams = new StreamInfo[streamCount];
             uint offset = 0;
             for (int s = 0; s < streamCount; s++)
             {
@@ -236,7 +236,7 @@ namespace WikiGen.Assets
             boneIndex = new int[4];
         }
 
-        public BoneWeights4(VersionedReader reader)
+        public BoneWeights4(AssetFileReader reader)
         {
             weight = reader.ReadSingleArray(4);
             boneIndex = reader.ReadInt32Array(4);

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -53,8 +54,14 @@ namespace FontTested
             }
 
             float x = 4;
-            float y = target.Height - 16;
+            float y = target.Height - data.Baseline;
             float scale = data.TextScale;
+
+            if (data.Center)
+            {
+                float totalWidth = str.Sum(ch => (glyphs[ch].advance + data.LetterSpacing) * scale);
+                x = (target.Width / 2.0f) - (totalWidth / 2.0f);
+            }
 
             foreach (char ch in str)
             {
@@ -161,6 +168,8 @@ namespace FontTested
         public Vector3 Color = Vector3.One;
         public float Border = 0.02f;
         public bool Clear = true;
+        public bool Center = true;
+        public float Baseline = 16;
     }
 
     public class BubbleGlyph

@@ -12,7 +12,7 @@ namespace WikiGen.Assets
         public uint size;
         public string path;
 
-        public StreamingInfo(VersionedReader reader)
+        public StreamingInfo(AssetFileReader reader)
         {
             var version = reader.Version;
 
@@ -36,7 +36,7 @@ namespace WikiGen.Assets
         public float m_MipBias;
         public int m_WrapMode;
 
-        public GLTextureSettings(VersionedReader reader)
+        public GLTextureSettings(AssetFileReader reader)
         {
             var version = reader.Version;
 
@@ -56,7 +56,7 @@ namespace WikiGen.Assets
         }
     }
 
-    public sealed class Texture2D
+    public sealed class Texture2D : AssetObject
     {
         public int m_Width;
         public int m_Height;
@@ -68,11 +68,11 @@ namespace WikiGen.Assets
         //public ResourceReader image_data;
         public int image_data_size = -1;
 
-        public StreamingInfo m_StreamData;
+        public StreamingInfo? m_StreamData;
 
         public string Name;
 
-        public Texture2D(VersionedReader reader)
+        public Texture2D(AssetFileReader reader) : base(reader.File)
         {
             var version = reader.Version;
 
