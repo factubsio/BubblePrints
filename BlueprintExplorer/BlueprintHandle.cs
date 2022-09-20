@@ -172,6 +172,10 @@ namespace BlueprintExplorer
 
         public static bool TryDeRef(this JsonElement elem, out BlueprintHandle bp)
         {
+            bp = null;
+            if (elem.ValueKind == JsonValueKind.Null || elem.ValueKind == JsonValueKind.Undefined)
+                return false;
+
             var link = BlueprintHandle.ParseReference(elem.GetString());
 
             if (link != null && BlueprintDB.Instance.Blueprints.TryGetValue(System.Guid.Parse(link), out bp))
@@ -180,7 +184,6 @@ namespace BlueprintExplorer
 
             }
 
-            bp = null;
             return false;
 
         }

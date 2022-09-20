@@ -3,6 +3,7 @@ using BubbleAssets;
 using FontTested;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Data;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -16,6 +17,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 using WikiGen.Assets;
 
 namespace WikiGen
@@ -187,6 +189,7 @@ namespace WikiGen
 
                 var clazzBp = clazzRef.DeRef();
 
+
                 using var outStream = File.Create($"{target}/class.{clazzBp.Name}.json");
                 var obj = clazzBp.EnsureObj;
 
@@ -196,6 +199,16 @@ namespace WikiGen
                 }
 
                 var prog = new ClassProgression();
+
+                ExtractStatProgression(ref prog.Flags.bab, obj.Find("m_BaseAttackBonus").DeRef());
+                ExtractStatProgression(ref prog.Flags.fort, obj.Find("m_FortitudeSave").DeRef());
+                ExtractStatProgression(ref prog.Flags.reflex, obj.Find("m_ReflexSave").DeRef());
+                ExtractStatProgression(ref prog.Flags.will, obj.Find("m_WillSave").DeRef());
+
+                if (obj.TryDeRef(out var spellsBp, "m_Spellbook"))
+                {
+                    ExtractSpellProgression(spellsBp, ref prog.SpellsByLeveL, ref prog.CasterLevelModifier);
+                }
 
                 // Get the base set of features for the class
                 var levelEntries = progression.EnsureObj.Find("LevelEntries");
@@ -240,6 +253,22 @@ namespace WikiGen
 
                     arch.Name = archObj.Find("LocalizedName").ParseAsString();
                     arch.Id = archBp.GuidText;
+
+                    if (archObj.TryDeRef(out var archSpellsBp, "m_ReplaceSpellbook"))
+                    {
+                        ExtractSpellProgression(archSpellsBp, ref arch.SpellsByLeveL, ref arch.CasterLevelModifier);
+                    }
+
+                    arch.removeSpells = archObj.True("RemoveSpellbook");
+
+                    if (!archObj.Find("m_BaseAttackBonus").Nullish())
+                        ExtractStatProgression(ref arch.Flags.bab, obj.Find("m_BaseAttackBonus").DeRef());
+                    if (!archObj.Find("m_FortitudeSave").Nullish())
+                        ExtractStatProgression(ref arch.Flags.fort, obj.Find("m_FortitudeSave").DeRef());
+                    if (!archObj.Find("m_ReflexSave").Nullish())
+                        ExtractStatProgression(ref arch.Flags.reflex, obj.Find("m_ReflexSave").DeRef());
+                    if (!archObj.Find("m_WillSave").Nullish())
+                        ExtractStatProgression(ref arch.Flags.will, obj.Find("m_WillSave").DeRef());
 
                     foreach (var levelEntry in archBp.EnsureObj.Find("RemoveFeatures").EnumerateArray())
                     {
@@ -324,7 +353,6 @@ namespace WikiGen
 
                 jsonWriter.WriteStartObject();
 
-
                 jsonWriter.WriteStartArray("__ui-groups");
                 foreach (var uiGroup in prog.UIGroups)
                 {
@@ -350,6 +378,9 @@ namespace WikiGen
                 jsonWriter.WriteString("name", obj.Find("LocalizedName").ParseAsString());
 
                 WriteLayout(prog.Rows.Values, jsonWriter);
+                WriteStats(prog.Flags, jsonWriter);
+                WriteSpellbook(prog.SpellsByLeveL, jsonWriter);
+                jsonWriter.WriteNumber("casterLevelModifier", prog.CasterLevelModifier);
 
                 jsonWriter.WriteStartArray("archetypes");
                 foreach (var arch in prog.archetypes)
@@ -359,30 +390,10 @@ namespace WikiGen
                     jsonWriter.WriteString("name", arch.Name);
                     jsonWriter.WriteString("id", arch.Id);
                     WriteLayout(arch.Rows.Values, jsonWriter);
+                    WriteStats(arch.Flags, jsonWriter);
 
-                    //jsonWriter.WriteStartArray("add");
-                    //foreach (var r in arch.add)
-                    //{
-                    //    jsonWriter.WriteStartObject();
-                    //    jsonWriter.WriteNumber("level", r.Key);
-
-                    //    jsonWriter.WriteArray("features", r.Value);
-
-                    //    jsonWriter.WriteEndObject();
-                    //}
-                    //jsonWriter.WriteEndArray();
-
-                    //jsonWriter.WriteStartArray("remove");
-                    //foreach (var r in arch.remove)
-                    //{
-                    //    jsonWriter.WriteStartObject();
-                    //    jsonWriter.WriteNumber("level", r.Key);
-
-                    //    jsonWriter.WriteArray("features", r.Value);
-
-                    //    jsonWriter.WriteEndObject();
-                    //}
-                    //jsonWriter.WriteEndArray();
+                    WriteSpellbook(arch.SpellsByLeveL, jsonWriter);
+                    jsonWriter.WriteBoolean("removeSpells", arch.removeSpells);
 
                     jsonWriter.WriteEndObject();
                 }
@@ -473,6 +484,62 @@ namespace WikiGen
             }
 
             Console.WriteLine($"{iconRequests.Count} requests for icons, {cacheHit} already cached, {fromName} generated from name, {iconFound} icons found, {iconNotFound} icons NOT found");
+        }
+
+        private static void WriteSpellbook(int[][] spellsByLeveL, Utf8JsonWriter jsonWriter)
+        {
+            if (spellsByLeveL == null)
+            {
+                jsonWriter.WriteNull("spellSlots");
+                return;
+            }
+            jsonWriter.WriteStartArray("spellSlots");
+            foreach (var table in spellsByLeveL)
+                jsonWriter.WriteArray(null, table);
+            jsonWriter.WriteEndArray();
+
+        }
+
+        private static void ExtractSpellProgression(BlueprintHandle spellsBp, ref int[][] spellsByLeveL, ref int casterLevelModifier)
+        {
+            var spellsPerDay = spellsBp.EnsureObj.Find("m_SpellsPerDay").DeRef();
+
+            spellsByLeveL = new int[21][];
+
+            int level = 0;
+            foreach (var table in spellsPerDay.EnsureObj.Find("Levels").EnumerateArray().Select(x => x.Find("Count")))
+            {
+                if (level > 20)
+                    break;
+                spellsByLeveL[level++] = table.EnumerateArray().Select(x => x.GetInt32()).ToArray();
+            }
+
+            casterLevelModifier = spellsBp.obj.Int("CasterLevelModifier");
+
+            int _ = 0;
+        }
+
+        private static void WriteStats(FlagProgression flags, Utf8JsonWriter jsonWriter)
+        {
+            jsonWriter.WriteArray("bab", flags.bab);
+            jsonWriter.WriteArray("fort", flags.fort);
+            jsonWriter.WriteArray("reflex", flags.reflex);
+            jsonWriter.WriteArray("will", flags.will);
+        }
+
+        private static void ExtractStatProgression(ref int[] arr, BlueprintHandle blueprintHandle)
+        {
+            int level = 0;
+            arr = new int[21];
+            foreach (int current in blueprintHandle.EnsureObj.Find("Bonuses").EnumerateArray().Select(x => x.GetInt32()))
+            {
+                if (level <= 20)
+                {
+                    arr[level] = current;
+                }
+
+                level++;
+            }
         }
 
         private static void LayoutFeature(ClassProgression prog, IProgressionLayout layout, int level, LocalReference feature, int addRemove = 0)
@@ -667,6 +734,15 @@ namespace WikiGen
         public static void WriteArray(this Utf8JsonWriter writer, string propName, IEnumerable<string> values) => WriteArray(writer, propName, values, v => writer.WriteStringValue(v));
         public static void WriteArray<T>(this Utf8JsonWriter writer, string propName, IEnumerable<T> values, Action<T> writeAction)
         {
+            if (values == null)
+            {
+                if (propName != null)
+                    writer.WriteNull(propName);
+                else
+                    writer.WriteNullValue();
+                return;
+            }
+
             if (propName != null)
                 writer.WriteStartArray(propName);
             else
@@ -751,6 +827,7 @@ namespace WikiGen
                     rank = prev.rank + 1;
             }
 
+
             HasMultipleOfFeature |= FeatureByLevel.Any(x => x?.index == feature.index);
 
             FeatureByLevel[level] = new()
@@ -805,12 +882,27 @@ namespace WikiGen
     {
         void AddFake(LevelRow addto);
         LevelRow LookupRow(int row, bool uiGroup);
+
+        FlagProgression Flags { get; }
+
+    }
+
+    public class FlagProgression
+    {
+        public int[] bab = null;
+        public int[] will = null;
+        public int[] reflex = null;
+        public int[] fort = null;
     }
 
     public class ArchetypeProgression : IProgressionLayout
     {
         public string Name;
         public string Id;
+
+        public FlagProgression Flags { get; } = new();
+
+        public int[][] SpellsByLeveL;
 
         public Dictionary<int, List<int>> remove = new();
         public Dictionary<int, List<int>> add = new();
@@ -848,17 +940,23 @@ namespace WikiGen
         }
 
         int FakeRow = -100000;
+        internal bool removeSpells;
+        internal int CasterLevelModifier = 0;
     }
 
     public class ClassProgression : IProgressionLayout
     {
         public List<LocalReference>[] FeatureByLevel = new List<LocalReference>[21];
+        public FlagProgression Flags { get; } = new();
 
         public List<UIGroup> UIGroups = new();
 
         public Dictionary<int, LevelRow> Rows = new();
         public List<ArchetypeProgression> archetypes = new();
         public int FakeRow = -100000;
+
+        public int[][] SpellsByLeveL;
+        internal int CasterLevelModifier;
 
         public (bool, int) LookupGroup(int feature)
         {
