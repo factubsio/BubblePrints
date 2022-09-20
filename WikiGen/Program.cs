@@ -207,7 +207,7 @@ namespace WikiGen
 
                 if (obj.TryDeRef(out var spellsBp, "m_Spellbook"))
                 {
-                    ExtractSpellProgression(spellsBp, ref prog.SpellsByLeveL, ref prog.CasterLevelModifier);
+                    ExtractSpellProgression(spellsBp, ref prog.SpellsByLeveL, ref prog.CasterLevelModifier, ref prog.NewSpellsByLevel);
                 }
 
                 // Get the base set of features for the class
@@ -256,7 +256,7 @@ namespace WikiGen
 
                     if (archObj.TryDeRef(out var archSpellsBp, "m_ReplaceSpellbook"))
                     {
-                        ExtractSpellProgression(archSpellsBp, ref arch.SpellsByLeveL, ref arch.CasterLevelModifier);
+                        ExtractSpellProgression(archSpellsBp, ref arch.SpellsByLeveL, ref arch.CasterLevelModifier, ref arch.NewSpellsByLevel);
                     }
 
                     arch.removeSpells = archObj.True("RemoveSpellbook");
@@ -379,7 +379,7 @@ namespace WikiGen
 
                 WriteLayout(prog.Rows.Values, jsonWriter);
                 WriteStats(prog.Flags, jsonWriter);
-                WriteSpellbook(prog.SpellsByLeveL, jsonWriter);
+                WriteSpellbook(prog.SpellsByLeveL, prog.NewSpellsByLevel, jsonWriter);
                 jsonWriter.WriteNumber("casterLevelModifier", prog.CasterLevelModifier);
 
                 jsonWriter.WriteStartArray("archetypes");
@@ -392,7 +392,7 @@ namespace WikiGen
                     WriteLayout(arch.Rows.Values, jsonWriter);
                     WriteStats(arch.Flags, jsonWriter);
 
-                    WriteSpellbook(arch.SpellsByLeveL, jsonWriter);
+                    WriteSpellbook(arch.SpellsByLeveL, arch.NewSpellsByLevel, jsonWriter);
                     jsonWriter.WriteBoolean("removeSpells", arch.removeSpells);
 
                     jsonWriter.WriteEndObject();
@@ -408,7 +408,7 @@ namespace WikiGen
 
             File.WriteAllLines(@"D:\classes.txt", classList);
 
-            using var saber = new SaberRenderer((Bitmap)Bitmap.FromFile(@"D:\font_atlas.png"), File.ReadAllLines(@"D:\font_atlas.txt"));
+            using var saber = new SaberRenderer((Bitmap)Bitmap.FromFile(@"D:\font_atlas.png"), File.ReadAllLines(@"D:\font_atlas_.txt"));
 
             int fromName = 0;
             int iconNotFound = 0;
@@ -486,23 +486,38 @@ namespace WikiGen
             Console.WriteLine($"{iconRequests.Count} requests for icons, {cacheHit} already cached, {fromName} generated from name, {iconFound} icons found, {iconNotFound} icons NOT found");
         }
 
-        private static void WriteSpellbook(int[][] spellsByLeveL, Utf8JsonWriter jsonWriter)
+        private static void WriteSpellbook(int[][] spellsByLeveL, string[][] newSpellsByLevel, Utf8JsonWriter jsonWriter)
         {
             if (spellsByLeveL == null)
             {
                 jsonWriter.WriteNull("spellSlots");
-                return;
             }
-            jsonWriter.WriteStartArray("spellSlots");
-            foreach (var table in spellsByLeveL)
-                jsonWriter.WriteArray(null, table);
-            jsonWriter.WriteEndArray();
+            else
+            {
+                jsonWriter.WriteStartArray("spellSlots");
+                foreach (var table in spellsByLeveL)
+                    jsonWriter.WriteArray(null, table);
+                jsonWriter.WriteEndArray();
+            }
+
+            if (newSpellsByLevel == null)
+            {
+                jsonWriter.WriteNull("spells");
+            }
+            else
+            {
+                jsonWriter.WriteStartArray("spells");
+                foreach (var table in newSpellsByLevel)
+                    jsonWriter.WriteArray(null, table);
+                jsonWriter.WriteEndArray();
+            }
 
         }
 
-        private static void ExtractSpellProgression(BlueprintHandle spellsBp, ref int[][] spellsByLeveL, ref int casterLevelModifier)
+        private static void ExtractSpellProgression(BlueprintHandle spellsBp, ref int[][] spellsByLeveL, ref int casterLevelModifier, ref string[][] newSpellsByLevel)
         {
             var spellsPerDay = spellsBp.EnsureObj.Find("m_SpellsPerDay").DeRef();
+            var spellList = spellsBp.EnsureObj.Find("m_SpellList").DeRef();
 
             spellsByLeveL = new int[21][];
 
@@ -512,6 +527,16 @@ namespace WikiGen
                 if (level > 20)
                     break;
                 spellsByLeveL[level++] = table.EnumerateArray().Select(x => x.GetInt32()).ToArray();
+            }
+
+
+            newSpellsByLevel = new string[11][];
+            foreach (var byLevel in spellList.EnsureObj.Find("SpellsByLevel").EnumerateArray())
+            {
+                int cl = byLevel.Int("SpellLevel");
+                if (cl == 0) continue;
+
+                newSpellsByLevel[cl] = byLevel.Find("m_Spells").EnumerateArray().Select(x => x.DeRef().EnsureObj.Find("m_DisplayName").ParseAsString()).ToArray();
             }
 
             casterLevelModifier = spellsBp.obj.Int("CasterLevelModifier");
@@ -903,6 +928,7 @@ namespace WikiGen
         public FlagProgression Flags { get; } = new();
 
         public int[][] SpellsByLeveL;
+        public string[][] NewSpellsByLevel;
 
         public Dictionary<int, List<int>> remove = new();
         public Dictionary<int, List<int>> add = new();
@@ -956,6 +982,7 @@ namespace WikiGen
         public int FakeRow = -100000;
 
         public int[][] SpellsByLeveL;
+        public string[][] NewSpellsByLevel;
         internal int CasterLevelModifier;
 
         public (bool, int) LookupGroup(int feature)

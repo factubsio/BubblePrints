@@ -8,7 +8,7 @@ namespace FontTested
 
         public Form1()
         {
-            saber = new((Bitmap)Bitmap.FromFile(@"D:\font_atlas.png"), File.ReadAllLines(@"D:\font_atlas.txt"));
+            saber = new((Bitmap)Bitmap.FromFile(@"D:\font_atlas.png"), File.ReadAllLines(@"D:\font_atlas_.txt"));
             InitializeComponent();
             buffer = new(Size.Width, Size.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
             using var g = Graphics.FromImage(buffer);
