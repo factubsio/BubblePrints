@@ -46,8 +46,10 @@ namespace BlueprintExplorer
         #region DEV
         bool generateOutput = false;
         bool importNew = false;
-        bool forceLastKnown = true;
+        bool forceLastKnown = false;
         #endregion
+
+        private readonly GameVersion LastKnown = new(2, 0, 4, 'j', 0);
 
         private Dictionary<string, List<int>> _IndexByWord = new();
 
@@ -122,8 +124,6 @@ namespace BlueprintExplorer
         }
 
         public List<GameVersion> Available = new() { };
-
-        private readonly GameVersion LastKnown = new(1, 4, 2, 'a', 0);
 
         private readonly string filenameRoot = "blueprints_raw";
         private readonly string extension = "binz";
@@ -563,22 +563,22 @@ namespace BlueprintExplorer
                         }
                     }
 
-                    //var searchIndex = ctx.Open(reader.Get((ushort)ChunkTypes.SearchIndex)?.Main);
-                    //if (searchIndex != null)
-                    //{
-                    //    int kCount = searchIndex.ReadInt32();
-                    //    for (int i = 0; i < kCount; i++)
-                    //    {
-                    //        string key = searchIndex.ReadString();
-                    //        int refCount = searchIndex.ReadInt32();
-                    //        List<int> references = new();
-                    //        for (int r = 0; r < refCount; r++)
-                    //        {
-                    //            references.Add(searchIndex.Read7BitEncodedInt());
-                    //        }
-                    //        _IndexByWord.Add(key, references);
-                    //    }
-                    //}
+                    var searchIndex = ctx.Open(reader.Get((ushort)ChunkTypes.SearchIndex)?.Main);
+                    if (searchIndex != null)
+                    {
+                        int kCount = searchIndex.ReadInt32();
+                        for (int i = 0; i < kCount; i++)
+                        {
+                            string key = searchIndex.ReadString();
+                            int refCount = searchIndex.ReadInt32();
+                            List<int> references = new();
+                            for (int r = 0; r < refCount; r++)
+                            {
+                                references.Add(searchIndex.Read7BitEncodedInt());
+                            }
+                            _IndexByWord.Add(key, references);
+                        }
+                    }
                 });
 
                 foreach (var bp in tasks.SelectMany(t => t.Result))

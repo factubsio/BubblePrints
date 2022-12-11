@@ -138,6 +138,8 @@ namespace BlueprintExplorer
 
         public static bool Nullish(this JsonElement elem) => elem.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
 
+        private static JsonElement Null = JsonDocument.Parse("null").RootElement;
+
         public static JsonElement Find(this JsonElement elem, params string[] path)
         {
             var curr = elem;
@@ -146,7 +148,9 @@ namespace BlueprintExplorer
                 if (curr.ValueKind == JsonValueKind.Null || curr.ValueKind == JsonValueKind.Undefined)
                     break;
 
-                curr = curr.GetProperty(component);
+                if (!curr.TryGetProperty(component, out curr)) {
+                    return Null;
+                }
             }
             return curr;
         }
@@ -380,7 +384,10 @@ namespace BlueprintExplorer
         {
             if (val.StartsWith("!bp_"))
             {
-                return val[4..];
+                if (val.Length > 4)
+                    return val[4..];
+                else
+                    return null;
             }
             else if (val.StartsWith("Blueprint:"))
             {

@@ -5,12 +5,14 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -145,21 +147,72 @@ namespace WikiGen
 
             var classList = new List<String>();
 
-            foreach (var clazzRef in bpRoot.EnsureObj.Find("Progression", "m_CharacterClasses").EnumerateArray())
-            {
-                Dictionary<Guid, LocalReference> features = new();
-                List<BlueprintHandle> allFeatures = new();
-                List<LocalReference> allFeatureReferences = new();
 
-                LocalReference AddFeature(BlueprintHandle bp)
+            List<BlueprintHandle> classes = bpRoot.EnsureObj.Find("Progression", "m_CharacterClasses").EnumerateArray().Select(x => x.DeRef()).ToList();
+            classes.Add(BlueprintDB.Instance.Blueprints[Guid.Parse("a406d6ebea5c46bba3160246be03e96f")]);
+
+            foreach (var clazzBp in classes)
+            {
+                Dictionary<string, LocalReference> featuresByGuid = new();
+                List<LocalReference> features = new();
+
+
+                LocalReference AddFeature(BlueprintHandle bp, BlueprintHandle parent = null)
                 {
-                    var key = Guid.Parse(bp.GuidText);
-                    if (!features.TryGetValue(key, out var localRef))
+                    string key;
+                    if (parent != null)
+                        key = $"{bp.GuidText}/{parent.GuidText}";
+                    else
+                        key = bp.GuidText;
+
+                    if (bp.EnsureObj.True("HideInUI"))
                     {
-                        localRef = new(bp, features.Count);
-                        features.Add(key, localRef);
-                        allFeatures.Add(bp);
-                        allFeatureReferences.Add(localRef);
+                        throw new Exception();
+                    }
+
+
+                    if (!featuresByGuid.TryGetValue(key, out var localRef))
+                    {
+                        localRef = new(bp, featuresByGuid.Count);
+                        featuresByGuid.Add(key, localRef);
+                        features.Add(localRef);
+
+                        var locName = bp.EnsureObj.Find("m_DisplayName").ParseAsString();
+
+                        if (bp.TypeName == "BlueprintProgression")
+                        {
+                            localRef.SubProgression = new();
+                            var levelEntries = bp.EnsureObj.Find("LevelEntries");
+                            foreach (var levelEntry in levelEntries.EnumerateArray())
+                            {
+                                int level = levelEntry.Int("Level");
+                                foreach (var feature in levelEntry.Find("m_Features").EnumerateArray())
+                                {
+                                    var featureBp = feature.DeRef();
+                                    if (featureBp.EnsureObj.True("HideInUI")) continue;
+                                    var reference = AddFeature(featureBp, bp);
+                                    reference.ProgressionGroup = locName;
+                                    localRef.SubProgression.Add((reference, level));
+                                }
+                            }
+                            localRef.ProgressionGroup = locName;
+                        }
+
+                        if (bp.TypeName == "BlueprintFeatureSelection")
+                        {
+                            localRef.IsSelection = true;
+
+                            //if (bp.Name == "OppositionSchoolSelection")
+                            //{
+                            //    Debugger.Break();
+                            //}
+
+                            if (bp.EnsureObj.Find("m_AllFeatures").EnumerateArray().All(fRaw => fRaw.DeRef().TypeName == "BlueprintProgression"))
+                            {
+                                localRef.ProgressionGroup = locName;
+                            }
+                        }
+
 
                         var iconGuid = bp.obj.Find("m_Icon", "guid");
 
@@ -181,13 +234,15 @@ namespace WikiGen
 
                 int LookupFeature(BlueprintHandle bp)
                 {
-                    var key = Guid.Parse(bp.GuidText);
-                    if (!features.TryGetValue(key, out var localRef))
+                    if (!featuresByGuid.TryGetValue(bp.GuidText, out var localRef))
                         return -1;
                     return localRef.index;
                 }
 
-                var clazzBp = clazzRef.DeRef();
+                //if (clazzBp.Name == "MonkClass")
+                //{
+                //    Debugger.Break();
+                //}
 
 
                 using var outStream = File.Create($"{target}/class.{clazzBp.Name}.json");
@@ -209,7 +264,7 @@ namespace WikiGen
 
                 if (obj.TryDeRef(out var spellsBp, "m_Spellbook"))
                 {
-                    ExtractSpellProgression(spellsBp, 
+                    ExtractSpellProgression(spellsBp,
                         ref prog.SpellsByLeveL, ref prog.CasterLevelModifier, ref prog.NewSpellsByLevel, ref prog.CasterAbility, ref prog.Spontaneous);
                     prog.CasterType = ExtractCasterType(obj);
                 }
@@ -225,7 +280,16 @@ namespace WikiGen
 
                         if (featureBp.EnsureObj.True("HideInUI")) continue;
                         var reference = AddFeature(featureBp);
-                        prog.FeatureByLevel[level].Add(reference);
+                        if (reference.SubProgression == null)
+                            prog.FeatureByLevel[level].Add(reference);
+                        else
+                        {
+                            foreach (var (sub, subLevel) in reference.SubProgression)
+                            {
+                                prog.FeatureByLevel[subLevel].Add(sub);
+                            }
+
+                        }
                     }
                 }
 
@@ -237,7 +301,10 @@ namespace WikiGen
                     {
                         var featureBp = f.DeRef();
 
-                        int index = LookupFeature(featureBp);
+
+                        if (featureBp.EnsureObj.True("HideInUI")) continue;
+
+                        int index = AddFeature(featureBp).index;
                         if (index != -1)
                             set.contains.Add(index);
 
@@ -245,6 +312,17 @@ namespace WikiGen
                             set.Id = index;
                     }
                     prog.UIGroups.Add(set);
+                }
+
+
+                // Determinators go in the special left-column and ignore most row layout rules
+                foreach (var determinatorFeature in progression.obj.Find("m_UIDeterminatorsGroup").EnumerateArray().Select(x => x.DeRef()))
+                {
+                    if (determinatorFeature.EnsureObj.True("HideInUI")) continue;
+
+                    int index = AddFeature(determinatorFeature).index;
+                    if (index != -1)
+                        prog.uiDeterminators.Add(index);
                 }
 
                 foreach (var archRef in obj.Find("m_Archetypes").EnumerateArray())
@@ -258,6 +336,7 @@ namespace WikiGen
                     arch.Name = archObj.Find("LocalizedName").ParseAsString();
                     arch.Desc = archObj.Find("LocalizedDescription").ParseAsString();
                     arch.Id = archBp.GuidText;
+                    arch.bp = archBp;
 
                     if (archObj.TryDeRef(out var archSpellsBp, "m_ReplaceSpellbook"))
                     {
@@ -284,7 +363,7 @@ namespace WikiGen
                     {
                         int level = levelEntry.Int("Level");
 
-                        if (!arch.add.TryGetValue(level, out var remove))
+                        if (!arch.remove.TryGetValue(level, out var remove))
                         {
                             remove = new();
                             arch.remove[level] = remove;
@@ -295,6 +374,7 @@ namespace WikiGen
                             remove.Add(LookupFeature(f.DeRef()));
                         }
                     }
+
 
                     foreach (var levelEntry in archBp.EnsureObj.Find("AddFeatures").EnumerateArray())
                     {
@@ -310,18 +390,27 @@ namespace WikiGen
                             var featureBp = f.DeRef();
                             if (featureBp.EnsureObj.True("HideInUI")) continue;
 
-                            add.Add(AddFeature(featureBp).index);
+                            var reference = AddFeature(featureBp);
+
+                            if (reference.SubProgression == null)
+                                add.Add(reference.index);
+                            else
+                            {
+                                foreach (var (sub, subLevel) in reference.SubProgression)
+                                {
+                                    add.Add(sub.index);
+                                }
+                            }
                         }
-
-                        //if (clazzBp.Name == "BloodragerClass" && arch.Name == "Primalist")
-                        //{
-                        //    int x = 1;
-
-                        //}
                     }
 
                     prog.archetypes.Add(arch);
                 }
+
+                //                    if (clazzBp.Name == "BarbarianClass")
+                //                    {
+                //Debugger.Break();
+                //                    }
 
                 // Convert the features into a layout (a set of rows where each row can only have one feature per level)
                 for (int level = 1; level <= 20; level++)
@@ -333,11 +422,30 @@ namespace WikiGen
                 }
 
                 // Merge rows with only one entry into a previous row (that is not part of a ui group)
-                MergeRows(allFeatureReferences, prog.Rows.Values);
+                MergeRows(features, prog.Rows.Values);
+
+                AddDeterminators(features, source: prog, to: prog);
 
                 foreach (var arch in prog.archetypes)
                 {
-                    arch.Rows = prog.Rows.ToDictionary(kv => kv.Key, kv => kv.Value.Clone());
+                    //arch.Rows = prog.Rows.ToDictionary(kv => kv.Key, kv => kv.Value.Clone());
+                    foreach (var addAtLevel in arch.add)
+                    {
+                        foreach (var f in addAtLevel.Value)
+                        {
+                            LayoutFeature(prog, arch, addAtLevel.Key, features[f], 1);
+                        }
+                    }
+                    for (int level = 1; level <= 20; level++)
+                    {
+                        foreach (var feature in prog.FeatureByLevel[level])
+                        {
+                            LayoutFeature(prog, arch, level, feature);
+                        }
+                    }
+                    MergeRows(features, arch.Rows.Values);
+                    //AddDeterminators(allFeatureReferences, source: prog, to: arch);
+                    AddDeterminators(features, source: arch, to: arch);
                     foreach (var removeAtLevel in arch.remove)
                     {
                         foreach (var f in removeAtLevel.Value)
@@ -345,14 +453,6 @@ namespace WikiGen
                             arch.FindFeature(removeAtLevel.Key, f)?.SetAddRemove(-1);
                         }
                     }
-                    foreach (var addAtLevel in arch.add)
-                    {
-                        foreach (var f in addAtLevel.Value)
-                        {
-                            LayoutFeature(prog, arch, addAtLevel.Key, allFeatureReferences[f], 1);
-                        }
-                    }
-                    MergeRows(allFeatureReferences, arch.Rows.Values);
                 }
 
 
@@ -371,7 +471,7 @@ namespace WikiGen
                 jsonWriter.WriteEndArray();
 
                 jsonWriter.WriteStartArray("features");
-                foreach (var featureRef in features.Values.OrderBy(x => x.index))
+                foreach (var featureRef in featuresByGuid.Values.OrderBy(x => x.index))
                 {
                     var feature = featureRef.handle;
                     if (feature.EnsureObj.True("HideInUI")) continue;
@@ -381,6 +481,7 @@ namespace WikiGen
                     jsonWriter.WriteString("name", feature.EnsureObj.Find("m_DisplayName").ParseAsString());
                     jsonWriter.WriteString("desc", feature.EnsureObj.Find("m_Description").ParseAsString());
                     jsonWriter.WriteString("icon", featureRef.icon);
+                    jsonWriter.WriteBoolean("isSelection", featureRef.IsSelection);
                     jsonWriter.WriteEndObject();
                 }
                 jsonWriter.WriteEndArray();
@@ -497,6 +598,28 @@ namespace WikiGen
             }
 
             Console.WriteLine($"{iconRequests.Count} requests for icons, {cacheHit} already cached, {fromName} generated from name, {iconFound} icons found, {iconNotFound} icons NOT found");
+        }
+
+        private static void AddDeterminators(List<LocalReference> allFeatureReferences, IProgressionLayout source, IProgressionLayout to)
+        {
+            foreach (var (d, addRemove) in source.Determinators)
+            {
+                var featureRef = allFeatureReferences[d];
+                var row = to.EnumerateRows()
+                    .Where(x => x.FeatureByLevel[0] == null && featureRef.ProgressionGroup == x.ProgressionGroup)
+                    .OrderByDescending(x => x.Count)
+                    .FirstOrDefault();
+
+                if (row == null)
+                {
+                    row = new()
+                    {
+                        IsOverflow = true,
+                    };
+                    to.AddFake(row);
+                }
+                row.Set(0, featureRef, addRemove);
+            }
         }
 
         private static string ExtractCasterType(JsonElement archObj)
@@ -616,8 +739,14 @@ namespace WikiGen
 
         private static void LayoutFeature(ClassProgression prog, IProgressionLayout layout, int level, LocalReference feature, int addRemove = 0)
         {
+            if (prog.uiDeterminators.Contains(feature.index))
+            {
+                layout.Determinators.Add((feature.index, addRemove));
+                return;
+            }
+
             var (uiGroup, row) = prog.LookupGroup(feature.index);
-            if (!layout.LookupRow(row, uiGroup).Set(level, feature, addRemove))
+            if (!layout.LookupRow(row, uiGroup, feature.ProgressionGroup).Set(level, feature, addRemove))
             {
                 LevelRow addto = new()
                 {
@@ -638,9 +767,10 @@ namespace WikiGen
 
                 for (int b = 0; b < i; b++)
                 {
-                    if (mergeRows[b].Count > 0 && mergeRows[b].FeatureByLevel[feature.level] == null)
+                    var featureRef = allFeatureReferences[feature.index];
+                    if (mergeRows[b].Count > 0 && mergeRows[b].FeatureByLevel[feature.level] == null && mergeRows[b].ProgressionGroup == featureRef.ProgressionGroup)
                     {
-                        mergeRows[b].Set(feature.level, allFeatureReferences[feature.index], feature.addRemove);
+                        mergeRows[b].Set(feature.level, featureRef, feature.addRemove);
                         mergeRows[i].Remove(feature.level);
                         break;
                     }
@@ -651,22 +781,41 @@ namespace WikiGen
         private static void WriteLayout(IEnumerable<LevelRow> rows, Utf8JsonWriter jsonWriter)
         {
             jsonWriter.WriteStartArray("layout");
-            foreach (var group in rows)
+            var groups = rows.GroupBy(row => row.ProgressionGroup).ToList();
+            groups.Sort((x, y) =>
             {
-                jsonWriter.WriteStartArray();
-                for (int l = 1; l <= 20; l++)
+                if (x.Key == null)
+                    return -1;
+                return -x.Sum(r => r.Count).CompareTo(y.Sum(r => r.Count));
+            });
+            foreach (var group in groups)
+            {
+                jsonWriter.WriteStartObject();
+                jsonWriter.WriteString("name", group.Key);
+                jsonWriter.WriteStartArray("rows");
+                foreach (var row in group)
                 {
-                    if (group.FeatureByLevel[l] != null)
+                    jsonWriter.WriteStartObject();
+                    jsonWriter.WriteBoolean("lines", row.IsUIGroup || row.HasMultipleOfFeature);
+                    jsonWriter.WriteStartArray("features");
+                    for (int l = 0; l <= 20; l++)
                     {
-                        jsonWriter.WriteStartObject();
-                        jsonWriter.WriteNumber("level", l);
-                        jsonWriter.WriteNumber("feature", group.FeatureByLevel[l].index);
-                        jsonWriter.WriteNumber("rank", group.FeatureByLevel[l].rank);
-                        jsonWriter.WriteNumber("archType", group.FeatureByLevel[l].addRemove);
-                        jsonWriter.WriteEndObject();
+                        if (row.FeatureByLevel[l] != null)
+                        {
+                            jsonWriter.WriteStartObject();
+                            jsonWriter.WriteNumber("level", l);
+                            jsonWriter.WriteNumber("feature", row.FeatureByLevel[l].index);
+                            jsonWriter.WriteNumber("rank", row.FeatureByLevel[l].rank);
+                            jsonWriter.WriteNumber("archType", row.FeatureByLevel[l].addRemove);
+                            jsonWriter.WriteEndObject();
+                        }
                     }
+                    jsonWriter.WriteEndArray();
+                    jsonWriter.WriteEndObject();
                 }
                 jsonWriter.WriteEndArray();
+                jsonWriter.WriteEndObject();
+
             }
             jsonWriter.WriteEndArray();
         }
@@ -830,6 +979,13 @@ namespace WikiGen
 
     public class LocalReference
     {
+        public string ProgressionGroup;
+        public bool IsSelection;
+
+        public override string ToString() => $"{ProgressionGroup ?? ""}/{handle.Name}";
+
+        public List<(LocalReference, int Level)> SubProgression;
+
         public readonly BlueprintHandle handle;
         public readonly int index;
         public string icon = "";
@@ -861,24 +1017,28 @@ namespace WikiGen
         public int index = -1;
         public int rank = -1;
         public int level = -1;
+        public string __name;
 
         internal void SetAddRemove(int addRemove) => this.addRemove = addRemove;
     }
 
     public class LevelRow
     {
+        public string ProgressionGroup = null;
         public int Count = 0;
         public bool HasMultipleOfFeature = false;
         public bool IsOverflow = false;
         public bool IsUIGroup = false;
         public FeatureEntry[] FeatureByLevel = new FeatureEntry[21];
 
+        public override string ToString() => $"{ProgressionGroup??""}: {Count} / {FeatureByLevel.First(x => x != null)?.__name}";
+
         public bool MergeTarget
         {
             get
             {
-                if (Count == 0) return false;
-                if (IsUIGroup) return false;
+                if (Count != 1) return false;
+                //if (IsUIGroup) return false;
                 if (HasMultipleOfFeature) return false;
 
                 return true;
@@ -899,7 +1059,6 @@ namespace WikiGen
                     rank = prev.rank + 1;
             }
 
-
             HasMultipleOfFeature |= FeatureByLevel.Any(x => x?.index == feature.index);
 
             FeatureByLevel[level] = new()
@@ -908,8 +1067,14 @@ namespace WikiGen
                 rank = rank,
                 level = level,
                 addRemove = addRemove,
+                __name = feature.handle.Name,
             };
 
+            if (ProgressionGroup != null && ProgressionGroup != feature.ProgressionGroup)
+            {
+                throw new Exception();
+            }
+            ProgressionGroup = feature.ProgressionGroup;
 
             Count++;
             return true;
@@ -927,12 +1092,12 @@ namespace WikiGen
         {
             LevelRow ret = new()
             {
-                Count = this.Count,
                 IsOverflow = this.IsOverflow,
                 IsUIGroup = this.IsUIGroup,
                 HasMultipleOfFeature = this.HasMultipleOfFeature,
+                ProgressionGroup = this.ProgressionGroup,
             };
-            for (int i = 0; i < FeatureByLevel.Length; i++)
+            for (int i = 1; i < FeatureByLevel.Length; i++)
             {
                 var f = FeatureByLevel[i];
                 if (f == null)
@@ -946,6 +1111,7 @@ namespace WikiGen
 
                 };
             }
+            ret.Count = ret.FeatureByLevel.Count(x => x is not null);
             return ret;
         }
     }
@@ -953,9 +1119,17 @@ namespace WikiGen
     public interface IProgressionLayout
     {
         void AddFake(LevelRow addto);
-        LevelRow LookupRow(int row, bool uiGroup);
+        LevelRow LookupRow(int row, bool uiGroup, string progressionGroup);
+        IEnumerable<LevelRow> EnumerateRows();
+
+        List<(int id, int addRemove)> Determinators { get; }
 
         FlagProgression Flags { get; }
+
+        public static string RowKey(int row, string progressionGroup)
+        {
+            return $"{progressionGroup ?? "main"}:{row}";
+        }
 
     }
 
@@ -971,8 +1145,10 @@ namespace WikiGen
         internal string willSpeed;
     }
 
+
     public class ArchetypeProgression : IProgressionLayout
     {
+        public BlueprintHandle bp;
         public string Name;
         public string Id;
 
@@ -981,12 +1157,16 @@ namespace WikiGen
         public int[][] SpellsByLeveL;
         public string[][] NewSpellsByLevel;
 
+        public List<(int id, int addRemove)> Determinators { get; } = new();
+
         public Dictionary<int, List<int>> remove = new();
         public Dictionary<int, List<int>> add = new();
-        public Dictionary<int, LevelRow> Rows = new();
-        public LevelRow LookupRow(int row, bool uiGroup)
+        public Dictionary<string, LevelRow> Rows = new();
+
+        public LevelRow LookupRow(int row, bool uiGroup, string progressionGroup)
         {
-            if (!Rows.TryGetValue(row, out var levelRow))
+            string key = IProgressionLayout.RowKey(row, progressionGroup);
+            if (!Rows.TryGetValue(key, out var levelRow))
             {
                 levelRow = new()
                 {
@@ -994,7 +1174,7 @@ namespace WikiGen
                 };
                 if (row == -1)
                     levelRow.IsOverflow = true;
-                Rows[row] = levelRow;
+                Rows[key] = levelRow;
             }
             return levelRow;
         }
@@ -1003,6 +1183,11 @@ namespace WikiGen
         {
             foreach (var row in Rows.Values)
             {
+                if (level == 1 && row.FeatureByLevel[0]?.index == f)
+                {
+                    return row.FeatureByLevel[0];
+                }
+
                 if (row.FeatureByLevel[level]?.index == f)
                 {
                     return row.FeatureByLevel[level];
@@ -1013,8 +1198,10 @@ namespace WikiGen
 
         public void AddFake(LevelRow row)
         {
-            Rows[FakeRow++] = row;
+            Rows[$"fake:{FakeRow++}"] = row;
         }
+
+        public IEnumerable<LevelRow> EnumerateRows() => Rows.Values;
 
         int FakeRow = -100000;
         internal bool removeSpells;
@@ -1031,10 +1218,12 @@ namespace WikiGen
         public FlagProgression Flags { get; } = new();
 
         public List<UIGroup> UIGroups = new();
+        public List<(int id, int addRemove)> Determinators { get; } = new();
 
-        public Dictionary<int, LevelRow> Rows = new();
+        public Dictionary<string, LevelRow> Rows = new();
         public List<ArchetypeProgression> archetypes = new();
         public int FakeRow = -100000;
+        public IEnumerable<LevelRow> EnumerateRows() => Rows.Values;
 
         public int[][] SpellsByLeveL;
         public string[][] NewSpellsByLevel;
@@ -1043,6 +1232,7 @@ namespace WikiGen
         public bool Spontaneous;
         internal int CasterLevelModifier;
         internal int HitDie;
+        internal HashSet<int> uiDeterminators = new();
 
         public (bool, int) LookupGroup(int feature)
         {
@@ -1053,12 +1243,13 @@ namespace WikiGen
         }
         public void AddFake(LevelRow row)
         {
-            Rows[FakeRow++] = row;
+            Rows[$"fake:{FakeRow++}"] = row;
         }
 
-        public LevelRow LookupRow(int row, bool uiGroup)
+        public LevelRow LookupRow(int row, bool uiGroup, string progressionGroup)
         {
-            if (!Rows.TryGetValue(row, out var levelRow))
+            string key = IProgressionLayout.RowKey(row, progressionGroup);
+            if (!Rows.TryGetValue(key, out var levelRow))
             {
                 levelRow = new()
                 {
@@ -1068,7 +1259,7 @@ namespace WikiGen
                 if (row == -1)
                     levelRow.IsOverflow = true;
 
-                Rows[row] = levelRow;
+                Rows[key] = levelRow;
             }
             return levelRow;
         }
