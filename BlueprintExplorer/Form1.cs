@@ -310,11 +310,10 @@ namespace BlueprintExplorer
                 new SettingsView().ShowDialog();
             };
 
-            BubblePrints.SetWrathPath();
+            BubblePrints.InitializeForGame(GameFamily.RogueTrader1);
 
-            if (BubblePrints.TryGetWrathPath(out var wrathPath))
+            if (BubblePrints.TryGetGamePath(out var gamePath))
             {
-                BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, "Wrath_Data", "Managed", "Assembly-CSharp.dll"));
             }
 
             //blueprintViews.DrawMode = TabDrawMode.OwnerDrawFixed;

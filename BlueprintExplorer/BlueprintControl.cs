@@ -457,7 +457,7 @@ namespace BlueprintExplorer
                             level = currentLevel,
                             link = e.link,
                             Parent = stack.Peek(),
-                            String = JsonExtensions.ParseAsString(e.Node),
+                            String = e.Node.ParseAsString(),
                             RowCount = 1,
                             IsObj = e.isObj,
                             Collapsed = totalRows != 0 && !BubblePrints.Settings.EagerExpand && currentLevel > 0,
@@ -525,9 +525,11 @@ namespace BlueprintExplorer
 
                         if (row.key == "m_IntValue" && row.Parent.TypeFull == "Kingmaker.Blueprints.Classes.Spells.SpellDescriptorWrapper")
                         {
-                            List<StyledString.StyleSpan> spans = new();
-                            spans.Add(new(row.value + "    -    ", StyleFlags.Bold));
-                            spans.Add(new(Enum.Parse(BubblePrints.Wrath.GetType("Kingmaker.Blueprints.Classes.Spells.SpellDescriptor"), row.value).ToString(), 0));
+                            List<StyledString.StyleSpan> spans = new()
+                            {
+                                new(row.value + "    -    ", StyleFlags.Bold),
+                                new(Enum.Parse(BubblePrints.GameAssembly.GetType("Kingmaker.Blueprints.Classes.Spells.SpellDescriptor"), row.value).ToString(), 0)
+                            };
                             row.ValueStyled = new(spans);
                         }
 

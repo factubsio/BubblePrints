@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Krypton.Toolkit;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -20,17 +21,17 @@ namespace BlueprintExplorer
         public static event SettingsChangedDelegate OnSettingsChanged;
 
         public static SettingsProxy Settings = new();
-        private static string StoredWrathPath = null;
-        public static bool TryGetWrathPath(out string path)
+        private static string StoredGamePath = null;
+        public static bool TryGetGamePath(out string path)
         {
-            path = StoredWrathPath;
+            path = StoredGamePath;
             return path != null;
         }
 
         [System.Runtime.InteropServices.DllImport("kernel32.dll")]
         private static extern bool AllocConsole();
 
-        public static Assembly Wrath;
+        public static Assembly GameAssembly { get; private set; }
 
         public static void Install()
         {
@@ -54,10 +55,21 @@ namespace BlueprintExplorer
             }
         }
 
-        internal static void SetWrathPath()
+        internal static void InitializeForGame(GameFamily game)
         {
-            var path = Settings.WrathPath;
-            if (path == null || path.Length == 0 || !File.Exists(Path.Combine(path, "Wrath.exe")))
+            if (Game != GameFamily.NotSpecified && Game != game)
+                throw new Exception("game mismatch");
+
+            var (exe, path, dll) = game switch
+            {
+                GameFamily.WrathOfTheRighteous => ("Wrath.exe", Settings.WrathPath, Path.Combine("Wrath_Data", "Managed", "Assembly-CSharp.dll")),
+                GameFamily.RogueTrader1 => ("WH40KRT.exe", Settings.RogueTraderPath, Path.Combine("WH40KRT_Data", "Managed", "Code.dll")),
+                _ => throw new Exception(),
+            };
+
+            Game = game;
+
+            if (string.IsNullOrEmpty(path) || !File.Exists(Path.Combine(path, exe)))
             {
                 var folderBrowser = new FolderBrowserDialog();
                 folderBrowser.UseDescriptionForTitle = true;
@@ -66,16 +78,16 @@ namespace BlueprintExplorer
                 while (true)
                 {
                     if (errored)
-                        folderBrowser.Description = "Could not find Wrath.exe at the selected folder";
+                        folderBrowser.Description = $"Could not find {exe} at the selected folder";
                     else
-                        folderBrowser.Description = "Please select the the folder containing Wrath.exe";
+                        folderBrowser.Description = $"Please select the the folder containing {exe}";
 
                     if (folderBrowser.ShowDialog() != DialogResult.OK)
                         return;
 
                     path = folderBrowser.SelectedPath;
 
-                    var exePath = Path.Combine(path, "Wrath.exe");
+                    var exePath = Path.Combine(path, exe);
                     if (File.Exists(exePath))
                         break;
 
@@ -83,17 +95,38 @@ namespace BlueprintExplorer
                 }
                 if (!errored)
                 {
-                    Settings.WrathPath = path;
+                    if (game == GameFamily.RogueTrader1)
+                        Settings.RogueTraderPath = path;
+                    else if (game == GameFamily.WrathOfTheRighteous)
+                        Settings.WrathPath = path;
+
                     SaveSettings();
                 }
             }
 
-            StoredWrathPath = path;
+
+            GameAssembly = Assembly.LoadFrom(Path.Combine(path, dll));
+
+            StoredGamePath = path;
         }
 
         public static string DataPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints");
         public static string MakeDataPath(string subpath) => Path.Combine(DataPath, subpath);
         public static string SettingsPath => MakeDataPath("settings.json");
+
+        public static string GameDataFolder
+        {
+            get
+            {
+                return Game switch
+                {
+                    GameFamily.RogueTrader1 => "WH40KRT_Data",
+                    GameFamily.WrathOfTheRighteous => "Wrath_Data",
+                    _ => throw new Exception(),
+                };
+            }
+
+        }
 
         internal static void SaveSettings()
         {
@@ -101,6 +134,13 @@ namespace BlueprintExplorer
             OnSettingsChanged?.Invoke();
         }
         internal static void NotifyTemplatesChanged(int oldCount, int newCount) => OnTemplatesChanged?.Invoke(oldCount, newCount);
+        public static GameFamily Game { get; private set; } = GameFamily.NotSpecified;
+    }
+    public enum GameFamily
+    {
+        NotSpecified,
+        WrathOfTheRighteous,
+        RogueTrader1,
     }
 
     public enum ExportMode
@@ -166,6 +206,11 @@ namespace BlueprintExplorer
         [DisplayName("Wrath Install Folder")]
         [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
         public string WrathPath { get; set; }
+
+        [Description("Full path to your RT folder (i.e. the folder containing WH40KRT.exe")]
+        [DisplayName("RT Install Folder")]
+        [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
+        public string RogueTraderPath { get; set; }
 
         [Description("If set, clicking on a blueprint in the search results will automatically open it in the external editor")]
         [DisplayName("Always Open Externally")]

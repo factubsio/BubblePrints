@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing.Design;
 using System.Linq;
 using System.Reflection;
@@ -416,6 +417,8 @@ namespace BlueprintExplorer
 
         IEnumerable<IDisplayableElement> IDisplayableElementCollection.DisplayableElements => Elements;
 
+        public static HashSet<string> UnresolvedTypes = new();
+
         public static void VisitObjects(JsonElement node, HashSet<string> types)
         {
             if (node.ValueKind == JsonValueKind.Array)
@@ -426,7 +429,15 @@ namespace BlueprintExplorer
             else if (node.ValueKind == JsonValueKind.Object)
             {
                 if (node.TryGetProperty("$type", out var raw))
-                    types.Add(raw.NewTypeStr().Guid);
+                {
+                    var fullType = raw.GetString().ParseTypeString();
+                    if (BlueprintDB.Instance.FullTypeNameToGuid.TryGetValue(fullType, out var guid))
+                        types.Add(guid);
+                    else
+                        UnresolvedTypes.Add(fullType);
+
+                }
+
                 foreach (var elem in node.EnumerateObject())
                     VisitObjects(elem.Value, types);
             }
@@ -463,9 +474,14 @@ namespace BlueprintExplorer
             }
             else
             {
-                (string, string, string) maybeType = (null, null, null);
+                (string Guid, string Name, string FullName) maybeType = (null, null, null);
                 if (node.TryGetProperty("$type", out var rawType))
-                    maybeType = rawType.NewTypeStr();
+                {
+                    maybeType.FullName = rawType.GetString().ParseTypeString();
+                    maybeType.Name = maybeType.FullName.Split('.').Last();
+                    if (!BlueprintDB.Instance.FullTypeNameToGuid.TryGetValue(maybeType.FullName, out maybeType.Guid))
+                        maybeType.Guid = "";
+                }
                 yield return new VisitedElement { key = name, levelDelta = 1, isObj = true, Node = node, MaybeType = maybeType };
                 foreach (var elem in node.EnumerateObject())
                 {
