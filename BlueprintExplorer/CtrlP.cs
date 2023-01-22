@@ -36,8 +36,11 @@ namespace BlueprintExplorer
                 UpdatePinned();
             }
         }
+        private bool AutoColChange = false;
         private DataGridView root;
         private Label noResults;
+        private Font defaultRootFont;
+        private Font smallRootFont;
         public CtrlP()
         {
             root = new();
@@ -63,15 +66,24 @@ namespace BlueprintExplorer
             root.Columns[0].Width = BubblePrints.Settings.GetColumnSize(0);
             root.Columns[0].DataPropertyName = "Name";
             root.Columns[0].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            root.Columns[0].FillWeight = 1;
 
             root.Columns[1].Width = BubblePrints.Settings.GetColumnSize(1);
-            root.Columns[1].DataPropertyName = "Type";
+            root.Columns[1].DataPropertyName = "TypeForResults";
+            root.Columns[1].FillWeight = 0.2f;
 
             root.Columns[2].Width = BubblePrints.Settings.GetColumnSize(2);
             root.Columns[2].DataPropertyName = "GuidText";
+            root.Columns[2].FillWeight = 0.2f;
 
+            defaultRootFont = root.Font;
+            smallRootFont = new(defaultRootFont.FontFamily, defaultRootFont.Size * 0.75f);
             root.ColumnWidthChanged += (sender, e) =>
             {
+                if (AutoColChange)
+                {
+                    return;
+                }
                 BubblePrints.Settings.SetColumnSize(0, root.Columns[0].Width);
                 BubblePrints.Settings.SetColumnSize(1, root.Columns[1].Width);
                 BubblePrints.Settings.SetColumnSize(2, root.Columns[2].Width);
@@ -174,6 +186,25 @@ namespace BlueprintExplorer
 
         public void SetResults(List<BlueprintHandle> results)
         {
+            bool nowShort = Width < 1300;
+            if (BlueprintHandle.ShortType != nowShort)
+            {
+                BlueprintHandle.ShortType = nowShort;
+                AutoColChange = true;
+                if (nowShort)
+                {
+                    root.Columns[1].Width = 220;
+                    root.Columns[2].Width = 270;
+                    root.Font = smallRootFont;
+                }
+                else
+                {
+                    root.Columns[1].Width = BubblePrints.Settings.GetColumnSize(1);
+                    root.Columns[2].Width = BubblePrints.Settings.GetColumnSize(2);
+                    root.Font = defaultRootFont;
+                }
+                AutoColChange = true;
+            }
             root.DataSource = results;
             if (results.Count > 0)
                 rootHost.ShowControl("results");

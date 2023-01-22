@@ -259,12 +259,20 @@ namespace BlueprintExplorer
 
     public class BlueprintHandle : ISearchable, IDisplayableElementCollection
     {
+        public static bool ShortType = false;
         //public byte[] guid;
 
         public object UserData = null;
         public string GuidText { get; set; }
         public string Name { get; set; }
         public string Type { get; set; }
+        public string TypeForResults
+        {
+            get
+            {
+                return ShortType ? Type[(Type.LastIndexOf('.') + 1)..] : Type;
+            }
+        }
         public string TypeName { get; set; }
         public string Namespace;
         public string Raw { get; set; }
