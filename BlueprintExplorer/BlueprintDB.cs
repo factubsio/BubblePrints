@@ -762,7 +762,7 @@ namespace BlueprintExplorer
 
                         ExtractKeyWords(keyWords, word, element.key);
 
-                        string localisedStr = JsonExtensions.ParseAsString(element.Node);
+                        string localisedStr = JsonExtensions.ParseAsString(element.Node, element.key);
                         if (localisedStr is not null)
                         {
                             if (localisedStr is not "<string-not-present>" and not "<null-string>")
