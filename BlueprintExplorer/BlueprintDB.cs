@@ -49,7 +49,7 @@ namespace BlueprintExplorer
         bool forceLastKnown = false;
         #endregion
 
-        private readonly GameVersion LastKnown = new(2, 0, 4, 'j', 0);
+        private readonly GameVersion LastKnown = new(2, 0, 7, 'k', 0);
 
         private Dictionary<string, List<int>> _IndexByWord = new();
 
