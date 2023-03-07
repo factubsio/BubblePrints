@@ -21,7 +21,12 @@ namespace BlueprintExplorer
     {
 
         private static bool dark;
-        bool Good => initialize?.IsCompleted ?? false;
+        public Form Splash;
+        protected override void OnClosed(EventArgs e)
+        {
+            Splash.Close();
+            base.OnClosed(e);
+        }
 
         public BlueprintViewer NewBlueprintViewer(KryptonWorkspaceCell cell = null)
         {
@@ -278,6 +283,12 @@ namespace BlueprintExplorer
 
                 kGlobalManager.GlobalPaletteMode = Krypton.Toolkit.PaletteModeManager.SparkleOrange;
 
+                ShowBlueprint(BlueprintDB.Instance.Blueprints.Values.First(), ShowFlags.F_UpdateHistory);
+                //ShowCtrlP();
+                //ctrlP.Select();
+                //ctrlP.Focus();
+                //ctrlP.input.Select();
+                //ctrlP.input.Focus();
             };
 
 
@@ -344,65 +355,18 @@ namespace BlueprintExplorer
                 BubbleTheme.SeasonControls(topBarContainer, settingsButton, helpButton);
             }
 
-            var loadType = BlueprintDB.Instance.GetLoadType();
 
-            var loadString = loadType switch
-            {
-                BlueprintDB.GoingToLoad.FromLocalFile => "LOADING (debug)",
-                BlueprintDB.GoingToLoad.FromCache => "LOADING (local)",
-                BlueprintDB.GoingToLoad.FromWeb => "DOWNLOADING",
-                BlueprintDB.GoingToLoad.FromNewImport => "IMPORTING",
-                _ => throw new Exception(),
-            };
-
-
-            var progress = new BlueprintDB.ConnectionProgress();
-            header.Marquee = true;
+            //header.Marquee = true;
             header.Dock = DockStyle.Fill;
 
-            initialize = Task.Run(() => BlueprintDB.Instance.TryConnect(progress));
-            initialize.ContinueWith(b =>
-            {
-                ShowBlueprint(BlueprintDB.Instance.Blueprints.Values.First(), ShowFlags.F_UpdateHistory);
 
-                header.Marquee = false;
-                header.Text = "Press @{key.ctrl}-@{key.P} to search (or click here)";
+            header.Marquee = false;
+            header.Text = "Press @{key.ctrl}-@{key.P} to search (or click here)";
 
-                foreach (var v in BlueprintDB.Instance.Available)
-                    availableVersions.Items.Add(v);
-                availableVersions.SelectedIndex = availableVersions.Items.Count - 1;
-                availableVersions.Enabled = true;
-
-                ShowCtrlP();
-            }, TaskScheduler.FromCurrentSynchronizationContext());
-
-
-            new Thread(() =>
-            {
-                string plane = $"{loadString}---";
-                const int frames = 90;
-
-                while (true)
-                {
-                    for (int frame = 0; frame < frames; frame++)
-                    {
-                        if (Good)
-                            return;
-
-                        if (!header.IsDisposed && header.Visible)
-                        {
-                            header.Invoke(new Action(() =>
-                            {
-                                if (!Good)
-                                {
-                                    header.Text = plane + $"     {progress.Status}";
-                                }
-                            }));
-                        }
-                        Thread.Sleep(33);
-                    }
-                }
-            }).Start();
+            //foreach (var v in BlueprintDB.Instance.Available)
+            //    availableVersions.Items.Add(v);
+            //availableVersions.SelectedIndex = availableVersions.Items.Count - 1;
+            //availableVersions.Enabled = true;
 
         }
 
@@ -454,7 +418,7 @@ namespace BlueprintExplorer
 
         public void ShowCtrlP()
         {
-            if (!Good || CtrlPVisible) return;
+            if (CtrlPVisible) return;
 
             header.OverrideText = "";
 
@@ -1000,8 +964,6 @@ namespace BlueprintExplorer
         }
 
         private List<BlueprintHandle> resultsCache = new();
-        private Task<bool> initialize;
-
         private void dataGridView1_CellValueNeeded(object sender, DataGridViewCellValueEventArgs e)
         {
             var row = e.RowIndex;

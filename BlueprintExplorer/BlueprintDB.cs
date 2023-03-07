@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing.Text;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -46,10 +47,10 @@ namespace BlueprintExplorer
         #region DEV
         bool generateOutput = false;
         bool importNew = false;
-        bool forceLastKnown = false;
+        bool forceLastKnown = true;
         #endregion
 
-        private readonly GameVersion LastKnown = new(2, 0, 7, 'k', 0);
+        private readonly GameVersion LastKnown = new(2, 1, 0, 'u', 0);
 
         private Dictionary<string, List<int>> _IndexByWord = new();
 
@@ -117,107 +118,23 @@ namespace BlueprintExplorer
             public override int GetHashCode() => HashCode.Combine(Major, Minor, Patch, Suffix, Bubble);
 
 
-
-
             public override string ToString() => $"{Major}.{Minor}.{Patch}{Suffix}_{Bubble}";
 
         }
 
         public List<GameVersion> Available = new() { };
 
-        private readonly string filenameRoot = "blueprints_raw";
-        private readonly string extension = "binz";
+        private const string filenameRoot = "blueprints_raw";
+        private const string extension = "binz";
 
-        private string FileNameFor(GameVersion version) => $"{filenameRoot}_{version}.{extension}";
+        public static string FileNameFor(GameVersion version) => $"{filenameRoot}_{version}.{extension}";
         public string FileName => FileNameFor(Latest);
 
         public bool InCache => File.Exists(Path.Combine(CacheDir, FileName));
 
-        bool AvailableDetected = false;
-
         public GameVersion Latest => Available.Last();
 
         public static string CacheDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints");
-
-        public GoingToLoad GetLoadType()
-        {
-            if (importNew)
-                return GoingToLoad.FromNewImport;
-
-            if (!AvailableDetected && forceLastKnown)
-            {
-                Available.Add(LastKnown);
-                AvailableDetected = true;
-            }
-
-
-            if (!AvailableDetected)
-            {
-                bool fromWeb = false;
-                if (BubblePrints.Settings.CheckForNewBP)
-                {
-                    try
-                    {
-                        Console.WriteLine("setting available = from web");
-                        using var web = new WebClient();
-
-                        var raw = web.DownloadString(@"https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions.json");
-                        var versions = JsonSerializer.Deserialize<JsonElement>(raw);
-
-                        foreach (var version in versions.EnumerateArray())
-                        {
-                            GameVersion gv = new()
-                            {
-                                Major = version[0].GetInt32(),
-                                Minor = version[1].GetInt32(),
-                                Patch = version[2].GetInt32(),
-                                Suffix = version[3].GetString()[0],
-                                Bubble = version[4].GetInt32(),
-                            };
-                            Available.Add(gv);
-                        }
-                        fromWeb = true;
-                    } catch (Exception) { }
-                }
-
-                if (!fromWeb)
-                {
-                    var last = BubblePrints.Settings.LastLoaded;
-                    if (!string.IsNullOrWhiteSpace(last))
-                    {
-                        Console.WriteLine("setting available = last loaded");
-                        Regex regex = new(@"blueprints_raw_(\d+)\.(\d+)\.(\d+)(.)_(\d+).binz");
-                        var match = regex.Match(last);
-                        GameVersion v;
-                        v.Major = int.Parse(match.Groups[1].Value);
-                        v.Minor = int.Parse(match.Groups[2].Value);
-                        v.Patch = int.Parse(match.Groups[3].Value);
-                        v.Suffix = match.Groups[4].Value[0];
-                        v.Bubble = int.Parse(match.Groups[5].Value);
-                        Available.Add(v);
-                    }
-                    else
-                    {
-                        Console.WriteLine("setting available = known when built");
-                        Available.Add(LastKnown);
-                    }
-                }
-            }
-
-
-            GoingToLoad mode;
-            if (File.Exists(FileName))
-                mode = GoingToLoad.FromLocalFile;
-            else if (InCache)
-                mode = GoingToLoad.FromCache;
-            else
-                mode = GoingToLoad.FromWeb;
-
-            AvailableDetected = true;
-
-            return mode;
-
-        }
 
         private Dictionary<string, Dictionary<string, string>> defaults = new();
         private Dictionary<string, Dictionary<string, Type>> fieldTypes = new();
@@ -280,12 +197,27 @@ namespace BlueprintExplorer
 
         public class ConnectionProgress
         {
-            public int Current;
+            private int _Current;
+            public int Current
+            {
+                get => _Current;
+                set
+                {
+                    int old = _Current;
+                    _Current = value;
+                    if (_Current != old)
+                    {
+                        Updated?.Invoke(_Current);
+                    }
+                }
+            }
             public int EstimatedTotal;
+
+            public event Action<int> Updated;
 
             public string Status => EstimatedTotal == 0 ? "??" : $"{Current}/{EstimatedTotal} - {(Current / (double)EstimatedTotal):P1}";
         }
-        public async Task<bool> TryConnect(ConnectionProgress progress, string forceFileName = null)
+        public bool TryConnect(ConnectionProgress progress, string forceFileName = null)
         {
             if (importNew)
             {
@@ -387,7 +319,7 @@ namespace BlueprintExplorer
                         Console.Error.WriteLine(e.Message);
                         Console.Error.WriteLine(e.StackTrace);
                         throw;
-                    }   
+                    }
                 }
 
                 Console.WriteLine("COMPLETE, press a key");
@@ -399,44 +331,22 @@ namespace BlueprintExplorer
                 Stopwatch watch = new();
                 watch.Start();
 
-                string fileToOpen = null;
-
-                if (forceFileName != null)
-                    fileToOpen = forceFileName;
-                else
-                {
-                    switch (GetLoadType())
-                    {
-                        case GoingToLoad.FromWeb:
-                            Console.WriteLine("Settings file does not exist, downloading");
-                            var host = "https://github.com/factubsio/BubblePrintsData/releases/download";
-                            var latestVersionUrl = new Uri($"{host}/{Latest}/{filenameRoot}_{Latest}.{extension}");
-
-                            var client = new WebClient();
-                            if (!Directory.Exists(CacheDir))
-                                Directory.CreateDirectory(CacheDir);
-
-                            fileToOpen = Path.Combine(CacheDir, FileName);
-                            progress.EstimatedTotal = 100;
-                            client.DownloadProgressChanged += (sender, e) =>
-                            {
-                                progress.Current = e.ProgressPercentage;
-                            };
-                            string tmp = Path.Combine(CacheDir, "binz_download.tmp");
-                            if (File.Exists(tmp))
-                                File.Delete(tmp);
-                            await client.DownloadFileTaskAsync(latestVersionUrl, tmp);
-                            File.Move(tmp, fileToOpen);
-                            break;
-                        case GoingToLoad.FromCache:
-                            fileToOpen = Path.Combine(CacheDir, FileName);
-                            break;
-                        case GoingToLoad.FromLocalFile:
-                            Console.WriteLine("reading from local dev...");
-                            fileToOpen = FileName;
-                            break;
-                    }
-                }
+                string fileToOpen = forceFileName;
+                //else
+                //{
+                //    switch (GetLoadType())
+                //    {
+                //        case GoingToLoad.FromWeb:
+                //            break;
+                //        case GoingToLoad.FromCache:
+                //            fileToOpen = Path.Combine(CacheDir, FileName);
+                //            break;
+                //        case GoingToLoad.FromLocalFile:
+                //            Console.WriteLine("reading from local dev...");
+                //            fileToOpen = FileName;
+                //            break;
+                //    }
+                //}
 
                 BPFile.Reader reader = new(fileToOpen);
 
@@ -518,7 +428,7 @@ namespace BlueprintExplorer
 
                         return res;
                     });
-                    task.Wait();
+                    //task.Wait();
                     tasks.Add(task);
                 }
 
@@ -593,34 +503,23 @@ namespace BlueprintExplorer
                 BubblePrints.SaveSettings();
                 ctx.Dispose();
 
-                //File.WriteAllLines(@"D:\areas.txt", cache.Where(b => b.TypeName == "BlueprintAbilityAreaEffect").SelectMany(bp =>
+                //var bpByType = BlueprintDB.Instance.Blueprints.ToLookup(x => x.Value.Type).OrderBy(x => x.Count());
+                //foreach (var blah in bpByType)
                 //{
-                //    return new String[]
-                //    {
-                //        $"//{bp.Name}",
-                //        "{",
-                //        $"  \"ability\": \"{bp.GuidText}\"",
-                //        "  \"type\": \"bad\"",
-                //        "},",
-
-                //    };
-                //}));
-
-                //var featureType = BubblePrints.Wrath.GetType("Kingmaker.Blueprints.Classes.BlueprintFeature");
-                //int featuresFound = 0;
-                //List<(string, string)> features = new();
-                //foreach (var bp in cache)
-                //{
-                //    var type = BubblePrints.Wrath.GetType(bp.Type);
-                //    if (type == null) continue;
-                //    if (type.IsAssignableTo(featureType))
-                //    {
-                //        featuresFound++;
-                //        features.Add((bp.Name, bp.GuidText));
-                //    }
+                //    Console.WriteLine(blah.Key + " -> " + blah.Count());
                 //}
-                //Console.WriteLine("Features found: " + featuresFound);
-                //File.WriteAllLines(@"D:\features.txt", features.Select(f => $"{f.Item2} {f.Item1}"));
+
+                //var bpByTypeGroup = BlueprintDB.Instance.Blueprints.ToLookup(x =>
+                //{
+                //    int second = x.Value.Type.IndexOf('.', "Kingmaker.".Length);
+                //    return x.Value.Type[..second];
+
+                //}).OrderBy(x => x.Count());
+                //foreach (var blah in bpByTypeGroup)
+                //{
+                //    Console.WriteLine(blah.Key + " -> " + blah.Count());
+                //}
+
             }
 
 
