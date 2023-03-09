@@ -44,12 +44,12 @@ namespace BubbleAssets
     public class BlueprintAssetsContext
     {
         public List<BlueprintAssetReference> AssetRefs = new();
-
+        
         public Dictionary<string, UnityAssetReference> refToAsset = new();
 
-        public BlueprintAssetsContext(OrderedDictionary blueprintReferencedAssetsAsset)
+        public BlueprintAssetsContext(IEnumerable<(TypeTreeNode node, object o)> blueprintReferencedAssetsAsset)
         {
-            var entries = (blueprintReferencedAssetsAsset["m_Entries"] as IEnumerable<object>)?.Cast<OrderedDictionary>()!;
+            var entries = (blueprintReferencedAssetsAsset.First(obj => obj.node.Name == "m_Entries").o as IEnumerable<object>)?.Cast<OrderedDictionary>()!;
 
             foreach (var entry in entries)
             {
@@ -66,7 +66,7 @@ namespace BubbleAssets
                 refToAsset[assetId] = unityAssetRef;
             }
         }
-
+        
         public BlueprintAssetsContext(string path)
         {
             LoadFrom(path);
