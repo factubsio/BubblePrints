@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -42,7 +43,29 @@ namespace BubbleAssets
 
     public class BlueprintAssetsContext
     {
+        public List<BlueprintAssetReference> AssetRefs = new();
+
         public Dictionary<string, UnityAssetReference> refToAsset = new();
+
+        public BlueprintAssetsContext(OrderedDictionary blueprintReferencedAssetsAsset)
+        {
+            var entries = (blueprintReferencedAssetsAsset["m_Entries"] as IEnumerable<object>)?.Cast<OrderedDictionary>()!;
+
+            foreach (var entry in entries)
+            {
+                if (entry["AssetId"]?.ToString() is not string assetId) continue;
+
+                var fileId = (long)entry["FileId"]!;
+
+                var asset = entry["Asset"] as OrderedDictionary;
+
+                var unityAssetRef = new UnityAssetReference((int)(asset?["m_FileID"])!, (long)(asset?["m_PathID"])!);
+
+                AssetRefs.Add(new BlueprintAssetReference(assetId, fileId, unityAssetRef));
+
+                refToAsset[assetId] = unityAssetRef;
+            }
+        }
 
         public BlueprintAssetsContext(string path)
         {
