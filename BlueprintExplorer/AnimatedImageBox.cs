@@ -15,6 +15,9 @@ namespace BlueprintExplorer
         private FrameDimension _FrameDim;
         private int _Count = 0;
         private Bitmap _Image;
+        private double _Progress = 0;
+        private readonly Font _CaptionFont;
+        private string _Caption;
         public Bitmap Image
         {
             get => _Image;
@@ -57,9 +60,25 @@ namespace BlueprintExplorer
         {
             set
             {
-                Frame = (int)((value / 100.0) * _Count);
+                _Progress = (value / 100.0);
+                Frame++;
             }
         }
+
+        public string Caption
+        {
+            get => _Caption;
+            set
+            {
+                if (value != _Caption)
+                {
+                    _Caption = value;
+                    Invalidate();
+                }
+
+            }
+        }
+        public bool ShowProgressBar;
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -68,26 +87,49 @@ namespace BlueprintExplorer
             if (_Image != null)
             {
                 g.DrawImage(_Image, rect, new(Point.Empty, new(_Image.Width, _Image.Height)), GraphicsUnit.Pixel);
+
+                const int barThickness = 30;
+                const int barMargin = 10;
+                if (ShowProgressBar)
+                {
+                    Rectangle progRect = new(barMargin, rect.Bottom - barMargin - barThickness, rect.Width - barMargin * 2, barThickness);
+                    g.FillRectangle(Brushes.BlanchedAlmond, progRect);
+                    g.DrawRectangle(new Pen(Brushes.DarkBlue, 2), progRect);
+                    progRect.Inflate(-3, -3);
+                    progRect.Width = (int)((progRect.Width - 6) * _Progress);
+                    g.FillRectangle(Brushes.DarkBlue, progRect);
+
+                }
+                if (Caption != null)
+                {
+                    var height = _CaptionFont.Height;
+                    g.DrawString(Caption, _CaptionFont, Brushes.White, barMargin, rect.Bottom - barMargin - barThickness - height - barMargin);
+                }
             }
             else
             {
                 g.FillRectangle(Brushes.Orange, rect);
             }
         }
+        internal void SetPercentSafe(int value)
+        {
+            Invoke(new Action(() => Percent = value));
+        }
+
+        internal void SetSafe(int value)
+        {
+            Invoke(new Action(() => Frame = value));
+        }
 
         internal void IncrementSafe()
         {
-            Invoke(new Action(IncrementUnsafe));
-        }
-
-        private void IncrementUnsafe()
-        {
-            Frame++;
+            Invoke(new Action(() => Frame++));
         }
 
         public AnimatedImageBox()
         {
             DoubleBuffered = true;
+            _CaptionFont = new(this.Font.FontFamily, 24);
         }
     }
 }

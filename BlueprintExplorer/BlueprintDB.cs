@@ -42,16 +42,6 @@ namespace BlueprintExplorer
                 result.Add(buffer.ToString().ToLower());
         }
 
-        public static readonly string ImportFolderBase = @"D:\steamlib\steamapps\common\Pathfinder Second Adventure";
-
-        #region DEV
-        bool generateOutput = false;
-        bool importNew = false;
-        bool forceLastKnown = true;
-        #endregion
-
-        private readonly GameVersion LastKnown = new(2, 1, 0, 'u', 0);
-
         private Dictionary<string, List<int>> _IndexByWord = new();
 
         private static BlueprintDB _Instance;
@@ -69,70 +59,10 @@ namespace BlueprintExplorer
         private readonly List<BlueprintHandle> cache = new();
         public readonly HashSet<string> types = new();
 
-        public struct FileSection
-        {
-            public int Offset;
-            public int Legnth;
-        }
-
-        public enum GoingToLoad
-        {
-            FromLocalFile,
-            FromCache,
-            FromWeb,
-            FromNewImport,
-        }
-
-        public struct GameVersion : IComparable<GameVersion> {
-            public int Major, Minor, Patch;
-            public char Suffix;
-            public int Bubble;
-
-            public GameVersion(int major, int minor, int patch, char suffix, int bubble)
-            {
-                Major = major;
-                Minor = minor;
-                Patch = patch;
-                Suffix = suffix;
-                Bubble = bubble;
-            }
-
-            public int CompareTo(GameVersion other)
-            {
-                int c = Major.CompareTo(other.Major);
-                if (c != 0) return c;
-
-                c = Minor.CompareTo(other.Minor);
-                if (c != 0) return c;
-
-                c = Patch.CompareTo(other.Patch);
-                if (c != 0) return c;
-
-                c = Suffix.CompareTo(other.Suffix);
-                if (c != 0) return c;
-
-                return Bubble.CompareTo(other.Bubble);
-            }
-
-            public override bool Equals(object obj) => obj is GameVersion version && Major == version.Major && Minor == version.Minor && Patch == version.Patch && Suffix == version.Suffix && Bubble == version.Bubble;
-            public override int GetHashCode() => HashCode.Combine(Major, Minor, Patch, Suffix, Bubble);
-
-
-            public override string ToString() => $"{Major}.{Minor}.{Patch}{Suffix}_{Bubble}";
-
-        }
-
-        public List<GameVersion> Available = new() { };
-
         private const string filenameRoot = "blueprints_raw";
         private const string extension = "binz";
 
         public static string FileNameFor(GameVersion version) => $"{filenameRoot}_{version}.{extension}";
-        public string FileName => FileNameFor(Latest);
-
-        public bool InCache => File.Exists(Path.Combine(CacheDir, FileName));
-
-        public GameVersion Latest => Available.Last();
 
         public static string CacheDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints");
 
@@ -207,339 +137,282 @@ namespace BlueprintExplorer
                     _Current = value;
                     if (_Current != old)
                     {
-                        Updated?.Invoke(_Current);
+                        Updated?.Invoke(_Current, EstimatedTotal);
                     }
                 }
             }
             public int EstimatedTotal;
 
-            public event Action<int> Updated;
+            public event Action<int, int> Updated;
+
+            public string Phase;
 
             public string Status => EstimatedTotal == 0 ? "??" : $"{Current}/{EstimatedTotal} - {(Current / (double)EstimatedTotal):P1}";
         }
-        public bool TryConnect(ConnectionProgress progress, string forceFileName = null)
+
+        public void ExtractFromGame(ConnectionProgress progress, string wrathPath, string outputFile, GameVersion version)
         {
-            if (importNew)
+            BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, "Wrath_Data", "Managed", "Assembly-CSharp.dll"));
+
+            var writeOptions = new JsonSerializerOptions
             {
-                BubblePrints.SetWrathPath();
+                WriteIndented = true,
+            };
 
-                if (BubblePrints.TryGetWrathPath(out var wrathPath))
-                {
-                    BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, "Wrath_Data", "Managed", "Assembly-CSharp.dll"));
-                }
+            var typeIdType = BubblePrints.Wrath.GetType("Kingmaker.Blueprints.JsonSystem.TypeIdAttribute");
+            var typeIdGuid = typeIdType.GetField("GuidString");
 
-                var writeOptions = new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                };
-
-                var typeIdType = BubblePrints.Wrath.GetType("Kingmaker.Blueprints.JsonSystem.TypeIdAttribute");
-                var typeIdGuid = typeIdType.GetField("GuidString");
-
-                foreach (var type in BubblePrints.Wrath.GetTypes())
-                {
-                    var typeId = type.GetCustomAttribute(typeIdType);
-                    if (typeId != null)
-                    {
-                        var guid = typeIdGuid.GetValue(typeId) as string;
-                        if (GuidToFullTypeName.TryAdd(guid, type.FullName))
-                            TypeGuidsInOrder.Add(guid);
-                    }
-                }
-
-                TypeGuidsInOrder.Sort();
-                FlatIndexToTypeName = new string[TypeGuidsInOrder.Count];
-                for (int i = 0; i < TypeGuidsInOrder.Count; i++)
-                {
-                    var guid = TypeGuidsInOrder[i];
-                    GuidToFlatIndex[guid] = (ushort)i;
-                    FlatIndexToTypeName[i] = GuidToFullTypeName[guid];
-                }
-
-                using var bpDump = ZipFile.OpenRead(Path.Combine(ImportFolderBase, "blueprints.zip"));
-
-                if (File.Exists(@"D:\bp_defaults.json"))
-                {
-                    defaults = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(File.ReadAllText(@"D:\bp_defaults.json"));
-                }
-
-
-
-                Dictionary<string, string> TypenameToGuid = new();
-
-                progress.EstimatedTotal = bpDump.Entries.Count(e => e.Name.EndsWith(".jbp"));
-
-                HashSet<string> referencedTypes = new();
-
-                int index = 0;
-
-                foreach (var entry in bpDump.Entries)
-                {
-                    if (!entry.Name.EndsWith(".jbp")) continue;
-                    try
-                    {
-                        var stream = entry.GetType().GetMethod("OpenInReadMode", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(entry, new object[] { false }) as Stream;
-                        var reader = new StreamReader(stream);
-                        var contents = reader.ReadToEnd();
-                        var json = JsonSerializer.Deserialize<JsonElement>(contents);
-                        var type = json.GetProperty("Data").NewTypeStr().FullName;
-
-                        var handle = new BlueprintHandle
-                        {
-                            GuidText = json.Str("AssetId"),
-                            Name = entry.Name[0..^4],
-                            Type = type,
-                            Raw = JsonSerializer.Serialize(json.GetProperty("Data"), writeOptions),
-                        };
-                        var components = handle.Type.Split('.');
-                        if (components.Length <= 1)
-                            handle.TypeName = handle.Type;
-                        else
-                        {
-                            handle.TypeName = components.Last();
-                            handle.Namespace = string.Join('.', components.Take(components.Length - 1));
-                        }
-
-                        handle.EnsureParsed();
-                        foreach (var _ in handle.GetDirectReferences()) { }
-
-                        referencedTypes.Clear();
-                        BlueprintHandle.VisitObjects(handle.EnsureObj, referencedTypes);
-                        handle.ComponentIndex = referencedTypes.Select(typeId => GuidToFlatIndex[typeId]).ToArray();
-
-                        AddBlueprint(handle);
-
-
-
-                        progress.Current++;
-                        index++;
-                    }
-                    catch (Exception e)
-                    {
-                        Console.Error.WriteLine(e.Message);
-                        Console.Error.WriteLine(e.StackTrace);
-                        throw;
-                    }
-                }
-
-                Console.WriteLine("COMPLETE, press a key");
-            }
-            else
+            foreach (var type in BubblePrints.Wrath.GetTypes())
             {
-                List<Task<List<BlueprintHandle>>> tasks = new();
-
-                Stopwatch watch = new();
-                watch.Start();
-
-                string fileToOpen = forceFileName;
-                //else
-                //{
-                //    switch (GetLoadType())
-                //    {
-                //        case GoingToLoad.FromWeb:
-                //            break;
-                //        case GoingToLoad.FromCache:
-                //            fileToOpen = Path.Combine(CacheDir, FileName);
-                //            break;
-                //        case GoingToLoad.FromLocalFile:
-                //            Console.WriteLine("reading from local dev...");
-                //            fileToOpen = FileName;
-                //            break;
-                //    }
-                //}
-
-                BPFile.Reader reader = new(fileToOpen);
-
-                var ctx = reader.CreateReadContext();
-
-                Console.WriteLine($"Reading binz from {fileToOpen}");
-
-                var headerIn = ctx.Open(reader.Handle.GetChunk((ushort)ChunkTypes.Header).Chunks[0]);
-
-                GameVersion header;
-                int count;
-                header.Major = headerIn.ReadInt32();
-                header.Minor = headerIn.ReadInt32();
-                header.Patch = headerIn.ReadInt32();
-                header.Suffix = headerIn.ReadChar();
-                header.Bubble = 0;
-                count = headerIn.ReadInt32();
-
-                Console.WriteLine($"Reading {count} blueprints for Wrath: {header}");
-
-                var blueprintBundles = reader.Handle.GetChunks((ushort)ChunkTypes.Blueprints);
-
-                foreach (var bundle in blueprintBundles)
+                var typeId = type.GetCustomAttribute(typeIdType);
+                if (typeId != null)
                 {
-                    var task = Task.Run<List<BlueprintHandle>>(() =>
-                    {
-                        using var bundleContext = reader.CreateReadContext();
-                        var res = new List<BlueprintHandle>();
-
-                        var main = bundleContext.Open(bundle.Chunks[0]);
-
-                        while (main.BaseStream.Position < main.BaseStream.Length)
-                        {
-                            var bp = new BlueprintHandle
-                            {
-                                GuidText = main.ReadString(),
-                                Name = main.ReadString(),
-                                Type = main.ReadString(),
-                                Raw = main.ReadString()
-                            };
-
-                            bp.ParseType();
-
-                            res.Add(bp);
-                        }
-
-                        byte[] guid_cache = new byte[16];
-                        //if (header.Major == 1 && header.Minor == 1 && header.Patch < 6)
-                        //    refId = (ushort)ChunkSubTypes.Blueprints.Components;
-                        var refs = bundleContext.Open(bundle.ForSubType((ushort)ChunkSubTypes.Blueprints.References));
-
-                        HashSet<Guid> seen = new();
-
-                        for (int i = 0; i < res.Count; i++)
-                        {
-                            seen.Clear();
-                            int refCount = refs.ReadInt32();
-                            for (int r = 0; r < refCount; r++)
-                            {
-                                refs.Read(guid_cache);
-                                Guid g = new(guid_cache);
-                                if (seen.Add(g))
-                                    res[i].BackReferences.Add(g);
-                            }
-
-                        }
-
-                        var referencedTypes = bundleContext.Open(bundle.ForSubType((ushort)ChunkSubTypes.Blueprints.Components));
-                        if (referencedTypes != null)
-                        {
-                            for (int i = 0; i < res.Count; i++)
-                            {
-                                res[i].ComponentIndex = new ushort[referencedTypes.ReadInt32()];
-                                for (int r = 0; r < res[i].ComponentIndex.Length; r++)
-                                    res[i].ComponentIndex[r] = referencedTypes.ReadUInt16();
-                            }
-                        }
-
-
-                        return res;
-                    });
-                    //task.Wait();
-                    tasks.Add(task);
+                    var guid = typeIdGuid.GetValue(typeId) as string;
+                    if (GuidToFullTypeName.TryAdd(guid, type.FullName))
+                        TypeGuidsInOrder.Add(guid);
                 }
-
-                var loadMeta = Task.Run(() =>
-                {
-                    var types = ctx.Open(reader.Get((ushort)ChunkTypes.TypeNames).Main);
-                    int count = types.ReadInt32();
-                    FlatIndexToTypeName = new string[count];
-                    for (int i = 0; i < count; i++)
-                    {
-                        string key = types.ReadString();
-                        string val = types.ReadString();
-                        GuidToFullTypeName[key] = val;
-                        FlatIndexToTypeName[i] = val;
-                    }
-
-
-                    var strings = ctx.OpenRaw(reader.Get((ushort)ChunkTypes.Strings).Main);
-
-                    var stringDictRaw = JsonSerializer.Deserialize<JsonElement>(strings.Span).GetProperty("strings");
-                    foreach (var kv in stringDictRaw.EnumerateObject())
-                    {
-                        Strings[kv.Name] = kv.Value.GetString();
-                    }
-
-                    var defs = ctx.Open(reader.Get((ushort)ChunkTypes.Defaults)?.Main);
-                    if (defs != null)
-                    {
-                        int defCount = defs.ReadInt32();
-                        for (int i = 0; i < defCount; i++)
-                        {
-                            string key = defs.ReadString();
-                            int subCount = defs.ReadInt32();
-                            var map = new Dictionary<string, string>();
-                            for (int s = 0; s < subCount; s++)
-                            {
-                                string subKey = defs.ReadString();
-                                string subVal = defs.ReadString();
-                                map[subKey] = subVal;
-                            }
-                            defaults[key] = map;
-                        }
-                    }
-
-                    var searchIndex = ctx.Open(reader.Get((ushort)ChunkTypes.SearchIndex)?.Main);
-                    if (searchIndex != null)
-                    {
-                        int kCount = searchIndex.ReadInt32();
-                        for (int i = 0; i < kCount; i++)
-                        {
-                            string key = searchIndex.ReadString();
-                            int refCount = searchIndex.ReadInt32();
-                            List<int> references = new();
-                            for (int r = 0; r < refCount; r++)
-                            {
-                                references.Add(searchIndex.Read7BitEncodedInt());
-                            }
-                            _IndexByWord.Add(key, references);
-                        }
-                    }
-                });
-
-                foreach (var bp in tasks.SelectMany(t => t.Result))
-                {
-                    AddBlueprint(bp);
-                }
-                loadMeta.Wait();
-                Console.WriteLine($"Loaded {cache.Count} blueprints in {watch.ElapsedMilliseconds}ms");
-
-
-                BubblePrints.Settings.LastLoaded = Path.GetFileName(fileToOpen);
-                BubblePrints.SaveSettings();
-                ctx.Dispose();
-
-                //var bpByType = BlueprintDB.Instance.Blueprints.ToLookup(x => x.Value.Type).OrderBy(x => x.Count());
-                //foreach (var blah in bpByType)
-                //{
-                //    Console.WriteLine(blah.Key + " -> " + blah.Count());
-                //}
-
-                //var bpByTypeGroup = BlueprintDB.Instance.Blueprints.ToLookup(x =>
-                //{
-                //    int second = x.Value.Type.IndexOf('.', "Kingmaker.".Length);
-                //    return x.Value.Type[..second];
-
-                //}).OrderBy(x => x.Count());
-                //foreach (var blah in bpByTypeGroup)
-                //{
-                //    Console.WriteLine(blah.Key + " -> " + blah.Count());
-                //}
-
             }
 
-
-            if (generateOutput)
+            TypeGuidsInOrder.Sort();
+            FlatIndexToTypeName = new string[TypeGuidsInOrder.Count];
+            for (int i = 0; i < TypeGuidsInOrder.Count; i++)
             {
-                progress.Current = 0;
-#pragma warning disable CS0162 // Unreachable code detected
+                var guid = TypeGuidsInOrder[i];
+                GuidToFlatIndex[guid] = (ushort)i;
+                FlatIndexToTypeName[i] = GuidToFullTypeName[guid];
+            }
+
+            using var bpDump = ZipFile.OpenRead(Path.Combine(wrathPath, "blueprints.zip"));
+
+            Dictionary<string, string> TypenameToGuid = new();
+
+            progress.Phase = "Extracting";
+            progress.EstimatedTotal = bpDump.Entries.Count(e => e.Name.EndsWith(".jbp"));
+
+            HashSet<string> referencedTypes = new();
+
+            int index = 0;
+
+            foreach (var entry in bpDump.Entries)
+            {
+                if (!entry.Name.EndsWith(".jbp")) continue;
                 try
                 {
-                    Console.WriteLine("Generating");
-                    File.WriteAllLines(@"D:\bp_types.txt", GuidToFullTypeName.Select(kv => $"{kv.Key} {kv.Value}"));
-                    WriteBlueprints(progress);
+                    var stream = entry.GetType().GetMethod("OpenInReadMode", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(entry, new object[] { false }) as Stream;
+                    var reader = new StreamReader(stream);
+                    var contents = reader.ReadToEnd();
+                    var json = JsonSerializer.Deserialize<JsonElement>(contents);
+                    var type = json.GetProperty("Data").NewTypeStr().FullName;
+
+                    var handle = new BlueprintHandle
+                    {
+                        GuidText = json.Str("AssetId"),
+                        Name = entry.Name[0..^4],
+                        Type = type,
+                        Raw = JsonSerializer.Serialize(json.GetProperty("Data"), writeOptions),
+                    };
+                    var components = handle.Type.Split('.');
+                    if (components.Length <= 1)
+                    {
+                        handle.TypeName = handle.Type;
+                    }
+                    else
+                    {
+                        handle.TypeName = components.Last();
+                        handle.Namespace = string.Join('.', components.Take(components.Length - 1));
+                    }
+
+                    handle.EnsureParsed();
+                    foreach (var _ in handle.GetDirectReferences()) { }
+
+                    referencedTypes.Clear();
+                    BlueprintHandle.VisitObjects(handle.EnsureObj, referencedTypes);
+                    handle.ComponentIndex = referencedTypes.Select(typeId => GuidToFlatIndex[typeId]).ToArray();
+
+                    AddBlueprint(handle);
+
+
+
+                    progress.Current++;
+                    index++;
                 }
-                catch (Exception ex)
+                catch (Exception e)
                 {
-                    Console.Error.WriteLine(ex.Message);
-                    Console.Error.WriteLine(ex.StackTrace);
+                    Console.Error.WriteLine(e.Message);
+                    Console.Error.WriteLine(e.StackTrace);
+                    throw;
                 }
-#pragma warning restore CS0162 // Unreachable code detected
             }
+
+            progress.Phase = "Writing";
+            progress.Current = 0;
+            Console.WriteLine("Generating");
+            WriteBlueprints(progress, wrathPath, outputFile, version);
+        }
+
+        public bool TryConnect(ConnectionProgress progress, string forceFileName = null)
+        {
+            List<Task<List<BlueprintHandle>>> tasks = new();
+
+            Stopwatch watch = new();
+            watch.Start();
+
+            string fileToOpen = forceFileName;
+
+            BPFile.Reader reader = new(fileToOpen);
+
+            var ctx = reader.CreateReadContext();
+
+            Console.WriteLine($"Reading binz from {fileToOpen}");
+
+            var headerIn = ctx.Open(reader.Handle.GetChunk((ushort)ChunkTypes.Header).Chunks[0]);
+
+            GameVersion header;
+            int count;
+            header.Major = headerIn.ReadInt32();
+            header.Minor = headerIn.ReadInt32();
+            header.Patch = headerIn.ReadInt32();
+            header.Suffix = headerIn.ReadChar();
+            header.Bubble = 0;
+            count = headerIn.ReadInt32();
+
+            Console.WriteLine($"Reading {count} blueprints for Wrath: {header}");
+
+            var blueprintBundles = reader.Handle.GetChunks((ushort)ChunkTypes.Blueprints);
+
+            foreach (var bundle in blueprintBundles)
+            {
+                var task = Task.Run<List<BlueprintHandle>>(() =>
+                {
+                    using var bundleContext = reader.CreateReadContext();
+                    var res = new List<BlueprintHandle>();
+
+                    var main = bundleContext.Open(bundle.Chunks[0]);
+
+                    while (main.BaseStream.Position < main.BaseStream.Length)
+                    {
+                        var bp = new BlueprintHandle
+                        {
+                            GuidText = main.ReadString(),
+                            Name = main.ReadString(),
+                            Type = main.ReadString(),
+                            Raw = main.ReadString()
+                        };
+
+                        bp.ParseType();
+
+                        res.Add(bp);
+                    }
+
+                    byte[] guid_cache = new byte[16];
+                    //if (header.Major == 1 && header.Minor == 1 && header.Patch < 6)
+                    //    refId = (ushort)ChunkSubTypes.Blueprints.Components;
+                    var refs = bundleContext.Open(bundle.ForSubType((ushort)ChunkSubTypes.Blueprints.References));
+
+                    HashSet<Guid> seen = new();
+
+                    for (int i = 0; i < res.Count; i++)
+                    {
+                        seen.Clear();
+                        int refCount = refs.ReadInt32();
+                        for (int r = 0; r < refCount; r++)
+                        {
+                            refs.Read(guid_cache);
+                            Guid g = new(guid_cache);
+                            if (seen.Add(g))
+                                res[i].BackReferences.Add(g);
+                        }
+
+                    }
+
+                    var referencedTypes = bundleContext.Open(bundle.ForSubType((ushort)ChunkSubTypes.Blueprints.Components));
+                    if (referencedTypes != null)
+                    {
+                        for (int i = 0; i < res.Count; i++)
+                        {
+                            res[i].ComponentIndex = new ushort[referencedTypes.ReadInt32()];
+                            for (int r = 0; r < res[i].ComponentIndex.Length; r++)
+                                res[i].ComponentIndex[r] = referencedTypes.ReadUInt16();
+                        }
+                    }
+
+
+                    return res;
+                });
+                //task.Wait();
+                tasks.Add(task);
+            }
+
+            var loadMeta = Task.Run(() =>
+            {
+                var types = ctx.Open(reader.Get((ushort)ChunkTypes.TypeNames).Main);
+                int count = types.ReadInt32();
+                FlatIndexToTypeName = new string[count];
+                for (int i = 0; i < count; i++)
+                {
+                    string key = types.ReadString();
+                    string val = types.ReadString();
+                    GuidToFullTypeName[key] = val;
+                    FlatIndexToTypeName[i] = val;
+                }
+
+
+                var strings = ctx.OpenRaw(reader.Get((ushort)ChunkTypes.Strings).Main);
+
+                var stringDictRaw = JsonSerializer.Deserialize<JsonElement>(strings.Span).GetProperty("strings");
+                foreach (var kv in stringDictRaw.EnumerateObject())
+                {
+                    Strings[kv.Name] = kv.Value.GetString();
+                }
+
+                var defs = ctx.Open(reader.Get((ushort)ChunkTypes.Defaults)?.Main);
+                if (defs != null)
+                {
+                    int defCount = defs.ReadInt32();
+                    for (int i = 0; i < defCount; i++)
+                    {
+                        string key = defs.ReadString();
+                        int subCount = defs.ReadInt32();
+                        var map = new Dictionary<string, string>();
+                        for (int s = 0; s < subCount; s++)
+                        {
+                            string subKey = defs.ReadString();
+                            string subVal = defs.ReadString();
+                            map[subKey] = subVal;
+                        }
+                        defaults[key] = map;
+                    }
+                }
+
+                var searchIndex = ctx.Open(reader.Get((ushort)ChunkTypes.SearchIndex)?.Main);
+                if (searchIndex != null)
+                {
+                    int kCount = searchIndex.ReadInt32();
+                    for (int i = 0; i < kCount; i++)
+                    {
+                        string key = searchIndex.ReadString();
+                        int refCount = searchIndex.ReadInt32();
+                        List<int> references = new();
+                        for (int r = 0; r < refCount; r++)
+                        {
+                            references.Add(searchIndex.Read7BitEncodedInt());
+                        }
+                        _IndexByWord.Add(key, references);
+                    }
+                }
+            });
+
+            foreach (var bp in tasks.SelectMany(t => t.Result))
+            {
+                AddBlueprint(bp);
+            }
+            loadMeta.Wait();
+            Console.WriteLine($"Loaded {cache.Count} blueprints in {watch.ElapsedMilliseconds}ms");
+
+
+            BubblePrints.Settings.LastLoaded = Path.GetFileName(fileToOpen);
+            BubblePrints.SaveSettings();
+            ctx.Dispose();
 
             return true;
         }
@@ -553,13 +426,11 @@ namespace BlueprintExplorer
             public bool Good => !(IsBad || IsNatural || IsSecond);
         }
 
-        private void WriteBlueprints(ConnectionProgress progress)
+        private void WriteBlueprints(ConnectionProgress progress, string wrathPath, string outPath, GameVersion version)
         {
 
             progress.EstimatedTotal += 3;
             progress.Current = 0;
-            int biggestString = 0;
-            int biggestStringZ = 0;
             int biggestRefList = 0;
             string mostReferred = "";
 
@@ -581,14 +452,14 @@ namespace BlueprintExplorer
                 }
             }
 
-            using (var file = new BPFile.BPWriter("NEW_" + FileNameFor(LastKnown)))
+            using (var file = new BPFile.BPWriter(outPath))
             {
                 using (var header = file.Begin((ushort)ChunkTypes.Header))
                 {
-                    header.Stream.Write(LastKnown.Major);
-                    header.Stream.Write(LastKnown.Minor);
-                    header.Stream.Write(LastKnown.Patch);
-                    header.Stream.Write(LastKnown.Suffix);
+                    header.Stream.Write(version.Major);
+                    header.Stream.Write(version.Minor);
+                    header.Stream.Write(version.Patch);
+                    header.Stream.Write(version.Suffix);
                     header.Stream.Write(cache.Count);
                 }
 
@@ -639,7 +510,7 @@ namespace BlueprintExplorer
 
 
 
-                var rawLangDict = File.ReadAllBytes(Path.Combine(ImportFolderBase, @"Wrath_Data\StreamingAssets\Localization\enGB.json"));
+                var rawLangDict = File.ReadAllBytes(Path.Combine(wrathPath, @"Wrath_Data\StreamingAssets\Localization\enGB.json"));
                 file.Write((ushort)ChunkTypes.Strings, 0, rawLangDict);
 
 
@@ -748,7 +619,7 @@ namespace BlueprintExplorer
                     progress.Current++;
                 }
             }
-            Console.WriteLine($"biggestString: {biggestString}, biggestStringZ: {biggestStringZ}, mostReferred: {mostReferred} ({biggestRefList})");
+            Console.WriteLine("mostReferred: {mostReferred} ({biggestRefList})");
         }
 
         private void AddBlueprint(BlueprintHandle bp)

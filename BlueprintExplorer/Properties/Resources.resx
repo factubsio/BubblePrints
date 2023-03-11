@@ -136,6 +136,9 @@
   <data name="expand" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\expand.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="extracting" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\extracting.gif;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="gif-search-18" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\gif-search-18.gif;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
