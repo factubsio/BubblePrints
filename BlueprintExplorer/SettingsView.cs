@@ -66,7 +66,7 @@ namespace BlueprintExplorer
             foreach (var path in Directory.EnumerateFiles(userLocalFolder))
             {
                 var file = Path.GetFileName(path);
-                if (file.EndsWith(".binz") && file != BlueprintDB.Instance.FileName)
+                if (file.EndsWith(".binz"))
                 {
                     try
                     {

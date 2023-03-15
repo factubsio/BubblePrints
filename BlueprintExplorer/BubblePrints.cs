@@ -6,8 +6,10 @@ using System.Drawing.Design;
 using System.IO;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using System.Windows.Forms.Design;
+using static BlueprintExplorer.BlueprintDB;
 
 namespace BlueprintExplorer
 {
@@ -52,6 +54,41 @@ namespace BlueprintExplorer
                 }
 
             }
+        }
+
+        private static Regex ExtractVersionPattern = new(@"(?<major>\d)\.(?<minor>\d)\.(?<patch>\d)(?<suffix>[a-zA-Z])");
+
+        internal static GameVersion GetGameVersion(string wrathPath)
+        {
+            if (!File.Exists(Path.Combine(wrathPath, "Wrath_Data", "StreamingAssets", "Version.info")))
+            {
+                throw new Exception("Cannot find Version.info in given wrath path");
+            }
+
+            var lines = File.ReadAllLines(Path.Combine(wrathPath, "Wrath_Data", "StreamingAssets", "Version.info"));
+            if (lines.Length == 0)
+            {
+                throw new Exception("Version.info is empty");
+            }
+
+            var split = lines[0].Split(" ");
+            if (split.Length <= 2)
+            {
+                throw new Exception("Game Version string is invalid");
+            }
+
+            var maybeVersion = split[^2];
+            var r = ExtractVersionPattern.Match(maybeVersion);
+            if (!r.Success)
+            {
+                throw new Exception("Game Version string is invalid");
+            }
+
+            var major = int.Parse(r.Groups["major"].Value);
+            var minor = int.Parse(r.Groups["minor"].Value);
+            var patch = int.Parse(r.Groups["patch"].Value);
+            char suffix = char.Parse(r.Groups["suffix"].Value);
+            return new(major, minor, patch, suffix, 0);
         }
 
         internal static void SetWrathPath()
