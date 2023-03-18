@@ -173,7 +173,7 @@ namespace BlueprintExplorer
                 BubbleTheme.DarkenStyles(references.DefaultCellStyle, references.ColumnHeadersDefaultCellStyle);
             }
 
-            references.CellClick += (sender, e) => ShowReferenceSelected();
+            references.CellMouseClick += (sender, e) => ShowReferenceSelected(e.Button);
             references.Cursor = Cursors.Arrow;
 
             openExternal.Click += (sender, e) => OnOpenExternally?.Invoke(View.Blueprint as BlueprintHandle);
@@ -285,7 +285,7 @@ namespace BlueprintExplorer
             }
         }
 
-        private void ShowReferenceSelected()
+        private void ShowReferenceSelected(MouseButtons button = MouseButtons.Left)
         {
             var handle = View.Blueprint as BlueprintHandle;
             if (handle == null) return;
@@ -294,8 +294,19 @@ namespace BlueprintExplorer
 
             if (row >= 0 && row < handle.BackReferences.Count)
             {
+                bool tabbed = ModifierKeys.HasFlag(Keys.Control) || button == MouseButtons.Middle;
                 if (handle.BackReferences[row] != Guid.Parse(handle.GuidText))
-                    ShowBlueprint(BlueprintDB.Instance.Blueprints[handle.BackReferences[row]], ShowFlags.F_UpdateHistory);
+                {
+                    BlueprintHandle bp = BlueprintDB.Instance.Blueprints[handle.BackReferences[row]];
+                    if (tabbed)
+                    {
+                        OnLinkOpenNewTab?.Invoke(bp);
+                    }
+                    else
+                    {
+                        ShowBlueprint(bp, ShowFlags.F_UpdateHistory);
+                    }
+                }
 
             }
         }
