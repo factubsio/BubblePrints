@@ -300,6 +300,12 @@ namespace BlueprintExplorer
             ValidateBlueprint(false);
         }
 
+        protected override void Dispose(bool disposing)
+        {
+            BubblePrints.OnSettingsChanged -= BubblePrints_OnSettingsChanged;
+            base.Dispose(disposing);
+        }
+
         protected override void OnBackColorChanged(EventArgs e) => UpdateRowHoverColor();
 
         private void UpdateRowHoverColor()
