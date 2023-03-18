@@ -63,10 +63,21 @@ namespace BlueprintExplorer
         {
             references = new();
             references.Columns.Add("ref", "References");
+            references.Columns.Add("typ", "Type");
+            references.Columns.Add("guid", "Guid");
 
             references.Columns[0].Width = 800;
             references.Columns[0].DataPropertyName = "References";
             references.Columns[0].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+
+            references.Columns[1].Width = 800;
+            references.Columns[1].DataPropertyName = "RefType";
+            references.Columns[1].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+
+            references.Columns[2].Width = 0;
+            references.Columns[2].DataPropertyName = "Guid";
+            references.Columns[2].AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+
 
             references.ReadOnly = true;
             references.Cursor = Cursors.Arrow;
@@ -74,7 +85,7 @@ namespace BlueprintExplorer
             references.AutoGenerateColumns = false;
 
             references.RowHeadersVisible = false;
-            references.ColumnHeadersVisible = false;
+            references.ColumnHeadersVisible = true;
             references.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             references.MultiSelect = false;
             references.AllowUserToResizeRows = false;
@@ -100,7 +111,7 @@ namespace BlueprintExplorer
                 kryptonSplitContainer1.Panel2Collapsed = !toggleReferencesVisible.Checked;
                 if (refShownFirstTime)
                 {
-                    kryptonSplitContainer1.SplitterDistance = this.Width - 300;
+                    kryptonSplitContainer1.SplitterDistance = this.Width - 500;
                     refShownFirstTime = false;
 
                 }
@@ -173,7 +184,7 @@ namespace BlueprintExplorer
                 BubbleTheme.DarkenStyles(references.DefaultCellStyle, references.ColumnHeadersDefaultCellStyle);
             }
 
-            references.CellMouseClick += (sender, e) => ShowReferenceSelected(e.Button);
+            references.CellMouseClick += (sender, e) => ShowReferenceSelected(e.RowIndex, e.Button);
             references.Cursor = Cursors.Arrow;
 
             openExternal.Click += (sender, e) => OnOpenExternally?.Invoke(View.Blueprint as BlueprintHandle);
@@ -221,7 +232,11 @@ namespace BlueprintExplorer
             var me = Guid.Parse(handle.GuidText);
             foreach (var reference in handle.BackReferences)
             {
-                    references.Rows.Add(BlueprintDB.Instance.Blueprints[reference].Name);
+                var bp = BlueprintDB.Instance.Blueprints[reference];
+                references.Rows.Add(bp.Name, bp.TypeName, bp.GuidText);
+            }
+            if (references.SortedColumn is not null) {
+                references.Sort(references.SortedColumn, ListSortDirection.Ascending);
             }
 
             if (flags.ClearHistory())
@@ -285,19 +300,20 @@ namespace BlueprintExplorer
             }
         }
 
-        private void ShowReferenceSelected(MouseButtons button = MouseButtons.Left)
+        private void ShowReferenceSelected(int row, MouseButtons button = MouseButtons.Left)
         {
-            var handle = View.Blueprint as BlueprintHandle;
-            if (handle == null) return;
+            if (View.Blueprint is not BlueprintHandle handle) return;
             if (handle.BackReferences.Count != references.RowCount) return;
-            int row = references.SelectedRow();
+            Console.WriteLine(row);
 
             if (row >= 0 && row < handle.BackReferences.Count)
             {
+                var obj = references.Rows[row];
+                var guid = obj.Cells[2].Value as string;
                 bool tabbed = ModifierKeys.HasFlag(Keys.Control) || button == MouseButtons.Middle;
-                if (handle.BackReferences[row] != Guid.Parse(handle.GuidText))
+                if (guid != handle.GuidText)
                 {
-                    BlueprintHandle bp = BlueprintDB.Instance.Blueprints[handle.BackReferences[row]];
+                    BlueprintHandle bp = BlueprintDB.Instance.Blueprints[Guid.Parse(guid)];
                     if (tabbed)
                     {
                         OnLinkOpenNewTab?.Invoke(bp);
