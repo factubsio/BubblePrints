@@ -321,11 +321,11 @@ namespace BlueprintExplorer
                 new SettingsView().ShowDialog();
             };
 
-            BubblePrints.SetWrathPath();
+            BubblePrints.SetWrathPath(false);
 
             if (BubblePrints.TryGetWrathPath(out var wrathPath))
             {
-                BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, "Wrath_Data", "Managed", "Assembly-CSharp.dll"));
+                BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed", "Assembly-CSharp.dll"));
             }
 
             //blueprintViews.DrawMode = TabDrawMode.OwnerDrawFixed;

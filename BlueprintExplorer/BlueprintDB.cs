@@ -62,7 +62,17 @@ namespace BlueprintExplorer
         private const string filenameRoot = "blueprints_raw";
         private const string extension = "binz";
 
-        public static string FileNameFor(GameVersion version) => $"{filenameRoot}_{version}.{extension}";
+        public static string FileNameFor(GameVersion version, string suffix)
+        {
+            if (suffix == null || suffix == "Wrath")
+            {
+                return $"{filenameRoot}_{version}.{extension}";
+            }
+            else
+            {
+                return $"{filenameRoot}_{suffix}_{version}.{extension}";
+            }
+        }
 
         public static string CacheDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints");
 
@@ -149,67 +159,56 @@ namespace BlueprintExplorer
 
             public string Status => EstimatedTotal == 0 ? "??" : $"{Current}/{EstimatedTotal} - {(Current / (double)EstimatedTotal):P1}";
         }
-
-        public void ExtractFromGame(ConnectionProgress progress, string wrathPath, string outputFile, GameVersion version)
+        private void LoadFromKingmakerZip(ConnectionProgress progress, string path)
         {
-            BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, "Wrath_Data", "Managed", "Assembly-CSharp.dll"));
-
             var writeOptions = new JsonSerializerOptions
             {
                 WriteIndented = true,
             };
 
-            var typeIdType = BubblePrints.Wrath.GetType("Kingmaker.Blueprints.JsonSystem.TypeIdAttribute");
-            var typeIdGuid = typeIdType.GetField("GuidString");
+            using var stream = File.OpenRead(@"D:\rt_bp.json");
+            using var doc = JsonDocument.Parse(stream);
 
-            foreach (var type in BubblePrints.Wrath.GetTypes())
-            {
-                var typeId = type.GetCustomAttribute(typeIdType);
-                if (typeId != null)
-                {
-                    var guid = typeIdGuid.GetValue(typeId) as string;
-                    if (GuidToFullTypeName.TryAdd(guid, type.FullName))
-                        TypeGuidsInOrder.Add(guid);
-                }
-            }
+            JsonElement all = doc.RootElement;
 
-            TypeGuidsInOrder.Sort();
-            FlatIndexToTypeName = new string[TypeGuidsInOrder.Count];
-            for (int i = 0; i < TypeGuidsInOrder.Count; i++)
-            {
-                var guid = TypeGuidsInOrder[i];
-                GuidToFlatIndex[guid] = (ushort)i;
-                FlatIndexToTypeName[i] = GuidToFullTypeName[guid];
-            }
-
-            using var bpDump = ZipFile.OpenRead(Path.Combine(wrathPath, "blueprints.zip"));
-
-            Dictionary<string, string> TypenameToGuid = new();
-
-            progress.Phase = "Extracting";
-            progress.EstimatedTotal = bpDump.Entries.Count(e => e.Name.EndsWith(".jbp"));
+            var iterator = all.EnumerateArray();
 
             HashSet<string> referencedTypes = new();
 
-            int index = 0;
-
-            foreach (var entry in bpDump.Entries)
+            while (iterator.MoveNext())
             {
-                if (!entry.Name.EndsWith(".jbp")) continue;
                 try
                 {
-                    var stream = entry.GetType().GetMethod("OpenInReadMode", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(entry, new object[] { false }) as Stream;
-                    var reader = new StreamReader(stream);
-                    var contents = reader.ReadToEnd();
-                    var json = JsonSerializer.Deserialize<JsonElement>(contents);
-                    var type = json.GetProperty("Data").NewTypeStr().FullName;
+                    string name = iterator.Current.GetString();
+                    if (!iterator.MoveNext()) throw new Exception();
+
+                    string guid = iterator.Current.GetString();
+                    if (!iterator.MoveNext()) throw new Exception();
+
+                    string fullTypeSanity = iterator.Current.GetString();
+                    if (!iterator.MoveNext()) throw new Exception();
+
+                    JsonElement json = iterator.Current;
+
+                    if (json.ValueKind != JsonValueKind.Object)
+                    {
+                        Console.Error.WriteLine("Non object type: " + name + ", " + fullTypeSanity);
+                        continue;
+                    }
+
+                    var type = json.TypeString();
+
+                    if (type == null)
+                    {
+                        Console.WriteLine("BadBadBad");
+                    }
 
                     var handle = new BlueprintHandle
                     {
-                        GuidText = json.Str("AssetId"),
-                        Name = entry.Name[0..^4],
+                        GuidText = guid,
+                        Name = name,
                         Type = type,
-                        Raw = JsonSerializer.Serialize(json.GetProperty("Data"), writeOptions),
+                        Raw = json.GetRawText(),
                     };
                     var components = handle.Type.Split('.');
                     if (components.Length <= 1)
@@ -234,7 +233,83 @@ namespace BlueprintExplorer
 
 
                     progress.Current++;
-                    index++;
+                }
+                catch (Exception e)
+                {
+                    Console.Error.WriteLine(e.Message);
+                    Console.Error.WriteLine(e.StackTrace);
+                    throw;
+                }
+
+            }
+
+            Console.WriteLine("here");
+        }
+
+        private void LoadFromBubbleMine(ConnectionProgress progress, ZipArchive bpDump)
+        {
+            var writeOptions = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+            };
+
+            HashSet<string> referencedTypes = new();
+
+            JsonSerializerOptions options = new()
+            {
+                MaxDepth = 128,
+            };
+            foreach (var entry in bpDump.Entries)
+            {
+                if (!entry.Name.EndsWith(".json")) continue;
+                try
+                {
+                    var stream = entry.GetType().GetMethod("OpenInReadMode", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(entry, new object[] { false }) as Stream;
+                    var reader = new StreamReader(stream);
+                    var contents = reader.ReadToEnd();
+                    var json = JsonSerializer.Deserialize<JsonElement>(contents, options);
+                    var type = json.Str("$type").ParseTypeString();
+
+
+                    var lastDot = entry.Name.LastIndexOf('.');
+                    var secondLastDot = entry.Name.LastIndexOf('.', lastDot - 1);
+
+                    if (lastDot == secondLastDot + 1)
+                    {
+                        continue;
+                    }
+
+                    var handle = new BlueprintHandle
+                    {
+                        GuidText = entry.Name[(secondLastDot + 1)..lastDot],
+                        Name = entry.Name[0..secondLastDot],
+                        Type = type,
+                        Raw = JsonSerializer.Serialize(json, writeOptions),
+                    };
+                    var components = handle.Type.Split('.');
+                    if (components.Length <= 1)
+                    {
+                        handle.TypeName = handle.Type;
+                    }
+                    else
+                    {
+                        handle.TypeName = components.Last();
+                        handle.Namespace = string.Join('.', components.Take(components.Length - 1));
+                    }
+
+                    handle.EnsureParsed();
+                    foreach (var _ in handle.GetDirectReferences()) { }
+
+                    referencedTypes.Clear();
+                    BlueprintHandle.VisitObjects(handle.EnsureObj, referencedTypes);
+                    handle.ComponentIndex = Array.Empty<ushort>(); // referencedTypes.Select(typeId => GuidToFlatIndex[typeId]).ToArray();
+
+                    AddBlueprint(handle);
+
+
+
+                    progress.Current++;
+                    //index++;
                 }
                 catch (Exception e)
                 {
@@ -243,6 +318,180 @@ namespace BlueprintExplorer
                     throw;
                 }
             }
+
+            //while (iterator.MoveNext())
+            {
+                //{
+                //    string name = iterator.Current.GetString();
+                //    if (!iterator.MoveNext()) throw new Exception();
+
+                //    string guid = iterator.Current.GetString();
+                //    if (!iterator.MoveNext()) throw new Exception();
+
+                //    string fullTypeSanity = iterator.Current.GetString();
+                //    if (!iterator.MoveNext()) throw new Exception();
+
+                //    JsonElement json = iterator.Current;
+
+                //    if (json.ValueKind != JsonValueKind.Object)
+                //    {
+                //        Console.Error.WriteLine("Non object type: " + name + ", " + fullTypeSanity);
+                //        continue;
+                //    }
+
+                //    var type = json.TypeString();
+
+                //    if (type == null)
+                //    {
+                //        Console.WriteLine("BadBadBad");
+                //    }
+
+                //    var handle = new BlueprintHandle
+                //    {
+                //        GuidText = guid,
+                //        Name = name,
+                //        Type = type,
+                //        Raw = json.GetRawText(),
+                //    };
+                //    var components = handle.Type.Split('.');
+                //    if (components.Length <= 1)
+                //    {
+                //        handle.TypeName = handle.Type;
+                //    }
+                //    else
+                //    {
+                //        handle.TypeName = components.Last();
+                //        handle.Namespace = string.Join('.', components.Take(components.Length - 1));
+                //    }
+
+                //    handle.EnsureParsed();
+                //    foreach (var _ in handle.GetDirectReferences()) { }
+
+                //    referencedTypes.Clear();
+                //    BlueprintHandle.VisitObjects(handle.EnsureObj, referencedTypes);
+                //    handle.ComponentIndex = referencedTypes.Select(typeId => GuidToFlatIndex[typeId]).ToArray();
+
+                //    AddBlueprint(handle);
+
+                //    progress.Current++;
+                //}
+                //catch (Exception e)
+                //{
+                //    Console.Error.WriteLine(e.Message);
+                //    Console.Error.WriteLine(e.StackTrace);
+                //    throw;
+                //}
+
+            }
+
+            Console.WriteLine("here");
+        }
+
+        public void ExtractFromGame(ConnectionProgress progress, string wrathPath, string outputFile, GameVersion version)
+        {
+            BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed", "Assembly-CSharp.dll"));
+
+            var writeOptions = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+            };
+
+            if (BubblePrints.Game_Data == "Wrath_Data")
+            {
+                var typeIdType = BubblePrints.Wrath.GetType("Kingmaker.Blueprints.JsonSystem.TypeIdAttribute");
+                var typeIdGuid = typeIdType.GetField("GuidString");
+
+                foreach (var type in BubblePrints.Wrath.GetTypes())
+                {
+                    var typeId = type.GetCustomAttribute(typeIdType);
+                    if (typeId != null)
+                    {
+                        var guid = typeIdGuid.GetValue(typeId) as string;
+                        if (GuidToFullTypeName.TryAdd(guid, type.FullName))
+                            TypeGuidsInOrder.Add(guid);
+                    }
+                }
+
+                TypeGuidsInOrder.Sort();
+                FlatIndexToTypeName = new string[TypeGuidsInOrder.Count];
+                for (int i = 0; i < TypeGuidsInOrder.Count; i++)
+                {
+                    var guid = TypeGuidsInOrder[i];
+                    GuidToFlatIndex[guid] = (ushort)i;
+                    FlatIndexToTypeName[i] = GuidToFullTypeName[guid];
+                }
+            }
+
+            using var bpDump = ZipFile.OpenRead(BubblePrints.GetBlueprintSource(wrathPath));
+
+            Dictionary<string, string> TypenameToGuid = new();
+
+            progress.Phase = "Extracting";
+            progress.EstimatedTotal = bpDump.Entries.Count(e => e.Name.EndsWith(".jbp"));
+
+            HashSet<string> referencedTypes = new();
+
+            int index = 0;
+
+            if (BubblePrints.Game_Data == "Kingmaker_Data")
+            {
+                LoadFromBubbleMine(progress, bpDump);
+            }
+            else if (BubblePrints.Game_Data == "Wrath_Data")
+            {
+                foreach (var entry in bpDump.Entries)
+                {
+                    if (!entry.Name.EndsWith(".jbp")) continue;
+                    try
+                    {
+                        var stream = entry.GetType().GetMethod("OpenInReadMode", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(entry, new object[] { false }) as Stream;
+                        var reader = new StreamReader(stream);
+                        var contents = reader.ReadToEnd();
+                        var json = JsonSerializer.Deserialize<JsonElement>(contents);
+                        var type = json.GetProperty("Data").NewTypeStr().FullName;
+
+                        var handle = new BlueprintHandle
+                        {
+                            GuidText = json.Str("AssetId"),
+                            Name = entry.Name[0..^4],
+                            Type = type,
+                            Raw = JsonSerializer.Serialize(json.GetProperty("Data"), writeOptions),
+                        };
+                        var components = handle.Type.Split('.');
+                        if (components.Length <= 1)
+                        {
+                            handle.TypeName = handle.Type;
+                        }
+                        else
+                        {
+                            handle.TypeName = components.Last();
+                            handle.Namespace = string.Join('.', components.Take(components.Length - 1));
+                        }
+
+                        handle.EnsureParsed();
+                        foreach (var _ in handle.GetDirectReferences()) { }
+
+                        referencedTypes.Clear();
+                        BlueprintHandle.VisitObjects(handle.EnsureObj, referencedTypes);
+                        handle.ComponentIndex = referencedTypes.Select(typeId => GuidToFlatIndex[typeId]).ToArray();
+
+                        AddBlueprint(handle);
+
+
+
+                        progress.Current++;
+                        index++;
+                    }
+                    catch (Exception e)
+                    {
+                        Console.Error.WriteLine(e.Message);
+                        Console.Error.WriteLine(e.StackTrace);
+                        throw;
+                    }
+                }
+
+            }
+
 
             progress.Phase = "Writing";
             progress.Current = 0;
@@ -360,10 +609,7 @@ namespace BlueprintExplorer
                 var strings = ctx.OpenRaw(reader.Get((ushort)ChunkTypes.Strings).Main);
 
                 var stringDictRaw = JsonSerializer.Deserialize<JsonElement>(strings.Span).GetProperty("strings");
-                foreach (var kv in stringDictRaw.EnumerateObject())
-                {
-                    Strings[kv.Name] = kv.Value.GetString();
-                }
+                LoadStringDatabase(stringDictRaw);
 
                 var defs = ctx.Open(reader.Get((ushort)ChunkTypes.Defaults)?.Main);
                 if (defs != null)
@@ -510,16 +756,12 @@ namespace BlueprintExplorer
 
 
 
-                var rawLangDict = File.ReadAllBytes(Path.Combine(wrathPath, @"Wrath_Data\StreamingAssets\Localization\enGB.json"));
+                var rawLangDict = File.ReadAllBytes(Path.Combine(wrathPath, BubblePrints.Game_Data, @"StreamingAssets\Localization\enGB.json"));
                 file.Write((ushort)ChunkTypes.Strings, 0, rawLangDict);
 
 
                 var stringDictRaw = JsonSerializer.Deserialize<JsonElement>(rawLangDict).GetProperty("strings");
-                foreach (var kv in stringDictRaw.EnumerateObject())
-                {
-                    Strings[kv.Name] = kv.Value.GetString();
-                }
-
+                LoadStringDatabase(stringDictRaw);
 
                 int handleIndex = 0;
                 foreach (var handle in cache)
@@ -622,12 +864,31 @@ namespace BlueprintExplorer
             Console.WriteLine("mostReferred: {mostReferred} ({biggestRefList})");
         }
 
+        private void LoadStringDatabase(JsonElement stringDictRaw)
+        {
+            if (BubblePrints.Game_Data == "Kingmaker_Data")
+            {
+                foreach (var kv in stringDictRaw.EnumerateArray())
+                {
+                    Strings[kv.Str("Key")] = kv.Str("Value");
+                }
+            }
+            else
+            {
+                foreach (var kv in stringDictRaw.EnumerateObject())
+                {
+                    Strings[kv.Name] = kv.Value.GetString();
+                }
+
+            }
+        }
+
         private void AddBlueprint(BlueprintHandle bp)
         {
             var guid = Guid.Parse(bp.GuidText);
             bp.NameLower = bp.Name.ToLower();
             bp.TypeNameLower = bp.TypeName.ToLower();
-            bp.NamespaceLower = bp.Namespace.ToLower();
+            bp.NamespaceLower = bp.Namespace?.ToLower() ?? "";
             var end = bp.Type.LastIndexOf('.');
             types.Add(bp.Type.Substring(end + 1));
             cache.Add(bp);
