@@ -38,6 +38,11 @@ namespace BlueprintExplorer
         {
 #if DEBUG
             AllocConsole();
+#else
+            if (Environment.GetEnvironmentVariable("BUBBLEPRINTS_DEBUG") != null)
+            {
+                AllocConsole();
+            }
 #endif
 
             if (!Directory.Exists(DataPath))
