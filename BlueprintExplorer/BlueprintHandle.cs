@@ -319,7 +319,8 @@ namespace BlueprintExplorer
                     obj => (obj as BlueprintHandle).NameLower,
                     obj => (obj as BlueprintHandle).TypeNameLower,
                     obj => (obj as BlueprintHandle).NamespaceLower,
-                    obj => (obj as BlueprintHandle).GuidText);
+                    obj => (obj as BlueprintHandle).GuidText,
+                    obj => (obj as BlueprintHandle).NameLower);
 
         private MatchResult[] CreateResultArray()
         {
@@ -328,6 +329,7 @@ namespace BlueprintExplorer
                     new MatchResult("type", this),
                     new MatchResult("space", this),
                     new MatchResult("guid", this),
+                    new MatchResult("", this)
                 };
         }
         public MatchResult[] GetMatches(int index)
