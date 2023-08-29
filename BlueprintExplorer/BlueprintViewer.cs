@@ -143,7 +143,7 @@ namespace BlueprintExplorer
 
                 var template = availableTemplates[templatesList.SelectedIndex];
                 var result = TemplateRunner.Execute(template.Value, view.Blueprint as BlueprintHandle);
-                Clipboard.SetText(result);
+                Clipboard.SetDataObject(result, copy: true, retryTimes: 10, retryDelay: 100);
             };
 
             if (BubblePrints.Settings.ShareBlueprintFilter)

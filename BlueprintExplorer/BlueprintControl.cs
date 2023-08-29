@@ -923,7 +923,7 @@ namespace BlueprintExplorer
 
                 if (string.IsNullOrWhiteSpace(value))
                     return;
-                Clipboard.SetText(value);
+                Clipboard.SetDataObject(value, copy: true, retryTimes: 10, retryDelay: 100);
                 int displayAt = elem.PrimaryRow - 1;
                 if (elem.PrimaryRow < 3)
                     displayAt = elem.PrimaryRow + 1;
