@@ -127,18 +127,30 @@ namespace BlueprintExplorer
 
         public static (string Guid, string Name, string FullName) NewTypeStr(this string raw, bool strict = true)
         {
-            var comma = raw.IndexOf(',');
+            var comma = raw.LastIndexOf(',');
             var shortName = raw[(comma + 2)..];
-            var guid = raw[0..comma];
-            var db = BlueprintDB.Instance;
+            string guid = "";
+            if (shortName == "mscorlib" || shortName.StartsWith("UnityEngine") || shortName == "Assembly-CSharp-firstpass" || raw.StartsWith("System") || raw.StartsWith("Unity"))
+            {
+                return ("", raw, raw);
+            }
+            else if (shortName != "Assembly-CSharp") {
+                guid = raw[0..comma];
 
-            if (db.GuidToFullTypeName.TryGetValue(guid, out var fullTypeName))
-                return (guid, shortName, fullTypeName);
+                if (BlueprintDB.Instance.GuidToFullTypeName.TryGetValue(guid, out var fullTypeName))
+                    return (guid, shortName, fullTypeName);
 
-            if (strict)
-                throw new Exception($"Cannot find type with that name: {shortName}");
+                if (strict)
+                    throw new Exception($"Cannot find type with that name: {shortName}");
 
-            return (null, null, null);
+                return (null, null, null);
+            }
+            else
+            {
+                return ("", raw[0..comma], raw[0..comma]);
+            }
+
+
         }
 
         public static (string Guid, string Name, string FullName) NewTypeStr(this JsonElement elem, bool strict = true)
@@ -347,11 +359,17 @@ namespace BlueprintExplorer
         }
 
 
+
+
+
         public void EnsureParsed()
         {
             if (!Parsed)
             {
-                obj = JsonSerializer.Deserialize<JsonElement>(Raw);
+                obj = JsonSerializer.Deserialize<JsonElement>(Raw, new JsonSerializerOptions()
+                {
+                    MaxDepth = 128,
+                });
                 Parsed = true;
             }
         }

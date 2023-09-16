@@ -23,7 +23,7 @@ namespace BlueprintExplorer
     public partial class SplashScreenChooserJobbie : Form
     {
         private readonly BindingList<Binz> Available = new();
-        private readonly Dictionary<GameVersion, Binz> ByVersion = new();
+        private readonly Dictionary<BinzVersion, Binz> ByVersion = new();
 
         public SplashScreenChooserJobbie()
         {
@@ -53,11 +53,15 @@ namespace BlueprintExplorer
                     };
                     Binz binz = new()
                     {
-                        Version = gv,
+                        Version = new()
+                        {
+                            Version = gv,
+                            Game = "Wrath",
+                        },
                         Source = "bubbles",
                     };
                     Available.Insert(0, binz);
-                    ByVersion.Add(gv, binz);
+                    ByVersion.Add(binz.Version, binz);
                 }
             }
             catch (Exception ex)
@@ -68,7 +72,7 @@ namespace BlueprintExplorer
 
             foreach (var file in Directory.EnumerateFiles(BubblePrints.DataPath, "*.binz"))
             {
-                GameVersion v = VersionFromFile(file);
+                BinzVersion v = VersionFromFile(file);
                 if (ByVersion.TryGetValue(v, out var binz))
                 {
                     binz.Local = true;
@@ -97,7 +101,7 @@ namespace BlueprintExplorer
 
             if (!string.IsNullOrEmpty(BubblePrints.Settings.LastLoaded))
             {
-                GameVersion v = VersionFromFile(BubblePrints.Settings.LastLoaded);
+                BinzVersion v = VersionFromFile(BubblePrints.Settings.LastLoaded);
                 for (int i = 0; i < Available.Count; i++)
                 {
                     if (v.Equals(Available[i].Version))
@@ -122,9 +126,23 @@ namespace BlueprintExplorer
         }
 
         private static Regex extractVersion = new(@"blueprints_raw_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
-        private static GameVersion VersionFromFile(string file)
+        private static Regex extractVersionKM = new(@"blueprints_raw_km_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
+
+        private static BinzVersion VersionFromFile(string file)
         {
-            var match = extractVersion.Match(file);
+            Match match;
+            string game = "Wrath";
+            string fileName = Path.GetFileName(file);
+            if (fileName.StartsWith("blueprints_raw_km"))
+            {
+                match = extractVersionKM.Match(file);
+                game = "Kingmaker";
+            }
+            else
+            {
+                match = extractVersion.Match(file);
+            }
+
             GameVersion v = new()
             {
                 Major = int.Parse(match.Groups[1].Value),
@@ -133,7 +151,11 @@ namespace BlueprintExplorer
                 Suffix = match.Groups[4].Value[0],
                 Bubble = int.Parse(match.Groups[5].Value),
             };
-            return v;
+            return new()
+            {
+                Version = v,
+                Game = game,
+            };
         }
 
         private void tableLayoutPanel1_Paint(object sender, PaintEventArgs e)
@@ -188,14 +210,26 @@ namespace BlueprintExplorer
 
             ShowLoadAnimation();
 
+            BubblePrints.Game_Data = toLoad.Version.Game switch
+            {
+                "Wrath" => "Wrath_Data",
+                "Kingmaker" => "Kingmaker_Data",
+                _ => throw new NotSupportedException(),
+            };
+
             if (!toLoad.Local)
             {
+                if (toLoad.Version.Game != "Wrath")
+                {
+                    throw new Exception("Can only auto-download wrath binz");
+                }
+
                 loadAnim.Image = Resources.downloading;
                 loadAnim.ShowProgressBar = true;
                 loadAnim.Caption = "Downloading";
                 const string host = "https://github.com/factubsio/BubblePrintsData/releases/download";
-                string filename = BlueprintDB.FileNameFor(toLoad.Version);
-                var latestVersionUrl = new Uri($"{host}/{toLoad.Version}/{filename}");
+                string filename = BlueprintDB.FileNameFor(toLoad.Version.Version, toLoad.Version.Game);
+                var latestVersionUrl = new Uri($"{host}/{toLoad.Version.Version}/{filename}");
 
                 var client = new WebClient();
 
@@ -210,6 +244,7 @@ namespace BlueprintExplorer
                 await download;
                 File.Move(tmp, toLoad.Path);
             }
+
 
             loadAnim.Image = Resources.hackerman;
             loadAnim.ShowProgressBar = false;
@@ -234,19 +269,18 @@ namespace BlueprintExplorer
  
         private async void DoImportFromGame(object sender, EventArgs e)
         {
-            BubblePrints.SetWrathPath();
+            BubblePrints.SetWrathPath(true);
             if (!BubblePrints.TryGetWrathPath(out var wrathPath))
             {
                 return;
             }
 
-
             var version = BubblePrints.GetGameVersion(wrathPath);
-            var filename = BlueprintDB.FileNameFor(version);
+            var filename = BlueprintDB.FileNameFor(version, BubblePrints.CurrentGame);
             while (File.Exists(Path.Join(BubblePrints.DataPath, filename)))
             {
                 version.Bubble++;
-                filename = BlueprintDB.FileNameFor(version);
+                filename = BlueprintDB.FileNameFor(version, BubblePrints.CurrentGame);
             }
 
             Console.WriteLine(version);
@@ -263,7 +297,7 @@ namespace BlueprintExplorer
                 else if (result == DialogResult.Yes)
                 {
                     version.Bubble = version.Bubble - 1;
-                    filename = BlueprintDB.FileNameFor(version);
+                    filename = BlueprintDB.FileNameFor(version, BubblePrints.CurrentGame);
                 }
             }
 
@@ -298,7 +332,11 @@ namespace BlueprintExplorer
                 Binz binz = new()
                 {
                     Local = true,
-                    Version = version,
+                    Version = new()
+                    {
+                        Version = version,
+                        Game = BubblePrints.CurrentGame,
+                    },
                     Path = path,
                     Source = "local",
                 };
@@ -342,6 +380,29 @@ namespace BlueprintExplorer
         }
     }
 
+    public class BinzVersion : IEquatable<BinzVersion>
+    {
+        public GameVersion Version;
+        public string Game;
+
+        public override bool Equals(object obj) => Equals(obj as BinzVersion);
+        public bool Equals(BinzVersion other) => other is not null && EqualityComparer<GameVersion>.Default.Equals(Version, other.Version) && Game == other.Game;
+        public override int GetHashCode() => HashCode.Combine(Version, Game);
+
+        public static bool operator ==(BinzVersion left, BinzVersion right)
+        {
+            return EqualityComparer<BinzVersion>.Default.Equals(left, right);
+        }
+
+        public static bool operator !=(BinzVersion left, BinzVersion right)
+        {
+            return !(left == right);
+        }
+
+        public override string ToString() => $"{Game} - {Version}";
+
+    }
+
     public class Binz : INotifyPropertyChanged
     {
         public string Path;
@@ -356,7 +417,7 @@ namespace BlueprintExplorer
             }
         }
         public string Source { get; set; }
-        public GameVersion Version { get; set; }
+        public BinzVersion Version { get; set; }
 
         public event PropertyChangedEventHandler PropertyChanged;
     }

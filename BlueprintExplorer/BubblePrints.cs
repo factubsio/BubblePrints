@@ -65,12 +65,18 @@ namespace BlueprintExplorer
 
         internal static GameVersion GetGameVersion(string wrathPath)
         {
-            if (!File.Exists(Path.Combine(wrathPath, "Wrath_Data", "StreamingAssets", "Version.info")))
+            if (Game_Data == "Kingmaker_Data")
+            {
+                return new(2, 1, 4, 'a', 0);
+            }
+
+            var versionPath = Path.Combine(wrathPath, Game_Data, "StreamingAssets", "Version.info");
+            if (!File.Exists(versionPath))
             {
                 throw new Exception("Cannot find Version.info in given wrath path");
             }
 
-            var lines = File.ReadAllLines(Path.Combine(wrathPath, "Wrath_Data", "StreamingAssets", "Version.info"));
+            var lines = File.ReadAllLines(versionPath);
             if (lines.Length == 0)
             {
                 throw new Exception("Version.info is empty");
@@ -96,10 +102,14 @@ namespace BlueprintExplorer
             return new(major, minor, patch, suffix, 0);
         }
 
-        internal static void SetWrathPath()
+        internal static void SetWrathPath(bool forceSelect)
         {
             var path = Settings.WrathPath;
-            if (path == null || path.Length == 0 || !File.Exists(Path.Combine(path, "Wrath.exe")))
+            if (forceSelect)
+            {
+                path = null;
+            }
+            if (path == null || path.Length == 0 || !File.Exists(Path.Combine(path, GameExe)))
             {
                 var folderBrowser = new FolderBrowserDialog();
                 folderBrowser.UseDescriptionForTitle = true;
@@ -108,7 +118,7 @@ namespace BlueprintExplorer
                 while (true)
                 {
                     if (errored)
-                        folderBrowser.Description = "Could not find Wrath.exe at the selected folder";
+                        folderBrowser.Description = $"Could not find {GameExe} at the selected folder";
                     else
                         folderBrowser.Description = "Please select the the folder containing Wrath.exe";
 
@@ -117,7 +127,7 @@ namespace BlueprintExplorer
 
                     path = folderBrowser.SelectedPath;
 
-                    var exePath = Path.Combine(path, "Wrath.exe");
+                    var exePath = Path.Combine(path, GameExe);
                     if (File.Exists(exePath))
                         break;
 
@@ -137,12 +147,36 @@ namespace BlueprintExplorer
         public static string MakeDataPath(string subpath) => Path.Combine(DataPath, subpath);
         public static string SettingsPath => MakeDataPath("settings.json");
 
+        public static string GameExe => Game_Data switch
+        {
+            "Kingmaker_Data" => "Kingmaker.exe",
+            "Wrath_Data" => "Wrath.exe",
+            _ => throw new NotSupportedException(),
+        };
+
+        public static string CurrentGame => Game_Data switch
+        {
+            "Kingmaker_Data" => "Kingmaker",
+            "Wrath_Data" => "Wrath",
+            _ => throw new NotSupportedException(),
+        };
+
+
+        // Change this for import new
+        public static string Game_Data = "Wrath_Data";
+
         internal static void SaveSettings()
         {
             File.WriteAllText(SettingsPath, JsonSerializer.Serialize(Settings));
             OnSettingsChanged?.Invoke();
         }
         internal static void NotifyTemplatesChanged(int oldCount, int newCount) => OnTemplatesChanged?.Invoke(oldCount, newCount);
+        internal static string GetBlueprintSource(string wrathPath) => Game_Data switch
+        {
+            "Wrath_Data" => Path.Combine(wrathPath, "blueprints.zip"),
+            "Kingmaker_Data" => @"D:\Blueprints2.1.4.zip",
+            _ => throw new NotSupportedException("unknown game: " + Game_Data)
+        };
     }
 
     public enum ExportMode
