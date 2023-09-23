@@ -961,10 +961,13 @@ namespace BlueprintExplorer
 
             List<string> passThrough = searchText.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
 
+            string groupBy = null;
+
             for (int i = 0; i < passThrough.Count; i++)
             {
                 var special = passThrough[i][1..];
                 bool remove = true;
+
                 switch (passThrough[i][0])
                 {
                     case '?':
@@ -983,6 +986,11 @@ namespace BlueprintExplorer
                             //string[] path = special.Split('/', StringSplitOptions.RemoveEmptyEntries);
                             //toSearch = toSearch.Where(b => EntryIsNotNull(b, path)).ToList();
                         }
+                        break;
+                    case '>':
+                        groupBy = special;
+
+                        toSearch = toSearch.Where(b => b.EnsureObj.Str(special) is not null).ToList();
                         break;
                     default:
                         remove = false;
@@ -1009,7 +1017,12 @@ namespace BlueprintExplorer
                     results.Add(handle);
                 cancellationToken.ThrowIfCancellationRequested();
             }
+
             results.Sort((x, y) => y.Score(matchBuffer).CompareTo(x.Score(matchBuffer)));
+
+            if (groupBy is not null)
+                return results.GroupBy(handle => handle.EnsureObj.Str(groupBy)).SelectMany(group => group).ToList();
+
             return results;
         }
 
