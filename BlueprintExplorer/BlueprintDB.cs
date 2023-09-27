@@ -442,6 +442,7 @@ namespace BlueprintExplorer
                 foreach (var entry in bpDump.Entries)
                 {
                     if (!entry.Name.EndsWith(".jbp")) continue;
+                    if (entry.Name.StartsWith("Appsflyer")) continue;
                     try
                     {
                         var stream = entry.GetType().GetMethod("OpenInReadMode", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(entry, new object[] { false }) as Stream;
