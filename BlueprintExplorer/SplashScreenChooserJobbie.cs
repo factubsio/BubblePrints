@@ -126,6 +126,7 @@ namespace BlueprintExplorer
         }
 
         private static Regex extractVersion = new(@"blueprints_raw_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
+        private static Regex extractVersionInkbound = new(@"blueprints_raw_Inkbound_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
         private static Regex extractVersionKM = new(@"blueprints_raw_km_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
 
         private static BinzVersion VersionFromFile(string file)
@@ -133,7 +134,12 @@ namespace BlueprintExplorer
             Match match;
             string game = "Wrath";
             string fileName = Path.GetFileName(file);
-            if (fileName.StartsWith("blueprints_raw_km"))
+            if (fileName.StartsWith("blueprints_raw_Inkbound"))
+            {
+                match = extractVersionInkbound.Match(file);
+                game = "Inkbound";
+            }
+            else if (fileName.StartsWith("blueprints_raw_km"))
             {
                 match = extractVersionKM.Match(file);
                 game = "Kingmaker";
@@ -214,6 +220,7 @@ namespace BlueprintExplorer
             {
                 "Wrath" => "Wrath_Data",
                 "Kingmaker" => "Kingmaker_Data",
+                "Inkbound" => "Inkbound_Data",
                 _ => throw new NotSupportedException(),
             };
 

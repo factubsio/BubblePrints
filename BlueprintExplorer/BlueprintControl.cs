@@ -1,6 +1,8 @@
 ﻿using BlueprintExplorer.Properties;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Data.Entity.ModelConfiguration.Conventions;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -128,10 +130,15 @@ namespace BlueprintExplorer
         {
             Bold = 1,
             Italic = 2,
+            Emoji = 4,
         }
 
         public class StyledString
         {
+            public StyledString(params StyleSpan[] spans)
+            {
+                Spans = spans;
+            }
 
             public StyledString(IEnumerable<StyleSpan> spans)
             {
@@ -150,6 +157,8 @@ namespace BlueprintExplorer
 
                 public bool Bold => (Flags & StyleFlags.Bold) != 0;
                 public bool Italic => (Flags & StyleFlags.Italic) != 0;
+
+                public bool Emoji => (Flags & StyleFlags.Emoji) != 0;
             }
 
             public StyleSpan[] Spans;
@@ -496,7 +505,12 @@ namespace BlueprintExplorer
                         if (e.isObj && !e.HasType)
                         {
                             var parent = stack.Peek();
-                            if (!parent.IsObj)
+                            if (parent == null)
+                            {
+                                row.TypeFull = ".";
+                                row.Type = ";";
+                            } 
+                            else if (!parent.IsObj)
                             {
                                 row.TypeFull = parent.TypeFull;
                                 row.Type = parent.Type;
@@ -754,18 +768,24 @@ namespace BlueprintExplorer
                 render.Graphics.DrawString(elem.key, render.Bold, keyBrush, new PointF(xOffset, 0));
                 float lineY = RowHeight / 2.0f;
                 render.Graphics.DrawLine(RowLineGuide, xOffset + keyWidth + 3, lineY, NameColumnWidth - 3, lineY);
+                float lineLength = (NameColumnWidth - 3) - (xOffset + keyWidth + 3);
+                int leftMargin = 0;
+                if (SeasonalOverlay.InSeason)
+                {
+                    RenderEmoji(render, new(xOffset + keyWidth + 3 + lineLength / 2 - RowHeight / 2, 0), SeasonalOverlay.Emoji(elem.key));
+                    //leftMargin = RowHeight + 4;
+                }
+
                 if (elem.String == null)
                 {
                     bool empty = false;
-                    float right = NameColumnWidth;
                     var brush = new SolidBrush(valueColor);
                     if (elem.ValueStyled == null)
                     {
                         var str = elem.value + elem.Extra;
                         if (str.Length > 0)
                         {
-                            right += render.Graphics.MeasureString(str, valueFont).Width;
-                            render.Graphics.DrawString(str, valueFont, brush, new PointF(NameColumnWidth, 0));
+                            render.Graphics.DrawString(str, valueFont, brush, new PointF(NameColumnWidth + leftMargin, 0));
                         }
                         else
                         {
@@ -774,19 +794,26 @@ namespace BlueprintExplorer
                     }
                     else
                     {
-                        PointF p = new(NameColumnWidth, 0);
+                        PointF p = new(NameColumnWidth + leftMargin, 0);
                         foreach (var span in elem.ValueStyled.Spans)
                         {
                             var font = render.Regular;
                             if (span.Bold)
                                 font = render.Bold;
-                            var width = render.Graphics.MeasureString(span.Value, font).Width;
-                            render.Graphics.DrawString(span.Value, font, brush, p);
-                            p.X += width;
-                        }
+                            if (span.Emoji)
+                            {
+                                p = RenderEmoji(render, p, span.Value);
+                            }
+                            else
+                            {
+                                var width = render.Graphics.MeasureString(span.Value, font).Width;
+                                render.Graphics.DrawString(span.Value, font, brush, p);
+                                p.X += width;
 
-                        right = p.X;
+                            }
+                        }
                     }
+
 
 
                     //if (elem.Default != null)
@@ -824,6 +851,24 @@ namespace BlueprintExplorer
 
             }
 
+        }
+
+        private PointF RenderEmoji(DrawParams render, PointF p, string name)
+        {
+            var width = RowHeight;
+            var img = Properties.Resources.ResourceManager.GetObject(name, Properties.Resources.Culture) as Image;
+            if (img != null)
+            {
+                render.Graphics.DrawImage(img, p.X, p.Y, RowHeight, RowHeight);
+            }
+            else
+            {
+                render.Graphics.FillRectangle(Brushes.Red, p.X, p.Y, 32, RowHeight);
+
+            }
+
+            p.X += width;
+            return p;
         }
 
         public int LevelIndent { get; set; } = 20;

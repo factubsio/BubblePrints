@@ -1,4 +1,5 @@
 ﻿using K4os.Compression.LZ4;
+using MagmaDataMiner;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -245,6 +246,68 @@ namespace BlueprintExplorer
 
             Console.WriteLine("here");
         }
+        private void LoadInkbound(ConnectionProgress progress, string path)
+        {
+            MineDb.Init(path);
+            MineDb.LoadAll();
+
+            var writeOptions = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+            };
+
+            HashSet<string> referencedTypes = new();
+
+            JsonSerializerOptions options = new()
+            {
+                MaxDepth = 128,
+            };
+
+            foreach (var asset in MineDb.All)
+            {
+                try
+                {
+                    var type = asset.TypeName;
+
+                    var handle = new BlueprintHandle
+                    {
+                        GuidText = asset.Guid,
+                        Name = asset.AssetName,
+                        Type = type,
+                        Raw = asset.RawJson,
+                    };
+                    var components = handle.Type.Split('.');
+                    if (components.Length <= 1)
+                    {
+                        handle.TypeName = handle.Type;
+                    }
+                    else
+                    {
+                        handle.TypeName = components.Last();
+                        handle.Namespace = string.Join('.', components.Take(components.Length - 1));
+                    }
+
+                    handle.EnsureParsed();
+                    foreach (var _ in handle.GetDirectReferences()) { }
+
+                    referencedTypes.Clear();
+                    BlueprintHandle.VisitObjects(handle.EnsureObj, referencedTypes);
+                    handle.ComponentIndex = Array.Empty<ushort>(); // referencedTypes.Select(typeId => GuidToFlatIndex[typeId]).ToArray();
+
+                    AddBlueprint(handle);
+
+                    progress.Current++;
+                    //index++;
+                }
+                catch (Exception e)
+                {
+                    Console.Error.WriteLine(e.Message);
+                    Console.Error.WriteLine(e.StackTrace);
+                    throw;
+                }
+            }
+
+        }
 
         private void LoadFromBubbleMine(ConnectionProgress progress, ZipArchive bpDump)
         {
@@ -422,12 +485,10 @@ namespace BlueprintExplorer
                 }
             }
 
-            using var bpDump = ZipFile.OpenRead(BubblePrints.GetBlueprintSource(wrathPath));
 
             Dictionary<string, string> TypenameToGuid = new();
 
             progress.Phase = "Extracting";
-            progress.EstimatedTotal = bpDump.Entries.Count(e => e.Name.EndsWith(".jbp"));
 
             HashSet<string> referencedTypes = new();
 
@@ -435,10 +496,22 @@ namespace BlueprintExplorer
 
             if (BubblePrints.Game_Data == "Kingmaker_Data")
             {
+                using var bpDump = ZipFile.OpenRead(BubblePrints.GetBlueprintSource(wrathPath));
+                progress.EstimatedTotal = bpDump.Entries.Count(e => e.Name.EndsWith(".jbp"));
                 LoadFromBubbleMine(progress, bpDump);
+            }
+            else if (BubblePrints.Game_Data == "Inkbound_Data")
+            {
+                //using var bpDump = ZipFile.OpenRead(BubblePrints.GetBlueprintSource(wrathPath));
+                progress.EstimatedTotal = 1;
+                LoadInkbound(progress, BubblePrints.GetBlueprintSource(wrathPath));
+                //throw new NotSupportedException();
+                //LoadFromBubbleMine(progress, bpDump);
             }
             else if (BubblePrints.Game_Data == "Wrath_Data")
             {
+                using var bpDump = ZipFile.OpenRead(BubblePrints.GetBlueprintSource(wrathPath));
+                progress.EstimatedTotal = bpDump.Entries.Count(e => e.Name.EndsWith(".jbp"));
                 foreach (var entry in bpDump.Entries)
                 {
                     if (!entry.Name.EndsWith(".jbp")) continue;
@@ -606,11 +679,13 @@ namespace BlueprintExplorer
                     FlatIndexToTypeName[i] = val;
                 }
 
+                if (BubblePrints.Game_Data != "Inkbound_Data")
+                {
+                    var strings = ctx.OpenRaw(reader.Get((ushort)ChunkTypes.Strings).Main);
 
-                var strings = ctx.OpenRaw(reader.Get((ushort)ChunkTypes.Strings).Main);
-
-                var stringDictRaw = JsonSerializer.Deserialize<JsonElement>(strings.Span).GetProperty("strings");
-                LoadStringDatabase(stringDictRaw);
+                    var stringDictRaw = JsonSerializer.Deserialize<JsonElement>(strings.Span).GetProperty("strings");
+                    LoadStringDatabase(stringDictRaw);
+                }
 
                 var defs = ctx.Open(reader.Get((ushort)ChunkTypes.Defaults)?.Main);
                 if (defs != null)
@@ -757,12 +832,14 @@ namespace BlueprintExplorer
 
 
 
-                var rawLangDict = File.ReadAllBytes(Path.Combine(wrathPath, BubblePrints.Game_Data, @"StreamingAssets\Localization\enGB.json"));
-                file.Write((ushort)ChunkTypes.Strings, 0, rawLangDict);
+                if (BubblePrints.Game_Data != "Inkbound_Data")
+                {
+                    var rawLangDict = File.ReadAllBytes(Path.Combine(wrathPath, BubblePrints.Game_Data, @"StreamingAssets\Localization\enGB.json"));
+                    file.Write((ushort)ChunkTypes.Strings, 0, rawLangDict);
 
-
-                var stringDictRaw = JsonSerializer.Deserialize<JsonElement>(rawLangDict).GetProperty("strings");
-                LoadStringDatabase(stringDictRaw);
+                    var stringDictRaw = JsonSerializer.Deserialize<JsonElement>(rawLangDict).GetProperty("strings");
+                    LoadStringDatabase(stringDictRaw);
+                }
 
                 int handleIndex = 0;
                 foreach (var handle in cache)
@@ -874,7 +951,7 @@ namespace BlueprintExplorer
                     Strings[kv.Str("Key")] = kv.Str("Value");
                 }
             }
-            else
+            else if (BubblePrints.Game_Data == "Wrath_Data")
             {
                 foreach (var kv in stringDictRaw.EnumerateObject())
                 {

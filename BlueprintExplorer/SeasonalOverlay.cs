@@ -73,7 +73,6 @@ namespace BlueprintExplorer
                 DateTime now = DateTime.Now;
                 return ((now.Month == 1 && now.Day < 3) || (now.Month == 12 && now.Day > 10));
             }
-
         }
 
         public static bool InSeason => !BubblePrints.Settings.NoSeasonalTheme && (NearChristmas);
@@ -83,6 +82,25 @@ namespace BlueprintExplorer
             if (NearChristmas)
                 _ = new SeasonalOverlay(target);
         }
+
+
+        private static Random rng = new();
+        private static string[] christmas = { "tree", "snowflake", "deer", "snowman", "santa" };
+        public static string Emoji(string str)
+        {
+            if (!SeasonalOverlay.InSeason)
+                return "";
+
+            if (SeasonalOverlay.NearChristmas)
+            {
+                var season = christmas;
+                var index = Math.Abs(str.GetHashCode()) % season.Length;
+                return season[index];
+            }
+
+            return "";
+        }
+
     }
 
     public class SnowFlake

@@ -279,6 +279,7 @@ namespace BlueprintExplorer
         public void EnsureParsed();
         public IEnumerable<IDisplayableElement> DisplayableElements { get; }
         string GuidText { get; }
+        string LongName { get; }
         string Name { get; }
         string Type { get; }
         string TypeName { get; }
@@ -287,9 +288,8 @@ namespace BlueprintExplorer
     public class BlueprintHandle : ISearchable, IDisplayableElementCollection
     {
         public static bool ShortType = false;
-        //public byte[] guid;
+        public string LongName { get; set; }
 
-        public object UserData = null;
         public string GuidText { get; set; }
         public string Name { get; set; }
         public string Type { get; set; }
@@ -359,9 +359,6 @@ namespace BlueprintExplorer
         }
 
 
-
-
-
         public void EnsureParsed()
         {
             if (!Parsed)
@@ -369,6 +366,7 @@ namespace BlueprintExplorer
                 obj = JsonSerializer.Deserialize<JsonElement>(Raw, new JsonSerializerOptions()
                 {
                     MaxDepth = 128,
+                    AllowTrailingCommas = true,
                 });
                 Parsed = true;
             }
@@ -480,6 +478,8 @@ namespace BlueprintExplorer
             {
                 string val = node.GetString();
                 var link = ParseReference(val);
+                if (BubblePrints.Game_Data == "Inkbound_Data" && name == "guid")
+                    link = val;
                 yield return new VisitedElement { key = name, value = val, link = link };
             }
             else if (node.ValueKind == JsonValueKind.Number || node.ValueKind == JsonValueKind.True || node.ValueKind == JsonValueKind.False)

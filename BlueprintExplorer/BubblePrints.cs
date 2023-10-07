@@ -65,6 +65,10 @@ namespace BlueprintExplorer
 
         internal static GameVersion GetGameVersion(string wrathPath)
         {
+            if (Game_Data == "Inkbound_Data")
+            {
+                return new(0, 0, 1, 'a', 0);
+            }
             if (Game_Data == "Kingmaker_Data")
             {
                 return new(2, 1, 4, 'a', 0);
@@ -151,6 +155,7 @@ namespace BlueprintExplorer
         {
             "Kingmaker_Data" => "Kingmaker.exe",
             "Wrath_Data" => "Wrath.exe",
+            "Inkbound_Data" => "Inkbound.exe",
             _ => throw new NotSupportedException(),
         };
 
@@ -158,6 +163,7 @@ namespace BlueprintExplorer
         {
             "Kingmaker_Data" => "Kingmaker",
             "Wrath_Data" => "Wrath",
+            "Inkbound_Data" => "Inkbound",
             _ => throw new NotSupportedException(),
         };
 
@@ -173,6 +179,7 @@ namespace BlueprintExplorer
         internal static void NotifyTemplatesChanged(int oldCount, int newCount) => OnTemplatesChanged?.Invoke(oldCount, newCount);
         internal static string GetBlueprintSource(string wrathPath) => Game_Data switch
         {
+            "Inkbound_Data" => Path.Combine(wrathPath, @"Inkbound_Data\StreamingAssets\SharedScriptableObjects\SharedScriptableObjects.fb"),
             "Wrath_Data" => Path.Combine(wrathPath, "blueprints.zip"),
             "Kingmaker_Data" => @"D:\Blueprints2.1.4.zip",
             _ => throw new NotSupportedException("unknown game: " + Game_Data)
