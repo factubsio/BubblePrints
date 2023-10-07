@@ -1,5 +1,9 @@
 ﻿using K4os.Compression.LZ4;
+
+#if DEBUG
 using MagmaDataMiner;
+#endif
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -246,6 +250,7 @@ namespace BlueprintExplorer
 
             Console.WriteLine("here");
         }
+#if DEBUG
         private void LoadInkbound(ConnectionProgress progress, string path)
         {
             MineDb.Init(path);
@@ -308,6 +313,7 @@ namespace BlueprintExplorer
             }
 
         }
+#endif
 
         private void LoadFromBubbleMine(ConnectionProgress progress, ZipArchive bpDump)
         {
@@ -502,11 +508,14 @@ namespace BlueprintExplorer
             }
             else if (BubblePrints.Game_Data == "Inkbound_Data")
             {
+#if DEBUG
                 //using var bpDump = ZipFile.OpenRead(BubblePrints.GetBlueprintSource(wrathPath));
                 progress.EstimatedTotal = 1;
                 LoadInkbound(progress, BubblePrints.GetBlueprintSource(wrathPath));
-                //throw new NotSupportedException();
                 //LoadFromBubbleMine(progress, bpDump);
+#else
+                throw new NotSupportedException();
+#endif
             }
             else if (BubblePrints.Game_Data == "Wrath_Data")
             {
