@@ -23,7 +23,7 @@ namespace BlueprintExplorer
         public string value { get; }
         public int levelDelta { get; }
         public bool isObj { get; }
-        public string link { get; }
+        public BlueprintLink? link { get; }
         //public string linkTarget;
         public bool Empty { get; }
         public JsonElement Node { get; }
@@ -209,7 +209,7 @@ namespace BlueprintExplorer
 
             var link = BlueprintHandle.ParseReference(elem.GetString());
 
-            if (link != null && BlueprintDB.Instance.Blueprints.TryGetValue(System.Guid.Parse(link), out bp))
+            if (link != null && BlueprintDB.Instance.Blueprints.TryGetValue(new(System.Guid.Parse(link)), out bp))
             {
                 return true;
 
@@ -279,6 +279,7 @@ namespace BlueprintExplorer
         public void EnsureParsed();
         public IEnumerable<IDisplayableElement> DisplayableElements { get; }
         string GuidText { get; }
+        string ShortId { get; }
         string LongName { get; }
         string Name { get; }
         string Type { get; }
@@ -290,7 +291,9 @@ namespace BlueprintExplorer
         public static bool ShortType = false;
         public string LongName { get; set; }
 
+        public string ShortId { get; set; }
         public string GuidText { get; set; }
+        public long SecondaryId { get; set; }
         public string Name { get; set; }
         public string Type { get; set; }
         public string TypeForResults
@@ -311,6 +314,7 @@ namespace BlueprintExplorer
         public string NameLower;
         public string TypeNameLower;
         public string NamespaceLower;
+        public string ShortIdLower;
 
         #region ISearchable
         //internal Dictionary<string, Func<string>> _Providers = null;
@@ -331,7 +335,8 @@ namespace BlueprintExplorer
                     obj => (obj as BlueprintHandle).NameLower,
                     obj => (obj as BlueprintHandle).TypeNameLower,
                     obj => (obj as BlueprintHandle).NamespaceLower,
-                    obj => (obj as BlueprintHandle).GuidText);
+                    obj => (obj as BlueprintHandle).GuidText,
+                    obj => (obj as BlueprintHandle).ShortIdLower);
 
         private MatchResult[] CreateResultArray()
         {
@@ -340,6 +345,7 @@ namespace BlueprintExplorer
                     new MatchResult("type", this),
                     new MatchResult("space", this),
                     new MatchResult("guid", this),
+                    new MatchResult("did", this),
                 };
         }
         public MatchResult[] GetMatches(int index)
@@ -387,7 +393,7 @@ namespace BlueprintExplorer
             public static IEnumerable<(VisitedElement, string)> Visit(BlueprintHandle bp)
             {
                 Stack<string> stack = new();
-                foreach (var elem in BlueprintHandle.Visit(bp.EnsureObj, bp.Name))
+                foreach (var elem in BlueprintHandle.Visit(new(), bp.EnsureObj, bp.Name))
                 {
                     if (elem.levelDelta > 0)
                     {
@@ -410,7 +416,7 @@ namespace BlueprintExplorer
             public string value { get; set; }
             public int levelDelta { get; set; }
             public bool isObj { get; set; }
-            public string link { get; set; }
+            public BlueprintLink? link { get; set; }
             //public string linkTarget;
             public bool Empty { get; set; }
             public JsonElement Node { get; set; }
@@ -449,7 +455,7 @@ namespace BlueprintExplorer
             get
             {
                 EnsureParsed();
-                return Visit(obj, Name);
+                return Visit(new(), obj, Name);
             }
         }
 
@@ -472,15 +478,25 @@ namespace BlueprintExplorer
 
         }
 
-        public static IEnumerable<VisitedElement> Visit(JsonElement node, string name)
+        public static IEnumerable<VisitedElement> Visit(JsonElement parent, JsonElement node, string name)
         {
             if (node.ValueKind == JsonValueKind.String)
             {
                 string val = node.GetString();
                 var link = ParseReference(val);
-                if (BubblePrints.Game_Data == "Inkbound_Data" && name == "guid")
+                long secondary = 0;
+                if (BubblePrints.Game_Data == "Inkbound_Data" && name == "guid") {
                     link = val;
-                yield return new VisitedElement { key = name, value = val, link = link };
+                    //parent.Find("m_FilePath")
+                }
+
+                BlueprintLink? bpLink = null;
+                if (link != null)
+                {
+                    bpLink = new(Guid.Parse(link), secondary);
+                }
+
+                yield return new VisitedElement { key = name, value = val, link = bpLink };
             }
             else if (node.ValueKind == JsonValueKind.Number || node.ValueKind == JsonValueKind.True || node.ValueKind == JsonValueKind.False)
             {
@@ -496,7 +512,7 @@ namespace BlueprintExplorer
                 int index = 0;
                 foreach (var elem in node.EnumerateArray())
                 {
-                    foreach (var n in Visit(elem, index.ToString()))
+                    foreach (var n in Visit(node, elem, index.ToString()))
                         yield return n;
                     index++;
                 }
@@ -510,7 +526,7 @@ namespace BlueprintExplorer
                 yield return new VisitedElement { key = name, levelDelta = 1, isObj = true, Node = node, MaybeType = maybeType };
                 foreach (var elem in node.EnumerateObject())
                 {
-                    foreach (var n in Visit(elem.Value, elem.Name))
+                    foreach (var n in Visit(node, elem.Value, elem.Name))
                         yield return n;
                 }
                 yield return new VisitedElement { levelDelta = -1 };
@@ -574,7 +590,7 @@ namespace BlueprintExplorer
                 //{
                 if (element.link != null)
                 {
-                    yield return Guid.Parse(element.link);
+                    yield return element.link.Value.Guid;
                     //yield return new BlueprintReference
                     //{
                     //    path = string.Join("/", path.Reverse()),
@@ -603,6 +619,5 @@ namespace BlueprintExplorer
     {
         public string path;
         public Guid to;
-
     }
 }

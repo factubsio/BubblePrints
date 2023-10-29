@@ -60,7 +60,8 @@ namespace BlueprintExplorer
         public readonly Dictionary<string, ushort> GuidToFlatIndex = new();
         public readonly List<string> TypeGuidsInOrder = new();
 
-        public readonly Dictionary<Guid, BlueprintHandle> Blueprints = new();
+
+        public readonly Dictionary<BlueprintLink, BlueprintHandle> Blueprints = new();
         private readonly List<BlueprintHandle> cache = new();
         public readonly HashSet<string> types = new();
 
@@ -276,8 +277,10 @@ namespace BlueprintExplorer
 
                     var handle = new BlueprintHandle
                     {
-                        GuidText = asset.Guid,
+                        GuidText = asset.AssetGuid,
+                        SecondaryId = asset.AssetFile,
                         Name = asset.AssetName,
+                        ShortId = asset.DataId,
                         Type = type,
                         Raw = asset.RawJson,
                     };
@@ -298,6 +301,7 @@ namespace BlueprintExplorer
                     referencedTypes.Clear();
                     BlueprintHandle.VisitObjects(handle.EnsureObj, referencedTypes);
                     handle.ComponentIndex = Array.Empty<ushort>(); // referencedTypes.Select(typeId => GuidToFlatIndex[typeId]).ToArray();
+
 
                     AddBlueprint(handle);
 
@@ -668,6 +672,15 @@ namespace BlueprintExplorer
                         }
                     }
 
+                    var extra = bundleContext.Open(bundle.ForSubType((ushort)ChunkSubTypes.Blueprints.ExtraData));
+                    if (extra != null)
+                    {
+                        for (int i = 0; i < res.Count; i++)
+                        {
+                            res[i].ShortId = extra.ReadString();
+                        }
+                    }
+
 
                     return res;
                 });
@@ -834,6 +847,12 @@ namespace BlueprintExplorer
                     foreach (var index in c.ComponentIndex)
                         comps.Write(index);
 
+                    if (BubblePrints.Game_Data == "Inkbound_Data")
+                    {
+                        var extra = current.GetStream((ushort)ChunkSubTypes.Blueprints.ExtraData);
+                        extra.Write(c.ShortId);
+                    }
+
                     progress.Current++;
                 }
 
@@ -976,10 +995,13 @@ namespace BlueprintExplorer
             bp.NameLower = bp.Name.ToLower();
             bp.TypeNameLower = bp.TypeName.ToLower();
             bp.NamespaceLower = bp.Namespace?.ToLower() ?? "";
+            bp.ShortIdLower = bp.ShortId?.ToLower() ?? "";
+
+
             var end = bp.Type.LastIndexOf('.');
             types.Add(bp.Type.Substring(end + 1));
             cache.Add(bp);
-            Blueprints[guid] = bp;
+            Blueprints[new(guid, bp.SecondaryId)] = bp;
             // preheat this
             bp.PrimeMatches(2);
         }
@@ -1295,4 +1317,12 @@ namespace BlueprintExplorer
             }
         }
     }
+    public record struct BlueprintLink(Guid Guid, long Secondary = 0)
+    {
+        public BlueprintLink(Guid guid) : this(guid, 0) { }
+
+        public string Render => $"{Guid}";
+
+    }
+
 }

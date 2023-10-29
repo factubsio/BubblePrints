@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Data.Entity.ModelConfiguration.Conventions;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -15,7 +14,7 @@ namespace BlueprintExplorer
 {
     public class BlueprintControl : ScrollableControl
     {
-        public delegate void LinkClickedDelegate(string link, bool newTab);
+        public delegate void LinkClickedDelegate(BlueprintLink link, bool newTab);
         public delegate void PathDelegate(string path);
         public delegate void FilterChangedDelegate(string filter);
         public delegate void NavigateDelegate(NavigateTo to);
@@ -93,7 +92,7 @@ namespace BlueprintExplorer
             var softRow = GetElement(_SoftRowSelection);
             if (softRow.HasLink)
             {
-                OnLinkClicked?.Invoke(softRow.link, ModifierKeys.HasFlag(Keys.Control));
+                OnLinkClicked?.Invoke((BlueprintLink)softRow.link, ModifierKeys.HasFlag(Keys.Control));
             }
         }
 
@@ -169,7 +168,8 @@ namespace BlueprintExplorer
         public class RowElement
         {
             public bool IsObj;
-            public string key, value, link;
+            public string key, value;
+            public BlueprintLink? link;
             public StyledString ValueStyled;
             public int level;
             public bool Last;
@@ -241,7 +241,7 @@ namespace BlueprintExplorer
             }
 
             public bool HasChildren => Children.Count > 0;
-            public bool HasLink => link != null;
+            public bool HasLink => link.HasValue;
 
             public string SearchableValue => (value ?? ValueStyled?.Raw ?? "") + Extra;
 
@@ -480,7 +480,7 @@ namespace BlueprintExplorer
 
                         if (row.HasLink)
                         {
-                            if (BlueprintDB.Instance.Blueprints.TryGetValue(Guid.Parse(row.link), out var target))
+                            if (BlueprintDB.Instance.Blueprints.TryGetValue(row.link.Value, out var target))
                             {
                                 row.LinkStale = false;
                                 row.Extra = "  -> " + target.Name + " :" + target.TypeName;
@@ -935,12 +935,12 @@ namespace BlueprintExplorer
                 }
                 else if (elem.HasLink)
                 {
-                    OnLinkClicked?.Invoke(elem.link, ModifierKeys.HasFlag(Keys.Control));
+                    OnLinkClicked?.Invoke(elem.link.Value, ModifierKeys.HasFlag(Keys.Control));
                 }
             }
             else if (e.Button == MouseButtons.Middle && valid && elem.HasLink)
             {
-                OnLinkClicked?.Invoke(elem.link, true);
+                OnLinkClicked?.Invoke(elem.link.Value, true);
             }
             else if (e.Button == MouseButtons.Right && valid)
             {
@@ -951,7 +951,7 @@ namespace BlueprintExplorer
 
                 if (elem.HasLink)
                 {
-                    value = elem.link;
+                    value = elem.link?.Render;
                     if (jbpCompatible)
                         value = "!bp_" + value;
                 }

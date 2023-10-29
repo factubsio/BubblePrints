@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ImageMagick;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
@@ -64,7 +65,33 @@ namespace BubbleAssets
 
         private static Dictionary<string, byte[]> atlasCache = new();
 
-        public bool TryRenderSprite(Sprite sprite, [NotNullWhen(true)] out Bitmap? image)
+        public static string ImageToBase64(Image raw, int newWidth = -1, int newHeight = -1)
+        {
+            using MemoryStream m = new();
+
+            raw.Save(m, ImageFormat.Png);
+
+            m.Position = 0;
+
+            using MagickImage image = new(m);
+
+            image.Quality = 100;  // Set the quality
+            image.Format = MagickFormat.Png;
+
+            if (newWidth != -1)
+            {
+                image.InterpolativeResize(newWidth, newHeight, PixelInterpolateMethod.Catrom);
+            }
+
+            m.Position = 0;
+
+            image.Write(m);
+
+            string base64String = Convert.ToBase64String(m.GetBuffer(), 0, (int)m.Position);
+            return base64String;
+        }
+
+        public static bool TryRenderSprite(Sprite sprite, [NotNullWhen(true)] out Bitmap? image)
         {
             Rectf cut = sprite.m_Rect;
             Texture2D tex;

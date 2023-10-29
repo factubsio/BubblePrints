@@ -1,5 +1,6 @@
 ﻿using BubbleAssets;
 using K4os.Compression.LZ4;
+using K4os.Compression.LZ4.Encoders;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -101,7 +102,9 @@ namespace WikiGen.Assets
             {
                 var buffer = new byte[block.uncompressedSize];
                 FileReader.BaseStream.Position = block.RawBegin + RawBegin;
-                int lz4Size = LZ4Codec.Decode(FileReader.ReadBytes((int)block.compressedSize), buffer);
+                var rawBytes = FileReader.ReadBytes((int)block.compressedSize);
+                LZ4Codec.Enforce32 = true;
+                int lz4Size = LZ4Codec.Decode(rawBytes, buffer);
                 if (lz4Size != block.uncompressedSize)
                 {
                     throw new Exception();
@@ -186,9 +189,13 @@ namespace WikiGen.Assets
 
     public class StorageBlock
     {
+        public const UInt16 FLAG_COMPRESSION_TYPE = 0x3f;
+        public const UInt16 FLAG_STREAMED = 0x40;
         public uint compressedSize;
         public uint uncompressedSize;
-        public StorageBlockFlags flags;
+        public UInt16 flags;
+
+        public CompressionType Compression => (CompressionType)(flags & FLAG_COMPRESSION_TYPE);
 
         public bool Open => Buffer != null;
         public byte[]? Buffer = null;

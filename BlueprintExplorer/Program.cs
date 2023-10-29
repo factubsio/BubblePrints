@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -36,6 +37,8 @@ namespace BlueprintExplorer
 
           
             SetProcessDPIAware();
+            string bob = "bob   \"\n";
+            var x = JsonSerializer.Serialize(bob);
 
 
             Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);

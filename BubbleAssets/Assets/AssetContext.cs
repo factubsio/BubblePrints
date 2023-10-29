@@ -133,7 +133,7 @@ namespace WikiGen.Assets
                     {
                         uncompressedSize = blocksInfoReader.ReadUInt32(),
                         compressedSize = blocksInfoReader.ReadUInt32(),
-                        flags = (StorageBlockFlags)blocksInfoReader.ReadUInt16()
+                        flags = blocksInfoReader.ReadUInt16()
                     });
                 }
 
@@ -147,6 +147,11 @@ namespace WikiGen.Assets
                         path: blocksInfoReader.ReadCString()));
 
                 }
+            }
+
+            if ((flags & 0x200) != 0)
+            {
+                reader.Align(16);
             }
 
             blockStream.RawBegin = reader.BaseStream.Position;

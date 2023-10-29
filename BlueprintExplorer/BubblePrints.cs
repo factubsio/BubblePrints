@@ -169,7 +169,7 @@ namespace BlueprintExplorer
 
 
         // Change this for import new
-        public static string Game_Data = "Wrath_Data";
+        public static string Game_Data = "Inkbound_Data";
 
         internal static void SaveSettings()
         {

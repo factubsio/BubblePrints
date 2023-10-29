@@ -71,7 +71,7 @@ namespace BlueprintExplorer
                 }
             }
 
-            void WriteLine(string key, string value, string link)
+            void WriteLine(string key, string value, BlueprintLink? link)
             {
                 if (json)
                 {
@@ -86,9 +86,9 @@ namespace BlueprintExplorer
                     stream.Write(": ");
                 }
 
-                if (link != null)
+                if (link.HasValue)
                 {
-                    if (BlueprintDB.Instance.Blueprints.TryGetValue(Guid.Parse(link), out var target))
+                    if (BlueprintDB.Instance.Blueprints.TryGetValue(link.Value, out var target))
                         value = "link: " + link + " (" + target.Name + " :" + target.TypeName + ")";
                     else
                         value = "link: " + link + " (dead)";

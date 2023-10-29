@@ -66,7 +66,7 @@ namespace WikiGen
 
             if (blueprintContext.TryGetValue("cc0dee2c595dea14d8058008d0b5e441", out var wolfieAsset)) {
                 var ptrToSprite = new PPtr<Sprite>(wolfieAsset, blueprintAssets);
-                if (blueprintContext.TryRenderSprite(ptrToSprite.Object, out var image))
+                if (BlueprintAssetsContext.TryRenderSprite(ptrToSprite.Object, out var image))
                 {
                     image.Save(@"D:\wolfie.png");
                 }
@@ -143,13 +143,13 @@ namespace WikiGen
 
             HashSet<IconRequest> iconRequests = new();
 
-            var bpRoot = BlueprintDB.Instance.Blueprints[Guid.Parse("2d77316c72b9ed44f888ceefc2a131f6")];
+            var bpRoot = BlueprintDB.Instance.Blueprints[new(Guid.Parse("2d77316c72b9ed44f888ceefc2a131f6"))];
 
             var classList = new List<String>();
 
 
             List<BlueprintHandle> classes = bpRoot.EnsureObj.Find("Progression", "m_CharacterClasses").EnumerateArray().Select(x => x.DeRef()).ToList();
-            classes.Add(BlueprintDB.Instance.Blueprints[Guid.Parse("a406d6ebea5c46bba3160246be03e96f")]);
+            classes.Add(BlueprintDB.Instance.Blueprints[new(Guid.Parse("a406d6ebea5c46bba3160246be03e96f"))]);
 
             foreach (var clazzBp in classes)
             {
