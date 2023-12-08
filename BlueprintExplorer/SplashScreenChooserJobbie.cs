@@ -127,6 +127,7 @@ namespace BlueprintExplorer
 
         private static Regex extractVersion = new(@"blueprints_raw_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
         private static Regex extractVersionKM = new(@"blueprints_raw_km_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
+        private static Regex extractVersionRT = new(@"blueprints_raw_RT_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
 
         private static BinzVersion VersionFromFile(string file)
         {
@@ -137,6 +138,11 @@ namespace BlueprintExplorer
             {
                 match = extractVersionKM.Match(file);
                 game = "Kingmaker";
+            }
+            else if (fileName.StartsWith("blueprints_raw_RT"))
+            {
+                match = extractVersionRT.Match(file);
+                game = "RT";
             }
             else
             {
@@ -214,6 +220,7 @@ namespace BlueprintExplorer
             {
                 "Wrath" => "Wrath_Data",
                 "Kingmaker" => "Kingmaker_Data",
+                "RT" => "WH40KRT_Data",
                 _ => throw new NotSupportedException(),
             };
 
@@ -346,7 +353,8 @@ namespace BlueprintExplorer
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error extracting blueprints", ex.Message, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                //MessageBox.Show("Error extracting blueprints", ex.Message, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                throw;
             }
         }
 

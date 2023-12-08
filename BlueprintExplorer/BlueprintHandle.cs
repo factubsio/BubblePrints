@@ -125,7 +125,7 @@ namespace BlueprintExplorer
             return elem.Str("$type").ParseTypeString();
         }
 
-        public static (string Guid, string Name, string FullName) NewTypeStr(this string raw, bool strict = true)
+        public static (string Guid, string Name, string FullName) NewTypeStr(this string raw, bool strict = false)
         {
             var comma = raw.LastIndexOf(',');
             var shortName = raw[(comma + 2)..];
@@ -143,17 +143,15 @@ namespace BlueprintExplorer
                 if (strict)
                     throw new Exception($"Cannot find type with that name: {shortName}");
 
-                return (null, null, null);
+                return (guid, shortName, fullTypeName);
             }
             else
             {
                 return ("", raw[0..comma], raw[0..comma]);
             }
-
-
         }
 
-        public static (string Guid, string Name, string FullName) NewTypeStr(this JsonElement elem, bool strict = true)
+        public static (string Guid, string Name, string FullName) NewTypeStr(this JsonElement elem, bool strict = false)
         {
             if (elem.ValueKind == JsonValueKind.String)
                 return elem.GetString().NewTypeStr();

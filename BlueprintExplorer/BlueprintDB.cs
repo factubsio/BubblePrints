@@ -386,22 +386,71 @@ namespace BlueprintExplorer
 
             Console.WriteLine("here");
         }
-
+        
         public void ExtractFromGame(ConnectionProgress progress, string wrathPath, string outputFile, GameVersion version)
         {
-            BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed", "Assembly-CSharp.dll"));
+            // Should put this somewhere sensible
+            AppDomain.CurrentDomain.AssemblyResolve += (_, args) =>
+            {
+                var assName = new AssemblyName(args.Name);
+
+                var dir = Path.GetDirectoryName(args.RequestingAssembly.Location);
+
+                var assFile = Directory.EnumerateFiles(dir, "*.dll")
+                    .Where(assFile => Path.GetFileNameWithoutExtension(assFile) == assName.Name)
+                    .FirstOrDefault();
+
+                if (assFile is not null)
+                    return Assembly.LoadFrom(assFile);
+
+                return null;
+            };
+
+            if (BubblePrints.Game_Data == "WH40KRT_Data")
+                BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed", "Code.dll"));
+            else
+                BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed", "Assembly-CSharp.dll"));
 
             var writeOptions = new JsonSerializerOptions
             {
                 WriteIndented = true,
             };
 
-            if (BubblePrints.Game_Data == "Wrath_Data")
+            if (BubblePrints.Game_Data is "Wrath_Data" or "WH40KRT_Data")
             {
-                var typeIdType = BubblePrints.Wrath.GetType("Kingmaker.Blueprints.JsonSystem.TypeIdAttribute");
+                var assemblies = Directory
+                    .EnumerateFiles(Path.GetDirectoryName(BubblePrints.Wrath.Location), "*.dll")
+                    .SelectMany(assFile =>
+                    {
+                        try
+                        {
+                            return new [] { Assembly.LoadFrom(assFile) };
+                        }
+                        catch
+                        {
+                            return Array.Empty<Assembly>();
+                        }
+                    });
+
+                var types = assemblies.SelectMany(ass =>
+                {
+                    try {
+                        return ass.GetTypes();
+                    }
+                    catch
+                    {
+                        return Array.Empty<Type>();
+                    }
+                });
+
+                var typeIdType = assemblies
+                    .Select(ass => ass.GetType(BubblePrints.CurrentGame == "RT" ? "Kingmaker.Blueprints.JsonSystem.Helpers.TypeIdAttribute" : "Kingmaker.Blueprints.JsonSystem.TypeIdAttribute"))
+                    .Where(t => t is not null)
+                    .FirstOrDefault();
+
                 var typeIdGuid = typeIdType.GetField("GuidString");
 
-                foreach (var type in BubblePrints.Wrath.GetTypes())
+                foreach (var type in types)
                 {
                     var typeId = type.GetCustomAttribute(typeIdType);
                     if (typeId != null)
@@ -437,7 +486,7 @@ namespace BlueprintExplorer
             {
                 LoadFromBubbleMine(progress, bpDump);
             }
-            else if (BubblePrints.Game_Data == "Wrath_Data")
+            else if (BubblePrints.Game_Data is "Wrath_Data" or "WH40KRT_Data")
             {
                 foreach (var entry in bpDump.Entries)
                 {
@@ -448,13 +497,13 @@ namespace BlueprintExplorer
                         var reader = new StreamReader(stream);
                         var contents = reader.ReadToEnd();
                         var json = JsonSerializer.Deserialize<JsonElement>(contents);
-                        var type = json.GetProperty("Data").NewTypeStr().FullName;
+                        var type = json.GetProperty("Data").NewTypeStr();
 
                         var handle = new BlueprintHandle
                         {
                             GuidText = json.Str("AssetId"),
                             Name = entry.Name[0..^4],
-                            Type = type,
+                            Type = type.FullName ?? type.Name,
                             Raw = JsonSerializer.Serialize(json.GetProperty("Data"), writeOptions),
                         };
                         var components = handle.Type.Split('.');
@@ -473,7 +522,7 @@ namespace BlueprintExplorer
 
                         referencedTypes.Clear();
                         BlueprintHandle.VisitObjects(handle.EnsureObj, referencedTypes);
-                        handle.ComponentIndex = referencedTypes.Select(typeId => GuidToFlatIndex[typeId]).ToArray();
+                        handle.ComponentIndex = referencedTypes.SelectMany(typeId => GuidToFlatIndex.ContainsKey(typeId) ? new [] { GuidToFlatIndex[typeId] } : Array.Empty<ushort>()).ToArray();
 
                         AddBlueprint(handle);
 
@@ -877,7 +926,10 @@ namespace BlueprintExplorer
             {
                 foreach (var kv in stringDictRaw.EnumerateObject())
                 {
-                    Strings[kv.Name] = kv.Value.GetString();
+                    if (kv.Value.ValueKind == JsonValueKind.String)
+                        Strings[kv.Name] = kv.Value.GetString();
+                    else
+                        Strings[kv.Name] = kv.Value.GetProperty("Text").GetString();
                 }
 
             }

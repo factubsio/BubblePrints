@@ -61,7 +61,7 @@ namespace BlueprintExplorer
             }
         }
 
-        private static Regex ExtractVersionPattern = new(@"(?<major>\d)\.(?<minor>\d)\.(?<patch>\d)(?<suffix>[a-zA-Z])");
+        private static Regex ExtractVersionPattern = new(@"(?<major>\d)\.(?<minor>\d)\.(?<patch>\d+)(?<suffix>[a-zA-Z]?)");
 
         internal static GameVersion GetGameVersion(string wrathPath)
         {
@@ -98,7 +98,7 @@ namespace BlueprintExplorer
             var major = int.Parse(r.Groups["major"].Value);
             var minor = int.Parse(r.Groups["minor"].Value);
             var patch = int.Parse(r.Groups["patch"].Value);
-            char suffix = char.Parse(r.Groups["suffix"].Value);
+            char.TryParse(r.Groups["suffix"].Value, out char suffix);
             return new(major, minor, patch, suffix, 0);
         }
 
@@ -151,6 +151,7 @@ namespace BlueprintExplorer
         {
             "Kingmaker_Data" => "Kingmaker.exe",
             "Wrath_Data" => "Wrath.exe",
+            "WH40KRT_Data" => "WH40KRT.exe",
             _ => throw new NotSupportedException(),
         };
 
@@ -158,12 +159,13 @@ namespace BlueprintExplorer
         {
             "Kingmaker_Data" => "Kingmaker",
             "Wrath_Data" => "Wrath",
+            "WH40KRT_Data" => "RT",
             _ => throw new NotSupportedException(),
         };
 
 
         // Change this for import new
-        public static string Game_Data = "Wrath_Data";
+        public static string Game_Data = "WH40KRT_Data";
 
         internal static void SaveSettings()
         {
@@ -173,7 +175,7 @@ namespace BlueprintExplorer
         internal static void NotifyTemplatesChanged(int oldCount, int newCount) => OnTemplatesChanged?.Invoke(oldCount, newCount);
         internal static string GetBlueprintSource(string wrathPath) => Game_Data switch
         {
-            "Wrath_Data" => Path.Combine(wrathPath, "blueprints.zip"),
+            "Wrath_Data" or "WH40KRT_Data" => Path.Combine(wrathPath, "blueprints.zip"),
             "Kingmaker_Data" => @"D:\Blueprints2.1.4.zip",
             _ => throw new NotSupportedException("unknown game: " + Game_Data)
         };

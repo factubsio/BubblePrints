@@ -151,7 +151,7 @@ namespace BlueprintExplorer
 
         private static long ParseVersion(string v)
         {
-            var c = v.Split('.');
+            var c = v.Split(new char[] { '.', '+' });
             return int.Parse(c[0]) * 65536 + int.Parse(c[1]) * 256 + int.Parse(c[2]);
         }
 
@@ -325,7 +325,10 @@ namespace BlueprintExplorer
 
             if (BubblePrints.TryGetWrathPath(out var wrathPath))
             {
-                BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed", "Assembly-CSharp.dll"));
+                if (BubblePrints.CurrentGame == "RT")
+                    BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed", "Code.dll"));
+                else
+                    BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed", "Assembly-CSharp.dll"));
             }
 
             //blueprintViews.DrawMode = TabDrawMode.OwnerDrawFixed;
