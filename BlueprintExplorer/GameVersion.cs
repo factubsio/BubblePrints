@@ -39,7 +39,7 @@ namespace BlueprintExplorer
             public override int GetHashCode() => HashCode.Combine(Major, Minor, Patch, Suffix, Bubble);
 
 
-            public override string ToString() => $"{Major}.{Minor}.{Patch}{Suffix}_{Bubble}";
+            public override string ToString() => $"{Major}.{Minor}.{Patch}{(Suffix == default ? "" : Suffix.ToString())}_{Bubble}";
 
         }
     }
