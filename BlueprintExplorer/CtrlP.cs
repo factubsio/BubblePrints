@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -234,6 +235,27 @@ namespace BlueprintExplorer
             if (e.KeyCode == Keys.Escape)
             {
                 Daddy.HideCtrlP();
+            }
+            if (e.KeyCode == Keys.F5)
+            {
+                StringBuilder sb = new();
+                sb.Append($"Name,Type,Id\r\n");
+                foreach (DataGridViewRow row in root.Rows)
+                {
+                    List<string> list = new();
+                    foreach (DataGridViewTextBoxCell cell in row.Cells)
+                    {
+                        list.Add(cell.FormattedValue.ToString());
+                    }
+                    sb.Append(string.Join(",", list));
+                    sb.Append("\r\n");
+                }
+                var userLocalFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints", "saved-searches");
+                if (!Directory.Exists(userLocalFolder))
+                    Directory.CreateDirectory(userLocalFolder);
+                var datestr = DateTime.Now.ToString("yyyy-MM-dd_HH_mm_ss");
+                var path = Path.Combine(userLocalFolder, $"{datestr}.csv");
+                File.WriteAllText(path, sb.ToString());
             }
             if (e.KeyCode == Keys.Up || (e.KeyCode == Keys.P && ModifierKeys.HasFlag(Keys.Control)))
             {
