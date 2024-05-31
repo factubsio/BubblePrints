@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing.Design;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -120,12 +121,23 @@ namespace BlueprintExplorer
                     if (errored)
                         folderBrowser.Description = $"Could not find {GameExe} at the selected folder";
                     else
-                        folderBrowser.Description = "Please select the the folder containing Wrath.exe";
+                        folderBrowser.Description = $"Please select the the folder containing {GameExe}";
 
                     if (folderBrowser.ShowDialog() != DialogResult.OK)
                         return;
 
                     path = folderBrowser.SelectedPath;
+
+                    static bool ContainsDirectory(string path, string directoryName) =>
+                        Directory.GetDirectories(path)
+                            .Select(path => Path.EndsInDirectorySeparator(path) ? Path.GetDirectoryName(path) : Path.GetFileName(path))
+                            .Contains(directoryName);
+
+                    if (ContainsDirectory(path, "WH40KRT_Data"))
+                        BubblePrints.Game_Data = "WH40KRT_Data";
+                    else
+                    if (ContainsDirectory(path, "Wrath_Data"))
+                        BubblePrints.Game_Data = "Wrath_Data";
 
                     var exePath = Path.Combine(path, GameExe);
                     if (File.Exists(exePath))
