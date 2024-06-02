@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net5.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>bubbleprint.ico</ApplicationIcon>
 	<RollForward>Major</RollForward>
@@ -26,7 +26,6 @@
     <PackageReference Include="K4os.Compression.LZ4" Version="1.2.15" />
     <PackageReference Include="Krypton.Docking" Version="60.22.2.32" />
     <PackageReference Include="System.Data.SQLite" Version="1.0.115" />
-	<PackageReference Include="SharpCompress" Version="0.36.0" />
   </ItemGroup>
 
   <ItemGroup>

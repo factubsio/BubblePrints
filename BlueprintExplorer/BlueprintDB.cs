@@ -1,9 +1,9 @@
 ﻿using K4os.Compression.LZ4;
-using SharpCompress.Archives;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing.Text;
+using System.Formats.Tar;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -479,22 +479,26 @@ namespace BlueprintExplorer
             if (BubblePrints.Game_Data == "WH40KRT_Data") {
                 const string bpPath = "WhRtModificationTemplate/Blueprints/";
                 var tarPath = Path.Combine(wrathPath, "Modding", "WhRtModificationTemplate.tar");
-                using var tarStream = File.OpenRead(tarPath);
-                using var bpDump = ArchiveFactory.Open(tarStream); 
-                progress.EstimatedTotal = bpDump.Entries.Count(e => e.Key.StartsWith(bpPath) && e.Key.EndsWith(".jbp"));
-                foreach (var entry in bpDump.Entries) {
-                    if (entry.Key.StartsWith(bpPath)) {
-                        if (!entry.Key.EndsWith(".jbp")) continue;
-                        if (entry.Key.StartsWith("Appsflyer")) continue;
-                        try {
-                            using var stream = entry.OpenEntryStream();
-                            ReadDumpFromStream(stream, writeOptions, entry.Key.Split('/').Last(), ref referencedTypes, ref progress, ref index);
+                using var tarStream = new FileStream(tarPath, FileMode.Open, FileAccess.Read);
+                using var reader = new TarReader(tarStream);
+                List<TarEntry> entries = new();
+                TarEntry entry;
+                while ((entry = reader.GetNextEntry()) != null) {
+                    if (entry.EntryType.HasFlag(TarEntryType.RegularFile)) {
+                        if (entry.Name.StartsWith(bpPath) && entry.Name.EndsWith(".jbp")) {
+                            entries.Add(entry);
                         }
-                        catch (Exception e) {
-                            Console.Error.WriteLine(e.Message);
-                            Console.Error.WriteLine(e.StackTrace);
-                            throw;
-                        }
+                    }
+                }
+                progress.EstimatedTotal = entries.Count;
+                foreach (var tarEntry in entries) {
+                    try {
+                        using var stream = tarEntry.DataStream;
+                        ReadDumpFromStream(stream, writeOptions, tarEntry.Name.Split('/').Last(), ref referencedTypes, ref progress, ref index);
+                    } catch (Exception e) {
+                        Console.Error.WriteLine(e.Message);
+                        Console.Error.WriteLine(e.StackTrace);
+                        throw;
                     }
                 }
             }
