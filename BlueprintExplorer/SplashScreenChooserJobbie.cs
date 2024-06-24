@@ -8,7 +8,6 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -37,7 +36,7 @@ namespace BlueprintExplorer
                     Directory.CreateDirectory(CacheDir);
 
                 Console.WriteLine("setting available = from web");
-                using var web = new HttpClient();
+                using var web = new WebClient();
                 ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions.json", "Wrath");
                 ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions_RT.json", "RT");
 
@@ -94,8 +93,8 @@ namespace BlueprintExplorer
                 }
             }
         }
-        public void ParseWebJson(HttpClient web, string url, string game) {
-            var raw = web.GetStringAsync(url).GetAwaiter().GetResult();
+        public void ParseWebJson(WebClient web, string url, string game) {
+            var raw = web.DownloadString(url);
             var versions = JsonSerializer.Deserialize<JsonElement>(raw);
 
             foreach (var version in versions.EnumerateArray()) {
