@@ -23,13 +23,14 @@ namespace BlueprintExplorer
     public partial class SplashScreenChooserJobbie : Form
     {
         private readonly BindingList<Binz> Available = new();
+        private List<Binz> PreSort;
         private readonly Dictionary<BinzVersion, Binz> ByVersion = new();
 
         public SplashScreenChooserJobbie()
         {
             InitializeComponent();
             loadAnim = new();
-
+            PreSort = new();
             try
             {
                 if (!Directory.Exists(CacheDir))
@@ -49,7 +50,6 @@ namespace BlueprintExplorer
                 Console.Error.WriteLine(ex.Message);
             }
 
-
             foreach (var file in Directory.EnumerateFiles(BubblePrints.DataPath, "*.binz"))
             {
                 BinzVersion v = VersionFromFile(file);
@@ -67,11 +67,16 @@ namespace BlueprintExplorer
                         Version = v,
                         Source = "local",
                     };
-                    Available.Insert(0, binz);
+                    PreSort.Insert(0, binz);
                     ByVersion.Add(v, binz);
                 }
             }
-
+            PreSort.Sort((a, b) => {
+                var tmp = b.Version.Game.CompareTo(a.Version.Game);
+                if (tmp == 0) return b.Version.Version.CompareTo(a.Version.Version);
+                else return tmp;
+            });
+            PreSort.ForEach(i => Available.Insert(0, i));
 
             versions.SelectionChanged += OnSelectedRowChanged;
             versions.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
@@ -113,7 +118,7 @@ namespace BlueprintExplorer
                     },
                     Source = "bubbles",
                 };
-                Available.Insert(0, binz);
+                PreSort.Insert(0, binz);
                 ByVersion.Add(binz.Version, binz);
             }
         }
