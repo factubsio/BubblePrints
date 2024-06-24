@@ -129,7 +129,7 @@ namespace BlueprintExplorer
         }
 
         private static Regex extractVersion = new(@"blueprints_raw_(\d+).(\d+)\.(\d+)(.*)_(\d).binz");
-        private static Regex extractVersionKM = new(@"blueprints_raw_km_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
+        private static Regex extractVersionKM = new(@"blueprints_raw_KM_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
         private static Regex extractVersionRT = new(@"blueprints_raw_RT_(\d+).(\d+)\.(\d+)(\.\d+|.*)_(\d).binz");
 
         private static BinzVersion VersionFromFile(string file)

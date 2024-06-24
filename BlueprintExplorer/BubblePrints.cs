@@ -169,7 +169,7 @@ namespace BlueprintExplorer
 
         public static string CurrentGame => Game_Data switch
         {
-            "Kingmaker_Data" => "Kingmaker",
+            "Kingmaker_Data" => "KM",
             "Wrath_Data" => "Wrath",
             "WH40KRT_Data" => "RT",
             _ => throw new NotSupportedException(),
