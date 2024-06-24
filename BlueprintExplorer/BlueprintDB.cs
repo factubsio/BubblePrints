@@ -450,6 +450,9 @@ namespace BlueprintExplorer
                     .FirstOrDefault();
 
                 var typeIdGuid = typeIdType.GetField("GuidString");
+                if (typeIdGuid == null) {
+                    typeIdGuid = typeIdType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).First(f => f.Name.ToLower().Contains("guidstring"));
+                }
 
                 foreach (var type in types)
                 {
