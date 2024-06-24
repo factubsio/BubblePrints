@@ -39,7 +39,7 @@ namespace BlueprintExplorer
                 using var web = new WebClient();
                 ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions.json", "Wrath");
                 ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions_RT.json", "RT");
-                ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions_KM.json", "Kingmaker");
+                ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions_KM.json", "KM");
 
 
 
@@ -137,10 +137,10 @@ namespace BlueprintExplorer
             Match match;
             string game = "Wrath";
             string fileName = Path.GetFileName(file);
-            if (fileName.StartsWith("blueprints_raw_km"))
+            if (fileName.StartsWith("blueprints_raw_KM"))
             {
                 match = extractVersionKM.Match(file);
-                game = "Kingmaker";
+                game = "KM";
             }
             else if (fileName.StartsWith("blueprints_raw_RT"))
             {
@@ -222,16 +222,16 @@ namespace BlueprintExplorer
             BubblePrints.Game_Data = toLoad.Version.Game switch
             {
                 "Wrath" => "Wrath_Data",
-                "Kingmaker" => "Kingmaker_Data",
+                "KM" => "Kingmaker_Data",
                 "RT" => "WH40KRT_Data",
                 _ => throw new NotSupportedException(),
             };
 
             if (!toLoad.Local)
             {
-                if (toLoad.Version.Game != "Kingmaker" && toLoad.Version.Game != "Wrath" && toLoad.Version.Game != "RT")
+                if (toLoad.Version.Game != "KM" && toLoad.Version.Game != "Wrath" && toLoad.Version.Game != "RT")
                 {
-                    throw new Exception("Can only auto-download kingmaker, wrath and rt binz");
+                    throw new Exception("Can only auto-download km, wrath and rt binz");
                 }
 
                 loadAnim.Image = Resources.downloading;
@@ -242,7 +242,7 @@ namespace BlueprintExplorer
                 Uri latestVersionUrl = null;
                 if (toLoad.Version.Game == "Wrath") latestVersionUrl = new Uri($"{host}/{toLoad.Version.Version}/{filename}");
                 else if (toLoad.Version.Game == "RT") latestVersionUrl = new Uri($"{host}/RT_{toLoad.Version.Version}/{filename}");
-                else if (toLoad.Version.Game == "Kingmaker") latestVersionUrl = new Uri($"{host}/km_{toLoad.Version.Version}/{filename.Replace("Kingmaker", "km")}");
+                else if (toLoad.Version.Game == "KM") latestVersionUrl = new Uri($"{host}/KM_{toLoad.Version.Version}/{filename}");
                 var client = new WebClient();
 
                 string tmp = Path.Combine(CacheDir, "binz_download.tmp");
