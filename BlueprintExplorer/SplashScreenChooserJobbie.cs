@@ -242,7 +242,7 @@ namespace BlueprintExplorer
                 Uri latestVersionUrl = null;
                 if (toLoad.Version.Game == "Wrath") latestVersionUrl = new Uri($"{host}/{toLoad.Version.Version}/{filename}");
                 else if (toLoad.Version.Game == "RT") latestVersionUrl = new Uri($"{host}/RT_{toLoad.Version.Version}/{filename}");
-                else if (toLoad.Version.Game == "Kingmaker") latestVersionUrl = new Uri($"{host}/km_{toLoad.Version.Version}/{filename}");
+                else if (toLoad.Version.Game == "Kingmaker") latestVersionUrl = new Uri($"{host}/km_{toLoad.Version.Version}/{filename.Replace("Kingmaker", "km")}");
                 var client = new WebClient();
 
                 string tmp = Path.Combine(CacheDir, "binz_download.tmp");
