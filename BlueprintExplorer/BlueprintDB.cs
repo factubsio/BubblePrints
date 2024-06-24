@@ -594,7 +594,7 @@ namespace BlueprintExplorer
             header.Major = headerIn.ReadInt32();
             header.Minor = headerIn.ReadInt32();
             header.Patch = headerIn.ReadInt32();
-            header.Suffix = headerIn.ReadChar();
+            header.Suffix = headerIn.ReadString();
             header.Bubble = 0;
             count = headerIn.ReadInt32();
 

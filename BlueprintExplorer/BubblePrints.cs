@@ -62,13 +62,13 @@ namespace BlueprintExplorer
             }
         }
 
-        private static Regex ExtractVersionPattern = new(@"(?<major>\d)\.(?<minor>\d)\.(?<patch>\d+)(?<suffix>[a-zA-Z]?)");
+        private static Regex ExtractVersionPattern = new(@"(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?<suffix>\.\d+|[a-zA-Z]*)");
 
         internal static GameVersion GetGameVersion(string wrathPath)
         {
             if (Game_Data == "Kingmaker_Data")
             {
-                return new(2, 1, 4, 'a', 0);
+                return new(2, 1, 4, "a", 0);
             }
 
             var versionPath = Path.Combine(wrathPath, Game_Data, "StreamingAssets", "Version.info");
@@ -99,7 +99,7 @@ namespace BlueprintExplorer
             var major = int.Parse(r.Groups["major"].Value);
             var minor = int.Parse(r.Groups["minor"].Value);
             var patch = int.Parse(r.Groups["patch"].Value);
-            char.TryParse(r.Groups["suffix"].Value, out char suffix);
+            var suffix = r.Groups["suffix"].Value;
             return new(major, minor, patch, suffix, 0);
         }
 

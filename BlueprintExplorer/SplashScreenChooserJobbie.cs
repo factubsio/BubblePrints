@@ -48,7 +48,7 @@ namespace BlueprintExplorer
                         Major = version[0].GetInt32(),
                         Minor = version[1].GetInt32(),
                         Patch = version[2].GetInt32(),
-                        Suffix = version[3].GetString()[0],
+                        Suffix = version[3].GetString(),
                         Bubble = version[4].GetInt32(),
                     };
                     Binz binz = new()
@@ -125,9 +125,9 @@ namespace BlueprintExplorer
             delete.Enabled = selected.Local;
         }
 
-        private static Regex extractVersion = new(@"blueprints_raw_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
+        private static Regex extractVersion = new(@"blueprints_raw_(\d+).(\d+)\.(\d+)(.*)_(\d).binz");
         private static Regex extractVersionKM = new(@"blueprints_raw_km_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
-        private static Regex extractVersionRT = new(@"blueprints_raw_RT_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
+        private static Regex extractVersionRT = new(@"blueprints_raw_RT_(\d+).(\d+)\.(\d+)(\.\d+|.*)_(\d).binz");
 
         private static BinzVersion VersionFromFile(string file)
         {
@@ -154,7 +154,7 @@ namespace BlueprintExplorer
                 Major = int.Parse(match.Groups[1].Value),
                 Minor = int.Parse(match.Groups[2].Value),
                 Patch = int.Parse(match.Groups[3].Value),
-                Suffix = match.Groups[4].Value[0],
+                Suffix = match.Groups[4].Value,
                 Bubble = int.Parse(match.Groups[5].Value),
             };
             return new()
