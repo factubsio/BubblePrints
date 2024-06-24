@@ -73,7 +73,7 @@ namespace BlueprintExplorer
             }
             PreSort.Sort((a, b) => {
                 var tmp = b.Version.Game.CompareTo(a.Version.Game);
-                if (tmp == 0) return b.Version.Version.CompareTo(a.Version.Version);
+                if (tmp == 0) return a.Version.Version.CompareTo(b.Version.Version);
                 else return tmp;
             });
             PreSort.ForEach(i => Available.Insert(0, i));
