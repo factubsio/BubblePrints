@@ -8,6 +8,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -36,33 +37,12 @@ namespace BlueprintExplorer
                     Directory.CreateDirectory(CacheDir);
 
                 Console.WriteLine("setting available = from web");
-                using var web = new WebClient();
+                using var web = new HttpClient();
+                ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions.json", "Wrath");
+                ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions_RT.json", "RT");
 
-                var raw = web.DownloadString("https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions.json");
-                var versions = JsonSerializer.Deserialize<JsonElement>(raw);
 
-                foreach (var version in versions.EnumerateArray())
-                {
-                    GameVersion gv = new()
-                    {
-                        Major = version[0].GetInt32(),
-                        Minor = version[1].GetInt32(),
-                        Patch = version[2].GetInt32(),
-                        Suffix = version[3].GetString(),
-                        Bubble = version[4].GetInt32(),
-                    };
-                    Binz binz = new()
-                    {
-                        Version = new()
-                        {
-                            Version = gv,
-                            Game = "Wrath",
-                        },
-                        Source = "bubbles",
-                    };
-                    Available.Insert(0, binz);
-                    ByVersion.Add(binz.Version, binz);
-                }
+
             }
             catch (Exception ex)
             {
@@ -112,6 +92,29 @@ namespace BlueprintExplorer
                         break;
                     }
                 }
+            }
+        }
+        public void ParseWebJson(HttpClient web, string url, string game) {
+            var raw = web.GetStringAsync(url).GetAwaiter().GetResult();
+            var versions = JsonSerializer.Deserialize<JsonElement>(raw);
+
+            foreach (var version in versions.EnumerateArray()) {
+                GameVersion gv = new() {
+                    Major = version[0].GetInt32(),
+                    Minor = version[1].GetInt32(),
+                    Patch = version[2].GetInt32(),
+                    Suffix = version[3].GetString(),
+                    Bubble = version[4].GetInt32(),
+                };
+                Binz binz = new() {
+                    Version = new() {
+                        Version = gv,
+                        Game = game,
+                    },
+                    Source = "bubbles",
+                };
+                Available.Insert(0, binz);
+                ByVersion.Add(binz.Version, binz);
             }
         }
 
@@ -226,9 +229,9 @@ namespace BlueprintExplorer
 
             if (!toLoad.Local)
             {
-                if (toLoad.Version.Game != "Wrath")
+                if (toLoad.Version.Game != "Wrath" && toLoad.Version.Game != "RT")
                 {
-                    throw new Exception("Can only auto-download wrath binz");
+                    throw new Exception("Can only auto-download wrath and rt binz");
                 }
 
                 loadAnim.Image = Resources.downloading;
@@ -236,8 +239,9 @@ namespace BlueprintExplorer
                 loadAnim.Caption = "Downloading";
                 const string host = "https://github.com/factubsio/BubblePrintsData/releases/download";
                 string filename = BlueprintDB.FileNameFor(toLoad.Version.Version, toLoad.Version.Game);
-                var latestVersionUrl = new Uri($"{host}/{toLoad.Version.Version}/{filename}");
-
+                Uri latestVersionUrl = null;
+                if (toLoad.Version.Game == "Wrath") latestVersionUrl = new Uri($"{host}/{toLoad.Version.Version}/{filename}");
+                else latestVersionUrl = new Uri($"{host}/RTv{toLoad.Version.Version}/{filename}");
                 var client = new WebClient();
 
                 string tmp = Path.Combine(CacheDir, "binz_download.tmp");
