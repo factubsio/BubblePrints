@@ -6,10 +6,10 @@ namespace BlueprintExplorer
     {
         public struct GameVersion : IComparable<GameVersion> {
             public int Major, Minor, Patch;
-            public char Suffix;
+            public string Suffix;
             public int Bubble;
 
-            public GameVersion(int major, int minor, int patch, char suffix, int bubble)
+            public GameVersion(int major, int minor, int patch, string suffix, int bubble)
             {
                 Major = major;
                 Minor = minor;
@@ -39,8 +39,13 @@ namespace BlueprintExplorer
             public override int GetHashCode() => HashCode.Combine(Major, Minor, Patch, Suffix, Bubble);
 
 
-            public override string ToString() => $"{Major}.{Minor}.{Patch}{(Suffix == default ? "" : Suffix.ToString())}_{Bubble}";
-
+            public override string ToString() {
+                if (int.TryParse(Suffix, out var _)) {
+                    return $"{Major}.{Minor}.{Patch}.{Suffix}_{Bubble}";
+                } else {
+                    return $"{Major}.{Minor}.{Patch}{(Suffix == default ? "" : Suffix)}_{Bubble}";
+                }
+            }
         }
     }
 }

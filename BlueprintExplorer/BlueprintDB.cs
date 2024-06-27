@@ -450,6 +450,9 @@ namespace BlueprintExplorer
                     .FirstOrDefault();
 
                 var typeIdGuid = typeIdType.GetField("GuidString");
+                if (typeIdGuid == null) {
+                    typeIdGuid = typeIdType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).First(f => f.Name.Contains("GuidString", StringComparison.InvariantCultureIgnoreCase));
+                }
 
                 foreach (var type in types)
                 {
@@ -591,7 +594,7 @@ namespace BlueprintExplorer
             header.Major = headerIn.ReadInt32();
             header.Minor = headerIn.ReadInt32();
             header.Patch = headerIn.ReadInt32();
-            header.Suffix = headerIn.ReadChar();
+            header.Suffix = headerIn.ReadString();
             header.Bubble = 0;
             count = headerIn.ReadInt32();
 
