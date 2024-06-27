@@ -259,6 +259,7 @@ namespace BlueprintExplorer
                 client.DownloadProgressChanged += (sender, e) => loadAnim.SetPercentSafe(e.ProgressPercentage);
                 var download = client.DownloadFileTaskAsync(latestVersionUrl, tmp);
                 await download;
+                if (File.Exists(toLoad.Path)) File.Delete(toLoad.Path);
                 File.Move(tmp, toLoad.Path);
             }
 
