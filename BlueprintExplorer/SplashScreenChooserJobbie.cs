@@ -142,12 +142,12 @@ namespace BlueprintExplorer
             Match match;
             string game = "Wrath";
             string fileName = Path.GetFileName(file);
-            if (fileName.StartsWith("blueprints_raw_KM"))
+            if (fileName.StartsWith("blueprints_raw_KM", StringComparison.InvariantCultureIgnoreCase))
             {
                 match = extractVersionKM.Match(file);
                 game = "KM";
             }
-            else if (fileName.StartsWith("blueprints_raw_RT"))
+            else if (fileName.StartsWith("blueprints_raw_RT", StringComparison.InvariantCultureIgnoreCase))
             {
                 match = extractVersionRT.Match(file);
                 game = "RT";
