@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -266,12 +266,14 @@ namespace BlueprintExplorer
         [DisplayName("Wrath Install Folder")]
         [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
         public string WrathPath { get; set; }
-        [Description("Full path to your Wrath folder (i.e. the folder containing Wrath.exe")]
-        [DisplayName("Wrath Install Folder")]
+
+        [Description("Full path to your Kingmaker folder (i.e. the folder containing Kingmaker.exe")]
+        [DisplayName("Kingmaker Install Folder")]
         [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
         public string KMPath { get; set; }
-        [Description("Full path to your Wrath folder (i.e. the folder containing Wrath.exe")]
-        [DisplayName("Wrath Install Folder")]
+
+        [Description("Full path to your Rogue Trader folder (i.e. the folder containing WH40KRT.exe")]
+        [DisplayName("Rogue Trader Install Folder")]
         [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
         public string RTPath { get; set; }
 
