@@ -274,7 +274,7 @@ namespace BlueprintExplorer
         [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
         public string RTPath { get; set; }
 
-    [Description("If set, clicking on a blueprint in the search results will automatically open it in the external editor")]
+        [Description("If set, clicking on a blueprint in the search results will automatically open it in the external editor")]
         [DisplayName("Always Open Externally")]
         public bool AlwaysOpenInEditor { get; set; }
 
