@@ -105,7 +105,12 @@ namespace BlueprintExplorer
 
         internal static void SetWrathPath(bool forceSelect)
         {
-            var path = Settings.WrathPath;
+            var path = BubblePrints.Game_Data switch {
+                "Wrath_Data" => Settings.WrathPath,
+                "Kingmaker_Data" => Settings.KMPath,
+                "WH40KRT_Data" => Settings.RTPath,
+                _ => throw new NotSupportedException()
+            };
             if (forceSelect)
             {
                 path = null;
@@ -147,7 +152,11 @@ namespace BlueprintExplorer
                 }
                 if (!errored)
                 {
-                    Settings.WrathPath = path;
+                    switch (BubblePrints.Game_Data) {
+                        case "Wrath_Data": Settings.WrathPath = path; break;
+                        case "Kingmaker_Data": Settings.KMPath = path; break;
+                        case "WH40KRT_Data": Settings.RTPath = path; break;
+                    };
                     SaveSettings();
                 }
             }
@@ -256,8 +265,16 @@ namespace BlueprintExplorer
         [DisplayName("Wrath Install Folder")]
         [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
         public string WrathPath { get; set; }
+        [Description("Full path to your Wrath folder (i.e. the folder containing Wrath.exe")]
+        [DisplayName("Wrath Install Folder")]
+        [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
+        public string KMPath { get; set; }
+        [Description("Full path to your Wrath folder (i.e. the folder containing Wrath.exe")]
+        [DisplayName("Wrath Install Folder")]
+        [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
+        public string RTPath { get; set; }
 
-        [Description("If set, clicking on a blueprint in the search results will automatically open it in the external editor")]
+    [Description("If set, clicking on a blueprint in the search results will automatically open it in the external editor")]
         [DisplayName("Always Open Externally")]
         public bool AlwaysOpenInEditor { get; set; }
 
