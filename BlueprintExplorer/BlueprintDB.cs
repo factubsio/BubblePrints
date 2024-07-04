@@ -594,7 +594,15 @@ namespace BlueprintExplorer
             header.Major = headerIn.ReadInt32();
             header.Minor = headerIn.ReadInt32();
             header.Patch = headerIn.ReadInt32();
-            header.Suffix = headerIn.ReadString();
+            try 
+            {
+                header.Suffix = headerIn.ReadString();
+            } // binz files created in the old BubblePrints version will only have char here.
+            catch (EndOfStreamException) {
+                headerIn.BaseStream.Position = 0;
+                for (int i = 0; i < 3; i++) headerIn.ReadInt32();
+                header.Suffix = headerIn.ReadChar().ToString();
+            }
             header.Bubble = 0;
             count = headerIn.ReadInt32();
 
