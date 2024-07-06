@@ -23,13 +23,14 @@ namespace BlueprintExplorer
     public partial class SplashScreenChooserJobbie : Form
     {
         private readonly BindingList<Binz> Available = new();
+        private List<Binz> PreSort;
         private readonly Dictionary<BinzVersion, Binz> ByVersion = new();
 
         public SplashScreenChooserJobbie()
         {
             InitializeComponent();
             loadAnim = new();
-
+            PreSort = new();
             try
             {
                 if (!Directory.Exists(CacheDir))
@@ -37,38 +38,17 @@ namespace BlueprintExplorer
 
                 Console.WriteLine("setting available = from web");
                 using var web = new WebClient();
+                ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions.json", "Wrath");
+                ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions_RT.json", "RT");
+                ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions_KM.json", "KM");
 
-                var raw = web.DownloadString("https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions.json");
-                var versions = JsonSerializer.Deserialize<JsonElement>(raw);
 
-                foreach (var version in versions.EnumerateArray())
-                {
-                    GameVersion gv = new()
-                    {
-                        Major = version[0].GetInt32(),
-                        Minor = version[1].GetInt32(),
-                        Patch = version[2].GetInt32(),
-                        Suffix = version[3].GetString()[0],
-                        Bubble = version[4].GetInt32(),
-                    };
-                    Binz binz = new()
-                    {
-                        Version = new()
-                        {
-                            Version = gv,
-                            Game = "Wrath",
-                        },
-                        Source = "bubbles",
-                    };
-                    Available.Insert(0, binz);
-                    ByVersion.Add(binz.Version, binz);
-                }
+
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine(ex.Message);
             }
-
 
             foreach (var file in Directory.EnumerateFiles(BubblePrints.DataPath, "*.binz"))
             {
@@ -87,11 +67,16 @@ namespace BlueprintExplorer
                         Version = v,
                         Source = "local",
                     };
-                    Available.Insert(0, binz);
+                    PreSort.Insert(0, binz);
                     ByVersion.Add(v, binz);
                 }
             }
-
+            PreSort.Sort((a, b) => {
+                var tmp = b.Version.Game.CompareTo(a.Version.Game);
+                if (tmp == 0) return a.Version.Version.CompareTo(b.Version.Version);
+                else return tmp;
+            });
+            PreSort.ForEach(i => Available.Insert(0, i));
 
             versions.SelectionChanged += OnSelectedRowChanged;
             versions.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
@@ -114,6 +99,29 @@ namespace BlueprintExplorer
                 }
             }
         }
+        public void ParseWebJson(WebClient web, string url, string game) {
+            var raw = web.DownloadString(url);
+            var versions = JsonSerializer.Deserialize<JsonElement>(raw);
+
+            foreach (var version in versions.EnumerateArray()) {
+                GameVersion gv = new() {
+                    Major = version[0].GetInt32(),
+                    Minor = version[1].GetInt32(),
+                    Patch = version[2].GetInt32(),
+                    Suffix = version[3].GetString(),
+                    Bubble = version[4].GetInt32(),
+                };
+                Binz binz = new() {
+                    Version = new() {
+                        Version = gv,
+                        Game = game,
+                    },
+                    Source = "bubbles",
+                };
+                PreSort.Insert(0, binz);
+                ByVersion.Add(binz.Version, binz);
+            }
+        }
 
         private void OnSelectedRowChanged(object sender, EventArgs e)
         {
@@ -125,21 +133,21 @@ namespace BlueprintExplorer
             delete.Enabled = selected.Local;
         }
 
-        private static Regex extractVersion = new(@"blueprints_raw_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
-        private static Regex extractVersionKM = new(@"blueprints_raw_km_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
-        private static Regex extractVersionRT = new(@"blueprints_raw_RT_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
+        private static Regex extractVersion = new(@"blueprints_raw_(\d+).(\d+)\.(\d+)(.*)_(\d).binz");
+        private static Regex extractVersionKM = new(@"blueprints_raw_KM_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
+        private static Regex extractVersionRT = new(@"blueprints_raw_RT_(\d+).(\d+)\.(\d+)(\.\d+|.*)_(\d).binz");
 
         private static BinzVersion VersionFromFile(string file)
         {
             Match match;
             string game = "Wrath";
             string fileName = Path.GetFileName(file);
-            if (fileName.StartsWith("blueprints_raw_km"))
+            if (fileName.StartsWith("blueprints_raw_KM", StringComparison.InvariantCultureIgnoreCase))
             {
                 match = extractVersionKM.Match(file);
-                game = "Kingmaker";
+                game = "KM";
             }
-            else if (fileName.StartsWith("blueprints_raw_RT"))
+            else if (fileName.StartsWith("blueprints_raw_RT", StringComparison.InvariantCultureIgnoreCase))
             {
                 match = extractVersionRT.Match(file);
                 game = "RT";
@@ -154,7 +162,7 @@ namespace BlueprintExplorer
                 Major = int.Parse(match.Groups[1].Value),
                 Minor = int.Parse(match.Groups[2].Value),
                 Patch = int.Parse(match.Groups[3].Value),
-                Suffix = match.Groups[4].Value[0],
+                Suffix = match.Groups[4].Value,
                 Bubble = int.Parse(match.Groups[5].Value),
             };
             return new()
@@ -219,16 +227,16 @@ namespace BlueprintExplorer
             BubblePrints.Game_Data = toLoad.Version.Game switch
             {
                 "Wrath" => "Wrath_Data",
-                "Kingmaker" => "Kingmaker_Data",
+                "KM" => "Kingmaker_Data",
                 "RT" => "WH40KRT_Data",
                 _ => throw new NotSupportedException(),
             };
 
             if (!toLoad.Local)
             {
-                if (toLoad.Version.Game != "Wrath")
+                if (toLoad.Version.Game != "KM" && toLoad.Version.Game != "Wrath" && toLoad.Version.Game != "RT")
                 {
-                    throw new Exception("Can only auto-download wrath binz");
+                    throw new Exception("Can only auto-download km, wrath and rt binz");
                 }
 
                 loadAnim.Image = Resources.downloading;
@@ -236,8 +244,10 @@ namespace BlueprintExplorer
                 loadAnim.Caption = "Downloading";
                 const string host = "https://github.com/factubsio/BubblePrintsData/releases/download";
                 string filename = BlueprintDB.FileNameFor(toLoad.Version.Version, toLoad.Version.Game);
-                var latestVersionUrl = new Uri($"{host}/{toLoad.Version.Version}/{filename}");
-
+                Uri latestVersionUrl = null;
+                if (toLoad.Version.Game == "Wrath") latestVersionUrl = new Uri($"{host}/{toLoad.Version.Version}/{filename}");
+                else if (toLoad.Version.Game == "RT") latestVersionUrl = new Uri($"{host}/RT_{toLoad.Version.Version}/{filename}");
+                else if (toLoad.Version.Game == "KM") latestVersionUrl = new Uri($"{host}/KM_{toLoad.Version.Version}/{filename}");
                 var client = new WebClient();
 
                 string tmp = Path.Combine(CacheDir, "binz_download.tmp");
@@ -249,6 +259,7 @@ namespace BlueprintExplorer
                 client.DownloadProgressChanged += (sender, e) => loadAnim.SetPercentSafe(e.ProgressPercentage);
                 var download = client.DownloadFileTaskAsync(latestVersionUrl, tmp);
                 await download;
+                if (File.Exists(toLoad.Path)) File.Delete(toLoad.Path);
                 File.Move(tmp, toLoad.Path);
             }
 

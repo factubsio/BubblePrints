@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -62,13 +62,13 @@ namespace BlueprintExplorer
             }
         }
 
-        private static Regex ExtractVersionPattern = new(@"(?<major>\d)\.(?<minor>\d)\.(?<patch>\d+)(?<suffix>[a-zA-Z]?)");
+        private static Regex ExtractVersionPattern = new(@"(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?<suffix>\.\d+|[a-zA-Z]*)");
 
         internal static GameVersion GetGameVersion(string wrathPath)
         {
             if (Game_Data == "Kingmaker_Data")
             {
-                return new(2, 1, 4, 'a', 0);
+                return new(2, 1, 4, "a", 0);
             }
 
             var versionPath = Path.Combine(wrathPath, Game_Data, "StreamingAssets", "Version.info");
@@ -99,13 +99,18 @@ namespace BlueprintExplorer
             var major = int.Parse(r.Groups["major"].Value);
             var minor = int.Parse(r.Groups["minor"].Value);
             var patch = int.Parse(r.Groups["patch"].Value);
-            char.TryParse(r.Groups["suffix"].Value, out char suffix);
+            var suffix = r.Groups["suffix"].Value;
             return new(major, minor, patch, suffix, 0);
         }
 
         internal static void SetWrathPath(bool forceSelect)
         {
-            var path = Settings.WrathPath;
+            var path = BubblePrints.Game_Data switch {
+                "Wrath_Data" => Settings.WrathPath,
+                "Kingmaker_Data" => Settings.KMPath,
+                "WH40KRT_Data" => Settings.RTPath,
+                _ => throw new NotSupportedException()
+            };
             if (forceSelect)
             {
                 path = null;
@@ -147,7 +152,12 @@ namespace BlueprintExplorer
                 }
                 if (!errored)
                 {
-                    Settings.WrathPath = path;
+                    switch (BubblePrints.Game_Data) {
+                        case "Wrath_Data": Settings.WrathPath = path; break;
+                        case "Kingmaker_Data": Settings.KMPath = path; break;
+                        case "WH40KRT_Data": Settings.RTPath = path; break;
+                        default: throw new NotSupportedException();
+                    };
                     SaveSettings();
                 }
             }
@@ -169,7 +179,7 @@ namespace BlueprintExplorer
 
         public static string CurrentGame => Game_Data switch
         {
-            "Kingmaker_Data" => "Kingmaker",
+            "Kingmaker_Data" => "KM",
             "Wrath_Data" => "Wrath",
             "WH40KRT_Data" => "RT",
             _ => throw new NotSupportedException(),
@@ -256,6 +266,16 @@ namespace BlueprintExplorer
         [DisplayName("Wrath Install Folder")]
         [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
         public string WrathPath { get; set; }
+
+        [Description("Full path to your Kingmaker folder (i.e. the folder containing Kingmaker.exe")]
+        [DisplayName("Kingmaker Install Folder")]
+        [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
+        public string KMPath { get; set; }
+
+        [Description("Full path to your Rogue Trader folder (i.e. the folder containing WH40KRT.exe")]
+        [DisplayName("Rogue Trader Install Folder")]
+        [Editor(typeof(FileNameEditor), typeof(UITypeEditor))]
+        public string RTPath { get; set; }
 
         [Description("If set, clicking on a blueprint in the search results will automatically open it in the external editor")]
         [DisplayName("Always Open Externally")]
