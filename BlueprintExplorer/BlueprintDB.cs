@@ -438,9 +438,9 @@ namespace BlueprintExplorer
                     try {
                         return ass.GetTypes();
                     }
-                    catch
+                    catch (ReflectionTypeLoadException ex)
                     {
-                        return Array.Empty<Type>();
+                        return ex.Types.Where(t => t != null).ToArray();
                     }
                 });
 
