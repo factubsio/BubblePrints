@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace BlueprintExplorer
 {
@@ -46,7 +47,7 @@ namespace BlueprintExplorer
             var cleanText = IsClean ? "C" : "";
             var matchText = IsMatch ? "M" : "";
             var scoreText = $"score:{Score} = {TargetRatio * MatchRatio * TotalMatched * 4:0.00} ({TargetRatio:0.00}*{MatchRatio:0.00}*{TargetRatio:0.00}*{TotalMatched}*4) + {BestRun * 4} ({BestRun}*4) + {GoodRuns * 2}({GoodRuns}*2) - penalty({Penalty}) + bonus({Bonus})";
-var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scoreText} - key:{Key} <{string.Join("", matchText, cleanText, fuzzyText)}>";
+var result = base.GetType().Name + $" - {Context.SearchTerms} vs {Text} --> {scoreText} - key:{Key} <{string.Join("", matchText, cleanText, fuzzyText)}>";
             return result;
         }
 
@@ -95,84 +96,87 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
         }
         public void Recalculate(string text) {
             TargetRatio = TotalMatched / (float)text.Length;
-            if (Context.SearchText.Length == 0)
+            if (Context.SearchTerms.Count == 0)
                 MatchRatio = 1;
             else
-                MatchRatio = TotalMatched / (float)Context.SearchText.Length;
+                MatchRatio = TotalMatched / (float)Context.SearchTerms.Sum(s => s.Length);
             Score = (TargetRatio * MatchRatio * TotalMatched * 4) + (BestRun * 4) + (GoodRuns * 2) - Penalty + Bonus;
         }
     }
     public class MatchQuery {
-        public string SearchText;                                   // general search text which will be fuzzy and pass if any matches
-        public Dictionary<string, string> StrictSearchTexts;        // these are specific keys such as type: and these will be evaluated with AND logic
-        private MatchResult Match(string searchText, string text, MatchResult result) {
+        public List<string> SearchTerms;                                   // general search text which will be fuzzy and pass if any matches
+        public Dictionary<string, List<string>> StrictSearchTexts;        // these are specific keys such as type: and these will be evaluated with AND logic
+        private MatchResult Match(List<string> terms, string text, MatchResult result) {
             result.Reuse(text, this, false);
-            if (searchText.Length == 0) {
+            if (terms.All(s => s.Length == 0)) {
                 // empty strict searches will select all
                 result.AddSpan(0, text.Length);
                 result.Recalculate(text);
                 return result;
             }
-            if (searchText.Length == 1) result.Bonus = 10; // We want to let matches to single char search strings show up
-            var index =  text.IndexOf(searchText);
-            if (index >= 0) {
-                if (index == 0)
-                    result.Bonus += 100;
-                result.AddSpan(index, searchText.Length);
-                result.Recalculate(text);
+            var termCount = 0;
+            foreach (var searchText in terms) {
+                termCount++;
+                if (searchText.Length == 1) result.Bonus = 10; // We want to let matches to single char search strings show up
+                var index = text.IndexOf(searchText);
+                if (index >= 0) {
+                    if (index == 0)
+                        result.Bonus += 100 / termCount;
+                    result.AddSpan(index, searchText.Length);
+                    result.Recalculate(text);
+                }
             }
+            if (termCount > 1) result.Bonus = 50 * termCount;
             return result;
         }
         private void FuzzyMatch(string text, MatchResult result) {
             result.Reuse(text, this);
+            foreach (var searchText in result.Context.SearchTerms) {
+                int searchTextIndex = 0;
+                int targetIndex;
 
-            int searchTextIndex = 0;
-            int targetIndex;
-
-            var searchText = result.Context.SearchText;
-
-            // find a common prefix if any, so n:cat h:catsgrace is better than n:cat h:blahcatsgrace
-            targetIndex = text.IndexOf(searchText[searchTextIndex]);
-            if (targetIndex == 0) result.Bonus = 2.0f;
-            if (searchText.Length == 1)result.Bonus += 10; // We want to let matches to single char search strings show up
-
-            // penalise matches that don't have a common prefix, while increasing searchTextIndex and targetIndex to the first match, so:
-            // n:bOb  h:hellOworldbob
-            //    ^         ^
-            while (targetIndex == -1 && searchTextIndex < searchText.Length) {
-                if (searchTextIndex == 0)
-                    result.Penalty = 2;
-                else
-                    result.Penalty += result.Penalty * .5f;
+                // find a common prefix if any, so n:cat h:catsgrace is better than n:cat h:blahcatsgrace
                 targetIndex = text.IndexOf(searchText[searchTextIndex]);
-                searchTextIndex++;
-            }
-            // continue to match the next searchTextIndex greedily in target
-            while (searchTextIndex < searchText.Length) {
-                // find the next point in target that matches searchIndex:
-                // n:bOb h:helloworldBob
-                //     ^             ^
-                targetIndex = text.IndexOf(searchText[searchTextIndex], targetIndex);
-                if (targetIndex == -1)
-                    break;
+                if (targetIndex == 0) result.Bonus += 2.0f;
+                if (searchText.Length == 1) result.Bonus += 10; // We want to let matches to single char search strings show up
 
-                //continue matching while both are in sync
-                var spanFrom = targetIndex;
-                while (targetIndex < text.Length && searchTextIndex < searchText.Length && searchText[searchTextIndex] == text[targetIndex]) {
-                    //if this span is rooted at the start of the word give a bonus because start is most importatn
-                    if (spanFrom == 0 && searchTextIndex > 0)
-                        result.Bonus += 2 * searchTextIndex;
+                // penalise matches that don't have a common prefix, while increasing searchTextIndex and targetIndex to the first match, so:
+                // n:bOb  h:hellOworldbob
+                //    ^         ^
+                while (targetIndex == -1 && searchTextIndex < searchText.Length) {
+                    if (searchTextIndex == 0)
+                        result.Penalty += 2;
+                    else
+                        result.Penalty += result.Penalty * .5f;
+                    targetIndex = text.IndexOf(searchText[searchTextIndex]);
                     searchTextIndex++;
-                    targetIndex++;
                 }
-                var span = targetIndex - spanFrom;
-                //record the end of the span
-                result.AddSpan(spanFrom, span);
-                result.Bonus += span * (span + 1) / 2 + span; // give a bonus for span size
-                if (span == searchText.Length)
-                    result.Bonus *= 2f;
-            }
+                // continue to match the next searchTextIndex greedily in target
+                while (searchTextIndex < searchText.Length) {
+                    // find the next point in target that matches searchIndex:
+                    // n:bOb h:helloworldBob
+                    //     ^             ^
+                    targetIndex = text.IndexOf(searchText[searchTextIndex], targetIndex);
+                    if (targetIndex == -1)
+                        break;
 
+                    //continue matching while both are in sync
+                    var spanFrom = targetIndex;
+                    while (targetIndex < text.Length && searchTextIndex < searchText.Length && searchText[searchTextIndex] == text[targetIndex]) {
+                        //if this span is rooted at the start of the word give a bonus because start is most importatn
+                        if (spanFrom == 0 && searchTextIndex > 0)
+                            result.Bonus += 2 * searchTextIndex;
+                        searchTextIndex++;
+                        targetIndex++;
+                    }
+                    var span = targetIndex - spanFrom;
+                    //record the end of the span
+                    result.AddSpan(spanFrom, span);
+                    result.Bonus += span * (span + 1) / 2 + span; // give a bonus for span size
+                    if (span == searchText.Length)
+                        result.Bonus *= 2f;
+                }
+            }
             result.Recalculate(text);
         }
 
@@ -203,33 +207,35 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
                             pair[1] = pair[1].Substring(underscore + 1);
                         }
                     }
-                    StrictSearchTexts[pair[0]] = pair[1];
+                    if (!StrictSearchTexts.ContainsKey(pair[0]))
+                        StrictSearchTexts[pair[0]] = new List<string>();
+                    StrictSearchTexts[pair[0]].Add(pair[1]);
                 }
                 else
                     unrestricted.Add(term);
             }
-            SearchText = string.Join(' ', unrestricted);
+            SearchTerms = unrestricted;
         }
 
         private MatchProvider Provider;
 
         public ISearchable Evaluate(ISearchable searchable, int index) {
             var matches = searchable.CleanedMatches(index);
-            if (SearchText?.Length > 0 || StrictSearchTexts.Count > 0) {
+            if (SearchTerms?.Count > 0 || StrictSearchTexts.Count > 0) {
                 bool foundRestricted = false;
                 for (int i = 0; i < matches.Length; i++) {
                     MatchResult match = matches[i];
                     var key = match.Key;
                     var text = Provider.Terms[i](searchable);
                     foreach (var entry in StrictSearchTexts) {
-                        if (key.StartsWith(entry.Key)) {
+                        if (key == entry.Key || (entry.Key.Length > 0 && key.StartsWith(entry.Key))) {
                             Match(entry.Value, text, match);
-                            foundRestricted = key == "name";
+                            foundRestricted |= key == "name";
                             break;
                         }
                     }
                 }
-                if (!foundRestricted && SearchText?.Length > 0) {
+                if (!foundRestricted && SearchTerms?.Count > 0) {
                     FuzzyMatch(Provider.Terms[0](searchable), matches[0]);
                 }
             }
