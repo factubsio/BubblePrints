@@ -396,6 +396,7 @@ namespace BlueprintExplorer
                 var assName = new AssemblyName(args.Name);
 
                 var dir = Path.GetDirectoryName(args.RequestingAssembly.Location);
+
                 var assFile = Directory.EnumerateFiles(dir, "*.dll")
                     .Where(assFile => Path.GetFileNameWithoutExtension(assFile) == assName.Name)
                     .FirstOrDefault();
@@ -410,12 +411,9 @@ namespace BlueprintExplorer
             var resolver = new PathAssemblyResolver(Directory.EnumerateFiles(gamePath, "*.dll"));
             var _mlc = new MetadataLoadContext(resolver);
             if (BubblePrints.Game_Data == "WH40KRT_Data") 
-            {
                 BubblePrints.Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(gamePath, "Code.dll"));
-            } 
-            else {
+            else
                 BubblePrints.Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(gamePath, "Assembly-CSharp.dll"));
-            }
 
             var writeOptions = new JsonSerializerOptions
             {
