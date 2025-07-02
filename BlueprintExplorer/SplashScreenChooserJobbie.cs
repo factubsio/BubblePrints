@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -26,11 +27,11 @@ namespace BlueprintExplorer
         private List<Binz> PreSort;
         private readonly Dictionary<BinzVersion, Binz> ByVersion = new();
 
-        private static int CompareTo(List<uint> a, List<uint> b) {
+        private static int CompareTo(List<BigInteger> a, List<BigInteger> b) {
             int maxLen = Math.Max(a.Count, b.Count);
             for (int i = 0; i < maxLen; i++) {
-                uint t = (i < a.Count) ? a[i] : 0;
-                uint g = (i < b.Count) ? b[i] : 0;
+                BigInteger t = (i < a.Count) ? a[i] : 0;
+                BigInteger g = (i < b.Count) ? b[i] : 0;
                 if (t > g) {
                     return 1;
                 }
@@ -40,26 +41,22 @@ namespace BlueprintExplorer
             }
             return 0;
         }
-        private static List<uint> GetNumifiedVersion(string version) {
+        private static List<BigInteger> GetNumifiedVersion(string version) {
             var comps = version.Split('.');
-            var newComps = new List<uint>();
+            var newComps = new List<BigInteger>();
             foreach (var comp in comps) {
-                uint num = 0;
+                BigInteger num = 0;
                 foreach (var c in comp) {
-                    uint newNum = num;
                     try {
-                        checked {
-                            if (uint.TryParse(c.ToString(), out var n)) {
-                                newNum = newNum * 10u + n;
-                            } else {
-                                int signedCharNumber = char.ToUpper(c) - ' ';
-                                uint unsignedCharNumber = (uint)Math.Max(0, Math.Min(signedCharNumber, 99));
-                                newNum = newNum * 100u + unsignedCharNumber;
-                            }
-                            num = newNum;
+                        if (uint.TryParse(c.ToString(), out var n)) {
+                            num = num * 10u + n;
+                        } else {
+                            int signedCharNumber = char.ToUpper(c) - ' ';
+                            uint unsignedCharNumber = (uint)Math.Max(0, Math.Min(signedCharNumber, 99));
+                            num = num * 100u + unsignedCharNumber;
                         }
-                    } catch (OverflowException) {
-                        Console.WriteLine($"Error: Encountered uint overflow while parsing version component {comp}, continuing with {num}");
+                    } catch (Exception ex) {
+                        Console.WriteLine($"Error while trying to numify version component {comp}, continuing with {num}.\n{ex}");
                         break;
                     }
                 }
