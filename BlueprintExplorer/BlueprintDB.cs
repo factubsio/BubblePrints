@@ -463,12 +463,16 @@ namespace BlueprintExplorer
                 {
                     foreach (var data in type.GetCustomAttributesData()) 
                     {
-                        if (data.AttributeType.Name == typeIdType.Name) 
+                        try 
                         {
-                            var guid = data.ConstructorArguments[0].Value as string;
-                            if (GuidToFullTypeName.TryAdd(guid, type.FullName))
-                                TypeGuidsInOrder.Add(guid);
-                        }
+                            if (data.AttributeType.Name == typeIdType.Name) 
+                            {
+                                var guid = data.ConstructorArguments[0].Value as string;
+                                if (GuidToFullTypeName.TryAdd(guid, type.FullName))
+                                    TypeGuidsInOrder.Add(guid);
+                            }
+                        } catch // Pretty sure this is some cursed attribute and not the TypeId we want
+                        { }
                     }
                     /*
                     var typeId = type.GetCustomAttribute(typeIdType);
