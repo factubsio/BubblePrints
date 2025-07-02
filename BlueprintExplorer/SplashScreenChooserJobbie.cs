@@ -26,6 +26,47 @@ namespace BlueprintExplorer
         private List<Binz> PreSort;
         private readonly Dictionary<BinzVersion, Binz> ByVersion = new();
 
+        private static int CompareTo(List<uint> a, List<uint> b) {
+            int maxLen = Math.Max(a.Count, b.Count);
+            for (int i = 0; i < maxLen; i++) {
+                uint t = (i < a.Count) ? a[i] : 0;
+                uint g = (i < b.Count) ? b[i] : 0;
+                if (t > g) {
+                    return 1;
+                }
+                if (t < g) {
+                    return -1;
+                }
+            }
+            return 0;
+        }
+        private static List<uint> GetNumifiedVersion(string version) {
+            var comps = version.Split('.');
+            var newComps = new List<uint>();
+            foreach (var comp in comps) {
+                uint num = 0;
+                foreach (var c in comp) {
+                    uint newNum = num;
+                    try {
+                        checked {
+                            if (uint.TryParse(c.ToString(), out var n)) {
+                                newNum = newNum * 10u + n;
+                            } else {
+                                int signedCharNumber = char.ToUpper(c) - ' ';
+                                uint unsignedCharNumber = (uint)Math.Max(0, Math.Min(signedCharNumber, 99));
+                                newNum = newNum * 100u + unsignedCharNumber;
+                            }
+                            num = newNum;
+                        }
+                    } catch (OverflowException) {
+                        Console.WriteLine($"Error: Encountered uint overflow while parsing version component {comp}, continuing with {num}");
+                        break;
+                    }
+                }
+                newComps.Add(num);
+            }
+            return newComps;
+        }
         public SplashScreenChooserJobbie()
         {
             InitializeComponent();
@@ -73,7 +114,7 @@ namespace BlueprintExplorer
             }
             PreSort.Sort((a, b) => {
                 var tmp = b.Version.Game.CompareTo(a.Version.Game);
-                if (tmp == 0) return a.Version.Version.CompareTo(b.Version.Version);
+                if (tmp == 0) return CompareTo(GetNumifiedVersion(a.Version.Version.ToString()), GetNumifiedVersion(b.Version.Version.ToString()));
                 else return tmp;
             });
             PreSort.ForEach(i => Available.Insert(0, i));
