@@ -4,7 +4,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
@@ -529,11 +531,38 @@ namespace BlueprintExplorer
                             }
                         }
 
-                        if (row.key == "m_IntValue" && row.Parent.TypeFull == "Kingmaker.Blueprints.Classes.Spells.SpellDescriptorWrapper")
+                        if (row.key == "m_IntValue" && row.Parent.TypeFull == "Kingmaker.Blueprints.Classes.Spells.SpellDescriptorWrapper") 
                         {
+                            Type GetRuntimePrimitiveTypeFromMetadataType(Type t) {
+                                return t.FullName switch {
+                                    "System.Int32" => typeof(int),
+                                    "System.UInt32" => typeof(uint),
+                                    "System.Int64" => typeof(long),
+                                    "System.UInt64" => typeof(ulong),
+                                    "System.Byte" => typeof(byte),
+                                    "System.SByte" => typeof(sbyte),
+                                    "System.Int16" => typeof(short),
+                                    "System.UInt16" => typeof(ushort),
+                                    _ => throw new NotSupportedException($"Unsupported underlying enum type '{t.FullName}'")
+                                };
+                            }
+
+                            string PoorMansEnumParse(Type t, string value) {
+                                var fields = t.GetFields(BindingFlags.Public | BindingFlags.Static); 
+                                var underlyingType = GetRuntimePrimitiveTypeFromMetadataType(Enum.GetUnderlyingType(t));
+                                object rawValue = Convert.ChangeType(value, underlyingType, CultureInfo.InvariantCulture);
+                                long convertedValue = Convert.ToInt64(rawValue);
+                                var matching = fields
+                                    .Where(f => ((Convert.ToInt64(f.GetRawConstantValue()) & convertedValue) != 0))
+                                    .Select(f => f.Name);
+
+                                return string.Join(" | ", matching);
+
+                            }
                             List<StyledString.StyleSpan> spans = new();
                             spans.Add(new(row.value + "    -    ", StyleFlags.Bold));
-                            spans.Add(new(Enum.Parse(BubblePrints.Wrath.GetType("Kingmaker.Blueprints.Classes.Spells.SpellDescriptor"), row.value).ToString(), 0));
+                            // spans.Add(new(Enum.Parse(BubblePrints.Wrath.GetType("Kingmaker.Blueprints.Classes.Spells.SpellDescriptor"), row.value).ToString(), 0));
+                            spans.Add(new(PoorMansEnumParse(BubblePrints.Wrath.GetType("Kingmaker.Blueprints.Classes.Spells.SpellDescriptor"), row.value), 0));
                             row.ValueStyled = new(spans);
                         }
 
