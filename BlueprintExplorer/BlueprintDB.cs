@@ -430,7 +430,7 @@ namespace BlueprintExplorer
                     {
                         try
                         {
-                            return new [] { Assembly.LoadFrom(assFile) };
+                            return new [] { _mlc.LoadFromAssemblyPath(assFile) };
                         }
                         catch
                         {
@@ -461,6 +461,16 @@ namespace BlueprintExplorer
 
                 foreach (var type in types)
                 {
+                    foreach (var data in type.GetCustomAttributesData()) 
+                    {
+                        if (data.AttributeType.Name == typeIdType.Name) 
+                        {
+                            var guid = data.ConstructorArguments[0].Value as string;
+                            if (GuidToFullTypeName.TryAdd(guid, type.FullName))
+                                TypeGuidsInOrder.Add(guid);
+                        }
+                    }
+                    /*
                     var typeId = type.GetCustomAttribute(typeIdType);
                     if (typeId != null)
                     {
@@ -468,6 +478,7 @@ namespace BlueprintExplorer
                         if (GuidToFullTypeName.TryAdd(guid, type.FullName))
                             TypeGuidsInOrder.Add(guid);
                     }
+                    */
                 }
 
                 TypeGuidsInOrder.Sort();
