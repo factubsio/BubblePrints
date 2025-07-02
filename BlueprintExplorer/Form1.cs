@@ -323,12 +323,15 @@ namespace BlueprintExplorer
 
             BubblePrints.SetWrathPath(false);
 
-            if (BubblePrints.TryGetWrathPath(out var wrathPath))
+            if (BubblePrints.TryGetWrathPath(out var wrathPath)) 
             {
+                var gamePath = Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed");
+                var resolver = new PathAssemblyResolver(Directory.EnumerateFiles(gamePath, "*.dll"));
+                var _mlc = new MetadataLoadContext(resolver);
                 if (BubblePrints.CurrentGame == "RT")
-                    BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed", "Code.dll"));
+                    BubblePrints.Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(gamePath, "Code.dll"));
                 else
-                    BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed", "Assembly-CSharp.dll"));
+                    BubblePrints.Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(gamePath, "Assembly-CSharp.dll"));
             }
 
             //blueprintViews.DrawMode = TabDrawMode.OwnerDrawFixed;

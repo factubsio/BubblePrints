@@ -396,7 +396,6 @@ namespace BlueprintExplorer
                 var assName = new AssemblyName(args.Name);
 
                 var dir = Path.GetDirectoryName(args.RequestingAssembly.Location);
-
                 var assFile = Directory.EnumerateFiles(dir, "*.dll")
                     .Where(assFile => Path.GetFileNameWithoutExtension(assFile) == assName.Name)
                     .FirstOrDefault();
@@ -407,17 +406,23 @@ namespace BlueprintExplorer
                 return null;
             };
 
-            if (BubblePrints.Game_Data == "WH40KRT_Data")
-                BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed", "Code.dll"));
-            else
-                BubblePrints.Wrath = Assembly.LoadFrom(Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed", "Assembly-CSharp.dll"));
+            var gamePath = Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed");
+            var resolver = new PathAssemblyResolver(Directory.EnumerateFiles(gamePath, "*.dll"));
+            var _mlc = new MetadataLoadContext(resolver);
+            if (BubblePrints.Game_Data == "WH40KRT_Data") 
+            {
+                BubblePrints.Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(gamePath, "Code.dll"));
+            } 
+            else {
+                BubblePrints.Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(gamePath, "Assembly-CSharp.dll"));
+            }
 
             var writeOptions = new JsonSerializerOptions
             {
                 WriteIndented = true,
             };
 
-            if (BubblePrints.Game_Data is "Wrath_Data" or "WH40KRT_Data")
+            if (BubblePrints.Game_Data is "Wrath_Data" or "WH40KRT_Data") 
             {
                 var assemblies = Directory
                     .EnumerateFiles(Path.GetDirectoryName(BubblePrints.Wrath.Location), "*.dll")
