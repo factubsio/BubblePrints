@@ -464,8 +464,13 @@ namespace BlueprintExplorer
             }
             else if (node.ValueKind == JsonValueKind.Object)
             {
-                if (node.TryGetProperty("$type", out var raw))
-                    types.Add(raw.NewTypeStr().Guid);
+                if (node.TryGetProperty("$type", out var raw)) {
+                    if (BubblePrints.CurrentGame == "KM") {
+                        types.Add(raw.NewTypeStr().FullName);
+                    } else {
+                        types.Add(raw.NewTypeStr().Guid);
+                    }
+                }
                 foreach (var elem in node.EnumerateObject())
                     VisitObjects(elem.Value, types);
             }

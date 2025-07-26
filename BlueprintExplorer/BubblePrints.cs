@@ -68,7 +68,7 @@ namespace BlueprintExplorer
         {
             if (Game_Data == "Kingmaker_Data")
             {
-                return new(2, 1, 4, "a", 0);
+                return new(2, 1, 7, "b", 0);
             }
 
             var versionPath = Path.Combine(wrathPath, Game_Data, "StreamingAssets", "Version.info");
@@ -143,6 +143,9 @@ namespace BlueprintExplorer
                     else
                     if (ContainsDirectory(path, "Wrath_Data"))
                         BubblePrints.Game_Data = "Wrath_Data";
+                    else
+                    if (ContainsDirectory(path, "Kingmaker_Data"))
+                        BubblePrints.Game_Data = "Kingmaker_Data";
 
                     var exePath = Path.Combine(path, GameExe);
                     if (File.Exists(exePath))
@@ -197,8 +200,7 @@ namespace BlueprintExplorer
         internal static void NotifyTemplatesChanged(int oldCount, int newCount) => OnTemplatesChanged?.Invoke(oldCount, newCount);
         internal static string GetBlueprintSource(string wrathPath) => Game_Data switch
         {
-            "Wrath_Data" or "WH40KRT_Data" => Path.Combine(wrathPath, "blueprints.zip"),
-            "Kingmaker_Data" => @"D:\Blueprints2.1.4.zip",
+            "Wrath_Data" or "WH40KRT_Data" or "Kingmaker_Data" => Path.Combine(wrathPath, "blueprints.zip"),
             _ => throw new NotSupportedException("unknown game: " + Game_Data)
         };
     }
