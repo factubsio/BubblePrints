@@ -6,7 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>bubbleprint.ico</ApplicationIcon>
 	<RollForward>Major</RollForward>
-    <LangVersion>10</LangVersion>
+    <LangVersion>latest</LangVersion>
     <StartupObject />
     <Version>0.0.1</Version>
     <SignAssembly>false</SignAssembly>

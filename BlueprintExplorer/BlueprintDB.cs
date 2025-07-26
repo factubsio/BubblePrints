@@ -252,6 +252,7 @@ namespace BlueprintExplorer
             var writeOptions = new JsonSerializerOptions
             {
                 WriteIndented = true,
+                MaxDepth = 128
             };
 
             HashSet<string> referencedTypes = new();
@@ -303,7 +304,13 @@ namespace BlueprintExplorer
 
                     referencedTypes.Clear();
                     BlueprintHandle.VisitObjects(handle.EnsureObj, referencedTypes);
-                    handle.ComponentIndex = Array.Empty<ushort>(); // referencedTypes.Select(typeId => GuidToFlatIndex[typeId]).ToArray();
+                    handle.ComponentIndex = referencedTypes.Select<string, ushort?>(typeId => {
+                        if (GuidToFlatIndex.TryGetValue(typeId, out var val)) {
+                            return val;
+                        } else {
+                            return null;
+                        }
+                    }).Where(i => i.HasValue).Select(i => i.Value).ToArray();
 
                     AddBlueprint(handle);
 
@@ -387,7 +394,29 @@ namespace BlueprintExplorer
 
             Console.WriteLine("here");
         }
-        
+        private static readonly Dictionary<string, bool> m_InheritsCache = [];
+        private bool KMInheritsFromBPComponent(Type type) {
+            if (type == null) return false;
+            if (m_InheritsCache.TryGetValue(type.FullName, out bool result)) {
+                return result;
+            } else {
+                var baseType = type;
+                while (baseType != null) {
+                    if (baseType.FullName is "Kingmaker.Blueprints.BlueprintComponent" or "Kingmaker.Blueprints.BlueprintScriptableObject") {
+                        m_InheritsCache[type.FullName] = true;
+                        return true;
+                    }
+                    try {
+                        baseType = baseType.BaseType;
+                    } catch (Exception ex) {
+                        Console.WriteLine(type.FullName + " " + baseType.FullName + " " + type.Assembly);
+                        break;
+                    }
+                }
+                m_InheritsCache[type.FullName] = false;
+                return false;
+            }
+        }
         public void ExtractFromGame(ConnectionProgress progress, string wrathPath, string outputFile, GameVersion version)
         {
             // Should put this somewhere sensible
@@ -420,7 +449,7 @@ namespace BlueprintExplorer
                 WriteIndented = true,
             };
 
-            if (BubblePrints.Game_Data is "Wrath_Data" or "WH40KRT_Data") 
+            if (BubblePrints.Game_Data is "Wrath_Data" or "WH40KRT_Data" or "Kingmaker_Data") 
             {
                 var assemblies = Directory
                     .EnumerateFiles(Path.GetDirectoryName(BubblePrints.Wrath.Location), "*.dll")
@@ -448,39 +477,36 @@ namespace BlueprintExplorer
                 });
 
                 var typeIdType = assemblies
-                    .Select(ass => ass.GetType(BubblePrints.CurrentGame == "RT" ? "Kingmaker.Blueprints.JsonSystem.Helpers.TypeIdAttribute" : "Kingmaker.Blueprints.JsonSystem.TypeIdAttribute"))
+                    .Select(ass => ass.GetType(BubblePrints.CurrentGame == "RT" ? "Kingmaker.Blueprints.JsonSystem.Helpers.TypeIdAttribute" : (BubblePrints.CurrentGame == "KM" ? "Kingmaker.Blueprints.DirectSerialization.TypeIdAttribute" : "Kingmaker.Blueprints.JsonSystem.TypeIdAttribute")))
                     .Where(t => t is not null)
                     .FirstOrDefault();
 
-                var typeIdGuid = typeIdType.GetField("GuidString");
-                if (typeIdGuid == null) {
-                    typeIdGuid = typeIdType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).First(f => f.Name.Contains("GuidString", StringComparison.InvariantCultureIgnoreCase));
-                }
-
                 foreach (var type in types)
                 {
-                    foreach (var data in type.GetCustomAttributesData()) 
-                    {
-                        try 
+                    if (BubblePrints.CurrentGame == "KM" && KMInheritsFromBPComponent(type)) {
+                        if (GuidToFullTypeName.TryAdd(type.FullName, type.FullName))
+                            TypeGuidsInOrder.Add(type.FullName);
+                    } else {
+                        foreach (var data in type.GetCustomAttributesData()) {
+                            try {
+                                if (data.AttributeType.Name == typeIdType.Name) {
+                                    string guid = data.ConstructorArguments[0].Value as string;
+                                    if (GuidToFullTypeName.TryAdd(guid, type.FullName))
+                                        TypeGuidsInOrder.Add(guid);
+                                }
+                            } catch // Pretty sure this is some cursed attribute and not the TypeId we want
+                            { }
+                        }
+                        /*
+                        var typeId = type.GetCustomAttribute(typeIdType);
+                        if (typeId != null)
                         {
-                            if (data.AttributeType.Name == typeIdType.Name) 
-                            {
-                                var guid = data.ConstructorArguments[0].Value as string;
-                                if (GuidToFullTypeName.TryAdd(guid, type.FullName))
-                                    TypeGuidsInOrder.Add(guid);
-                            }
-                        } catch // Pretty sure this is some cursed attribute and not the TypeId we want
-                        { }
+                            var guid = typeIdGuid.GetValue(typeId) as string;
+                            if (GuidToFullTypeName.TryAdd(guid, type.FullName))
+                                TypeGuidsInOrder.Add(guid);
+                        }
+                        */
                     }
-                    /*
-                    var typeId = type.GetCustomAttribute(typeIdType);
-                    if (typeId != null)
-                    {
-                        var guid = typeIdGuid.GetValue(typeId) as string;
-                        if (GuidToFullTypeName.TryAdd(guid, type.FullName))
-                            TypeGuidsInOrder.Add(guid);
-                    }
-                    */
                 }
 
                 TypeGuidsInOrder.Sort();
