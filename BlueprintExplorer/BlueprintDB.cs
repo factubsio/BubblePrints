@@ -408,8 +408,8 @@ namespace BlueprintExplorer
                     }
                     try {
                         baseType = baseType.BaseType;
-                    } catch (Exception ex) {
-                        Console.WriteLine(type.FullName + " " + baseType.FullName + " " + type.Assembly);
+                    } catch {
+                        // This is one of those i18n types
                         break;
                     }
                 }
