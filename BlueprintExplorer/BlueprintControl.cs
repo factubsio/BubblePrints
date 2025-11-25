@@ -583,7 +583,7 @@ namespace BlueprintExplorer
                             StringBuilder l = new();
                             foreach (var r in inputRows)
                             {
-                                List<string> words = r.Split(' ', StringSplitOptions.RemoveEmptyEntries).Reverse().ToList();
+                                List<string> words = Enumerable.Reverse(r.Split(' ', StringSplitOptions.RemoveEmptyEntries)).ToList();
 
                                 l.Clear();
                                 while (words.Count > 0)

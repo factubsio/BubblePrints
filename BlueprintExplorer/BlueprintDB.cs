@@ -1097,7 +1097,71 @@ namespace BlueprintExplorer
                 {
                     case '?':
                         Console.WriteLine($"filtering on has-type, before: {toSearch.Count}");
-                        toSearch = toSearch.Where(b => b.ComponentsList.Any(c => c.Contains(special, StringComparison.OrdinalIgnoreCase))).ToList();
+                        if (special.Contains(':') && special.Split(':') is { Length: 2 } parts) {
+                            toSearch = toSearch.Where(b => b.ComponentsList.Any(c => c.Contains(parts[0], StringComparison.OrdinalIgnoreCase))).ToList();
+                            try 
+                            {
+                                if (!string.IsNullOrWhiteSpace(parts[1])) 
+                                {
+                                    var newToSearch = new List<BlueprintHandle>();
+                                    foreach (var res in toSearch) 
+                                    {
+                                        bool isInComponents = false;
+                                        int? delta = null;
+                                        int fieldInComponent = 0;
+                                        bool isInTarget = false;
+                                        foreach (var element in res.Elements) 
+                                        {
+                                            if (element.key == "Components" && !delta.HasValue) 
+                                            {
+                                                delta = 0;
+                                                isInComponents = true;
+                                            }
+                                            if (isInComponents) 
+                                            {
+                                                delta += element.levelDelta;
+                                                // Enter Components => Delta+1 => 1
+                                                // Enter Array Element => Delta+1 => 2
+                                                // Second field in delta == 2 is the component type
+
+                                                if (delta == 0) 
+                                                {
+                                                    isInComponents = false;
+                                                } else if (delta == 1) 
+                                                {
+                                                    fieldInComponent = 0;
+                                                    isInTarget = false;
+                                                } else if (delta == 2) 
+                                                {
+                                                    fieldInComponent++;
+                                                    if (fieldInComponent == 2) 
+                                                    {
+                                                        isInTarget = element.value.Contains(parts[0], StringComparison.OrdinalIgnoreCase);
+                                                    }
+                                                }
+
+                                                if (isInTarget) 
+                                                {
+                                                    if (element.value != null && element.value.Contains(parts[1], StringComparison.OrdinalIgnoreCase)) {
+                                                        newToSearch.Add(res);
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    toSearch = newToSearch;
+                                }
+                            } 
+                            catch (Exception ex) 
+                            {
+                                Console.WriteLine(ex);
+                            }
+                        } 
+                        else 
+                        {
+                            toSearch = toSearch.Where(b => b.ComponentsList.Any(c => c.Contains(special, StringComparison.OrdinalIgnoreCase))).ToList();
+                        }
                         Console.WriteLine($"                       after: {toSearch.Count}");
                         break;
                     case '!':
