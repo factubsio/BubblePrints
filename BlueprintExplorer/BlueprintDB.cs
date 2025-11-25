@@ -1097,7 +1097,8 @@ namespace BlueprintExplorer
                 {
                     case '?':
                         Console.WriteLine($"filtering on has-type, before: {toSearch.Count}");
-                        if (special.Contains(':') && special.Split(':') is { Length: 2 } parts) {
+                        if (special.Contains(':') && special.Split(':') is { Length: 2 } parts) 
+                        {
                             toSearch = toSearch.Where(b => b.ComponentsList.Any(c => c.Contains(parts[0], StringComparison.OrdinalIgnoreCase))).ToList();
                             try 
                             {
