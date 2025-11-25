@@ -1127,11 +1127,13 @@ namespace BlueprintExplorer
                                                 if (delta == 0) 
                                                 {
                                                     isInComponents = false;
-                                                } else if (delta == 1) 
+                                                } 
+                                                else if (delta == 1) 
                                                 {
                                                     fieldInComponent = 0;
                                                     isInTarget = false;
-                                                } else if (delta == 2) 
+                                                } 
+                                                else if (delta == 2) 
                                                 {
                                                     fieldInComponent++;
                                                     if (fieldInComponent == 2) 
