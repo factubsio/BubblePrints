@@ -1144,7 +1144,8 @@ namespace BlueprintExplorer
 
                                                 if (isInTarget) 
                                                 {
-                                                    if (element.value != null && element.value.Contains(parts[1], StringComparison.OrdinalIgnoreCase)) {
+                                                    if (element.value != null && element.value.Contains(parts[1], StringComparison.OrdinalIgnoreCase)) 
+                                                    {
                                                         newToSearch.Add(res);
                                                         break;
                                                     }
