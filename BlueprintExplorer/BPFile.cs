@@ -26,6 +26,7 @@ namespace BlueprintExplorer
         {
             References = 1,
             Components,
+            Paths,
         }
     }
 

@@ -1,6 +1,8 @@
-﻿using K4os.Compression.LZ4;
+﻿using BlueprintExplorer;
+using K4os.Compression.LZ4;
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Diagnostics;
 using System.Drawing.Text;
 using System.Formats.Tar;
@@ -10,6 +12,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -541,8 +544,10 @@ namespace BlueprintExplorer
                 foreach (var tarEntry in entries) {
                     try {
                         using var stream = tarEntry.DataStream;
-                        ReadDumpFromStream(stream, writeOptions, tarEntry.Name.Split('/').Last(), ref referencedTypes, ref progress, ref index);
-                    } catch (Exception e) {
+                        ReadDumpFromStream(stream, writeOptions, tarEntry.Name.Split('/').Last(), ref referencedTypes, ref progress, ref index,
+                            bp => bp.FullPath = tarEntry.Name);
+                    }
+                    catch (Exception e) {
                         Console.Error.WriteLine(e.Message);
                         Console.Error.WriteLine(e.StackTrace);
                         throw;
@@ -581,7 +586,8 @@ namespace BlueprintExplorer
             WriteBlueprints(progress, wrathPath, outputFile, version);
         }
 
-        private void ReadDumpFromStream(Stream stream, JsonSerializerOptions writeOptions, string name, ref HashSet<string> referencedTypes, ref ConnectionProgress progress, ref int index) {
+        private void ReadDumpFromStream(Stream stream, JsonSerializerOptions writeOptions, string name, ref HashSet<string> referencedTypes, ref ConnectionProgress progress, ref int index, Action<BlueprintHandle> finalizeImport = null)
+        {
             var reader = new StreamReader(stream);
             var contents = reader.ReadToEnd();
             var json = JsonSerializer.Deserialize<JsonElement>(contents);
@@ -608,6 +614,8 @@ namespace BlueprintExplorer
             referencedTypes.Clear();
             BlueprintHandle.VisitObjects(handle.EnsureObj, referencedTypes);
             handle.ComponentIndex = referencedTypes.SelectMany(typeId => GuidToFlatIndex.ContainsKey(typeId) ? new[] { GuidToFlatIndex[typeId] } : Array.Empty<ushort>()).ToArray();
+
+            finalizeImport?.Invoke(handle);
 
             AddBlueprint(handle);
 
@@ -677,6 +685,16 @@ namespace BlueprintExplorer
 
                         res.Add(bp);
                     }
+
+                    var fullPaths = bundleContext.Open(bundle.ForSubType((ushort)ChunkSubTypes.Blueprints.Paths));
+                    if (fullPaths != null)
+                    {
+                        for (int i = 0; i < res.Count; i++)
+                        {
+                            res[i].FullPath = fullPaths.ReadString();
+                        }
+                    }
+
 
                     byte[] guid_cache = new byte[16];
                     //if (header.Major == 1 && header.Minor == 1 && header.Patch < 6)
@@ -823,6 +841,8 @@ namespace BlueprintExplorer
                 }
             }
 
+            bool writePaths = cache[0].FullPath != null;
+
             using (var file = new BPFile.BPWriter(outPath))
             {
                 using (var header = file.Begin((ushort)ChunkTypes.Header))
@@ -851,6 +871,12 @@ namespace BlueprintExplorer
                     current.Stream.Write(c.Name);
                     current.Stream.Write(c.Type);
                     current.Stream.Write(c.Raw);
+
+                    if (writePaths)
+                    {
+                        var pathChunk = current.GetStream((ushort)ChunkSubTypes.Blueprints.Paths);
+                        pathChunk.Write(c.FullPath);
+                    }
 
                     var refs = current.GetStream((ushort)ChunkSubTypes.Blueprints.References);
                     if (References.TryGetValue(Guid.Parse(c.GuidText), out var refList))
@@ -986,7 +1012,7 @@ namespace BlueprintExplorer
                     progress.Current++;
                 }
             }
-            Console.WriteLine("mostReferred: {mostReferred} ({biggestRefList})");
+            Console.WriteLine($"mostReferred: {mostReferred}, biggestRefList: {biggestRefList}");
         }
 
         private void LoadStringDatabase(JsonElement stringDictRaw)

@@ -324,6 +324,8 @@ namespace BlueprintExplorer
         //}
         internal MatchResult[][] _Matches;
         public ushort[] ComponentIndex;
+        internal string FullPath = null;
+
         public IEnumerable<string> ComponentsList => ComponentIndex.Select(i => BlueprintDB.Instance.FlatIndexToTypeName[i]);
         internal static readonly MatchQuery.MatchProvider MatchProvider = new(
                     obj => (obj as BlueprintHandle).NameLower,

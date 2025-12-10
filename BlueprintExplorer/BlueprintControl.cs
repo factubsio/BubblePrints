@@ -435,6 +435,23 @@ namespace BlueprintExplorer
                 Elements[0].Children.Add(Elements[2]);
                 totalRows = 3;
 
+                if (DisplayedObject is BlueprintHandle bpObj && bpObj.FullPath != null)
+                {
+                    Elements.Add(new()
+                    {
+                        key = "Blueprint Path",
+                        value = bpObj.FullPath,
+                        level = 1,
+                        link = null,
+                        Parent = Elements[0],
+                        String = null,
+                        RowCount = 1,
+                        Collapsed = false,
+                    });
+                    Elements[0].Children.Add(Elements[3]);
+                    totalRows++;
+                }
+
                 int level = 0;
                 Stack<RowElement> stack = new();
                 stack.Push(null);
