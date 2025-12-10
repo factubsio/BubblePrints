@@ -952,13 +952,21 @@ namespace BlueprintExplorer
 
                 if (string.IsNullOrWhiteSpace(value))
                     return;
-                Clipboard.SetDataObject(value, copy: true, retryTimes: 10, retryDelay: 100);
+                bool ok = true;
+                try
+                {
+                    Clipboard.SetDataObject(value, copy: true, retryTimes: 10, retryDelay: 100);
+                }
+                catch
+                {
+                    ok = false;
+                }
                 int displayAt = elem.PrimaryRow - 1;
                 if (elem.PrimaryRow < 3)
                     displayAt = elem.PrimaryRow + 1;
                 var toast = new Toast
                 {
-                    Text = "Value Copied",
+                    Text = ok ? "Value Copied" : "Failed to Copy",
                     Lifetime = 600,
                     Bounds = new(e.X - 80, displayAt * RowHeight, 160, 40)
                 };
