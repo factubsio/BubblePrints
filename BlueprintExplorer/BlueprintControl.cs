@@ -1,12 +1,15 @@
 ﻿using BlueprintExplorer.Properties;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Security.Policy;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
@@ -18,9 +21,7 @@ namespace BlueprintExplorer
         public delegate void LinkClickedDelegate(string link, bool newTab);
         public delegate void PathDelegate(string path);
         public delegate void FilterChangedDelegate(string filter);
-        public delegate void NavigateDelegate(NavigateTo to);
 
-        public event NavigateDelegate OnNavigate;
         public event LinkClickedDelegate OnLinkClicked;
         public event PathDelegate OnPathHovered;
         public event FilterChangedDelegate OnFilterChanged;
@@ -912,17 +913,6 @@ namespace BlueprintExplorer
                 Toggle(elem);
             }
         }
-        //protected override void OnMouseDown(MouseEventArgs e)
-        //{
-        //    if (e.Button == MouseButtons.XButton1)
-        //    {
-        //        OnNavigate?.Invoke(NavigateTo.RelativeBackOne);
-        //    }
-        //    else if (e.Button == MouseButtons.XButton2)
-        //    {
-        //        OnNavigate?.Invoke(NavigateTo.RelativeForwardOne);
-        //    }
-        //}
 
         protected override void OnMouseClick(MouseEventArgs e)
         {
@@ -1073,8 +1063,8 @@ namespace BlueprintExplorer
                     
             }
         }
-        private Font Regular; 
-        private Font Bold; 
+        private Font Regular;
+        private Font Bold;
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -1288,3 +1278,4 @@ namespace BlueprintExplorer
         AbsoluteLast,
     }
 }
+

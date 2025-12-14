@@ -15,7 +15,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WikiGen", "WikiGen\WikiGen.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FontTested", "FontTested\FontTested.csproj", "{FD0B9D21-A092-487E-8237-8BD1EC4DB1F4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BubbleAssets", "BubbleAssets\BubbleAssets.csproj", "{D2599B72-338A-4BFF-9DFB-2755036E3831}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BubbleAssets", "BubbleAssets\BubbleAssets.csproj", "{D2599B72-338A-4BFF-9DFB-2755036E3831}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BubbleprintEngine", "BubbleprintEngine\BubbleprintEngine.csproj", "{9312A876-69BF-48D0-8B37-0D0603D48BE7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "bprint", "bprint\bprint.csproj", "{1CF799D8-575E-46E2-94F2-48A731A39BFF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +43,14 @@ Global
 		{D2599B72-338A-4BFF-9DFB-2755036E3831}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D2599B72-338A-4BFF-9DFB-2755036E3831}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D2599B72-338A-4BFF-9DFB-2755036E3831}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9312A876-69BF-48D0-8B37-0D0603D48BE7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9312A876-69BF-48D0-8B37-0D0603D48BE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9312A876-69BF-48D0-8B37-0D0603D48BE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9312A876-69BF-48D0-8B37-0D0603D48BE7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1CF799D8-575E-46E2-94F2-48A731A39BFF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1CF799D8-575E-46E2-94F2-48A731A39BFF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1CF799D8-575E-46E2-94F2-48A731A39BFF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1CF799D8-575E-46E2-94F2-48A731A39BFF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

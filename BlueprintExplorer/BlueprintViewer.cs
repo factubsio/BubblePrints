@@ -152,18 +152,13 @@ namespace BlueprintExplorer
                 view.Filter = SharedFilter;
             }
 
-            view.OnPathHovered += path =>
-            {
-                currentPath.Text = path ?? "-";
-            };
+            view.OnPathHovered += path => currentPath.Text = path ?? "-";
 
             view.OnFilterChanged += filterValue =>
             {
                 filter.Text = filterValue;
                 SharedFilter = filterValue;
             };
-
-            view.OnNavigate += Navigate;
 
             filter.TextChanged += (sender, e) =>
             {

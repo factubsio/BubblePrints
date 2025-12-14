@@ -8,6 +8,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading;
@@ -167,9 +168,9 @@ namespace BlueprintExplorer
             {
                 Task.Run(async () =>
                 {
-                    using WebClient client = new();
-                    client.Headers.Add("User-Agent", "BubblePrints");
-                    var raw = await client.DownloadStringTaskAsync("https://api.github.com/repos/factubsio/BubblePrints/releases/latest");
+                    using HttpClient client = new();
+                    client.DefaultRequestHeaders.Add("User-Agent", "BubblePrints");
+                    var raw = await client.GetStringAsync("https://api.github.com/repos/factubsio/BubblePrints/releases/latest");
                     return JsonSerializer.Deserialize<JsonElement>(raw);
                 }).ContinueWith(t =>
                 {
@@ -321,18 +322,8 @@ namespace BlueprintExplorer
                 new SettingsView().ShowDialog();
             };
 
-            BubblePrints.SetWrathPath(false);
-
-            if (BubblePrints.TryGetWrathPath(out var wrathPath)) 
-            {
-                var gamePath = Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed");
-                var resolver = new PathAssemblyResolver(Directory.EnumerateFiles(gamePath, "*.dll"));
-                var _mlc = new MetadataLoadContext(resolver);
-                if (BubblePrints.CurrentGame == "RT")
-                    BubblePrints.Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(gamePath, "Code.dll"));
-                else
-                    BubblePrints.Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(gamePath, "Assembly-CSharp.dll"));
-            }
+            BubblePrints.SetWrathPath(false, FolderChooser);
+            BubblePrints.LoadAssemblies();
 
             //blueprintViews.DrawMode = TabDrawMode.OwnerDrawFixed;
             //blueprintViews.DrawItem += (sender, e) =>
@@ -361,7 +352,6 @@ namespace BlueprintExplorer
                 BubbleTheme.SeasonControls(topBarContainer, settingsButton, helpButton);
             }
 
-
             //header.Marquee = true;
             header.Dock = DockStyle.Fill;
 
@@ -373,7 +363,13 @@ namespace BlueprintExplorer
             //    availableVersions.Items.Add(v);
             //availableVersions.SelectedIndex = availableVersions.Items.Count - 1;
             //availableVersions.Enabled = true;
+        }
 
+        protected override void OnActivated(EventArgs e)
+        {
+            base.OnActivated(e);
+            TopMost = true;
+            SeasonalOverlay.Install(this);
         }
 
         private void UpdatePinResults(bool pinned)
@@ -1027,5 +1023,7 @@ namespace BlueprintExplorer
             else
                 helpView.Show();
         }
+
+        public static IFolderChooser FolderChooser => new FormsFolderChooser();
     }
 }

@@ -11,8 +11,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Windows.Forms;
-using System.Windows.Forms.Design;
 
 namespace BlueprintExplorer
 {
@@ -78,22 +76,6 @@ namespace BlueprintExplorer
             return null;
         }
 
-        private static Random rng = new();
-        private static string[] christmas = { "🎄", "❄️", "🦌", "⛄", "🎅" };
-        public static string Seasonal(this string str)
-        {
-            if (!SeasonalOverlay.InSeason)
-                return str;
-
-            if (SeasonalOverlay.NearChristmas)
-            {
-                var season = christmas;
-                var index = Math.Abs(str.GetHashCode()) % season.Length;
-                return $"{season[index]} {str} {season[index]}";
-            }
-
-            return str;
-        }
         public static Guid Guid(this string str) => System.Guid.Parse(str);
         public static bool IsSimple(this JsonElement elem)
         {
@@ -311,7 +293,7 @@ namespace BlueprintExplorer
         public string NamespaceLower;
 
         #region ISearchable
-        //internal Dictionary<string, Func<string>> _Providers = null;
+        //public Dictionary<string, Func<string>> _Providers = null;
         //public Dictionary<string, Func<string>> Providers { get {
         //        if (_Providers != null) return _Providers;
         //        _Providers = new() {
@@ -322,12 +304,12 @@ namespace BlueprintExplorer
         //        return _Providers;
         //   }
         //}
-        internal MatchResult[][] _Matches;
+        public MatchResult[][] _Matches;
         public ushort[] ComponentIndex;
-        internal string FullPath = null;
+        public string FullPath = null;
 
         public IEnumerable<string> ComponentsList => ComponentIndex.Select(i => BlueprintDB.Instance.FlatIndexToTypeName[i]);
-        internal static readonly MatchQuery.MatchProvider MatchProvider = new(
+        public static readonly MatchQuery.MatchProvider MatchProvider = new(
                     obj => (obj as BlueprintHandle).NameLower,
                     obj => (obj as BlueprintHandle).TypeNameLower,
                     obj => (obj as BlueprintHandle).NamespaceLower,
@@ -590,7 +572,7 @@ namespace BlueprintExplorer
             }
         }
 
-        internal void ParseType()
+        public void ParseType()
         {
 
             var components = Type.Split('.');

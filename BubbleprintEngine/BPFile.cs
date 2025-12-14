@@ -257,8 +257,8 @@ namespace BlueprintExplorer
                 return new(Data);
             }
 
-            internal CompositeChunk Get(ushort typeNames) => Handle.GetChunk(typeNames);
-            internal IEnumerable<CompositeChunk> GetAll(ushort typeNames) => Handle.GetChunks(typeNames);
+            public CompositeChunk Get(ushort typeNames) => Handle.GetChunk(typeNames);
+            public IEnumerable<CompositeChunk> GetAll(ushort typeNames) => Handle.GetChunks(typeNames);
         }
     }
 
