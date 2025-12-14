@@ -6,10 +6,8 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Linq;
-using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace BlueprintExplorer;
@@ -53,7 +51,11 @@ public static class SeasonalOverlay
             overlay.ShowNoActivate();
         }
 
+        // I hate every fibre of my being
+        System.Threading.Tasks.Task.Delay(20).ContinueWith(_ => activeOverlay.BeginInvoke(() => target.Activate()));
     }
+
+    internal static void Disable() => activeOverlay?.Close();
 }
 
 public static class Noise1D
