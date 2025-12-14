@@ -345,6 +345,10 @@ public class SettingsProxy
     [DisplayName("Blueprint font size")]
     public int BlueprintFontSize { get; set; } = 12;
 
+    [Description("Density of seasonal effects like snow fall, 1-10")]
+    [DisplayName("Seasonal effect density")]
+    public int SeasonalDensity { get; set; } = 10;
+
     [Description("Template string for blueprint template generation - see help for more details")]
     [DisplayName("Generator template")]
     //[DesignerSerializationVisibility(DesignerSerializationVisibility.Content)]

@@ -217,6 +217,12 @@ namespace BlueprintExplorer
                 {
                     UpdatePinResults(BubblePrints.Settings.PinSearchResults);
                 }
+
+                if (BubblePrints.Settings.NoSeasonalTheme)
+                {
+                    SeasonalOverlay.Disable();
+
+                }
             };
 
             Load += (sender, e) =>
@@ -320,7 +326,6 @@ namespace BlueprintExplorer
             {
                 HideCtrlP();
                 var settingsView = new SettingsView();
-                settingsView.TopMost = true;
                 settingsView.ShowDialog();
             };
 
@@ -370,7 +375,6 @@ namespace BlueprintExplorer
         protected override void OnActivated(EventArgs e)
         {
             base.OnActivated(e);
-            TopMost = true;
             SeasonalOverlay.Install(this);
         }
 
@@ -1019,7 +1023,6 @@ namespace BlueprintExplorer
         private void helpButton_Click(object sender, EventArgs e)
         {
             helpView ??= new();
-            helpView.TopMost = true;
             helpView.Disposed += (sender, e) => helpView = null;
             if (helpView.Visible)
                 helpView.BringToFront();
