@@ -319,7 +319,9 @@ namespace BlueprintExplorer
             settingsButton.Click += (sender, evt) =>
             {
                 HideCtrlP();
-                new SettingsView().ShowDialog();
+                var settingsView = new SettingsView();
+                settingsView.TopMost = true;
+                settingsView.ShowDialog();
             };
 
             BubblePrints.SetWrathPath(false, FolderChooser);
@@ -1017,6 +1019,7 @@ namespace BlueprintExplorer
         private void helpButton_Click(object sender, EventArgs e)
         {
             helpView ??= new();
+            helpView.TopMost = true;
             helpView.Disposed += (sender, e) => helpView = null;
             if (helpView.Visible)
                 helpView.BringToFront();
