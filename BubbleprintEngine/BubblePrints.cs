@@ -152,7 +152,7 @@ public static class BubblePrints
                 case "Wrath_Data": Settings.WrathPath = path; break;
                 case "Kingmaker_Data": Settings.KMPath = path; break;
                 case "WH40KRT_Data": Settings.RTPath = path; break;
-                default: throw new NotSupportedException();
+                default: break;
             }
             SaveSettings();
         }

@@ -18,3 +18,14 @@ internal class TextPromptFolderChooser : IFolderChooser
 
     public void Prepare() { }
 }
+
+internal class FixedGamePath(string path) : IFolderChooser
+{
+    int attempts = 0;
+    public bool Choose(string exe, out string choice)
+    {
+        choice = path;
+        return attempts++ == 0;
+    }
+    public void Prepare() { }
+}

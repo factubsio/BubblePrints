@@ -146,6 +146,8 @@ namespace BlueprintExplorer
         {
             private readonly BinaryWriter Stream;
 
+            public static bool Verbose = true;
+
             private readonly byte[] CompressionBuffer = new byte[BUFFER_SIZE];
 
             public void Dispose() => Stream.Dispose();
@@ -169,7 +171,7 @@ namespace BlueprintExplorer
                 if (data.Length > 1024)
                 {
                     compressedLength = LZ4Codec.Encode(data, CompressionBuffer.AsSpan<byte>(), LZ4Level.L10_OPT);
-                    Console.WriteLine("Writing chunk with length: " + data.Length + ", compressed: " + compressedLength);
+                    if (Verbose) Console.WriteLine("Writing chunk with length: " + data.Length + ", compressed: " + compressedLength);
                 }
 
                 Stream.Write((UInt32)compressedLength);

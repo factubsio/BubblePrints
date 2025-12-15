@@ -573,7 +573,6 @@ public partial class BlueprintDB
 
         progress.Phase = "Writing";
         progress.Current = 0;
-        Console.WriteLine("Generating");
         WriteBlueprints(progress, wrathPath, outputFile, version);
     }
 

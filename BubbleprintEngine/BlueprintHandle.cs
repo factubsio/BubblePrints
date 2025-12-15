@@ -437,7 +437,7 @@ namespace BlueprintExplorer
             }
         }
 
-        IEnumerable<IDisplayableElement> IDisplayableElementCollection.DisplayableElements => Elements;
+        public IEnumerable<IDisplayableElement> DisplayableElements => Elements;
 
         public static void VisitObjects(JsonElement node, HashSet<string> types)
         {
