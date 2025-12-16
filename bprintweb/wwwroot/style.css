@@ -60,6 +60,14 @@
     --btn-primary-hover-bg: #00bfff; /* Lighter accent */
 }
 
+/* === MODIFICATION 1: Global Box Sizing Reset === */
+/* This is the key fix for the width/padding issue. It tells the browser */
+/* to include padding and borders *inside* an element's total width. */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+
 body {
     margin: 0;
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -75,12 +83,12 @@ h1 {
 
 #searchBox {
     width: 100%;
-    max-width: 400px;
+    flex-grow: 1;
     padding: 0.6rem 0.8rem;
     font-size: 1rem;
     border: 1px solid var(--input-border-color);
     border-radius: 6px;
-    margin-bottom: 1.5rem;
+    /* MODIFICATION: Removed margin-bottom here to be controlled by the header */
     transition: border-color 0.2s, box-shadow 0.2s;
     background-color: var(--input-bg-color);
     color: var(--input-text-color);
@@ -123,30 +131,34 @@ tbody tr {
 tbody td {
     padding: 0.75rem 1rem;
     font-size: 0.95rem;
+    /* === ADDITION: Prevent long strings from breaking table layout === */
+    word-break: break-word;
 }
 
+/* === MODIFICATION 2: Responsive Sticky Header === */
 .sticky-header {
     position: sticky;
     top: 0;
     background-color: var(--bg-color);
     z-index: 100;
-    padding: 0rem 0rem 0rem 2rem;
+    /* Consistent padding with the content views below */
+    padding: 1rem 2rem;
     box-shadow: 0 4px 6px -1px var(--sticky-shadow-color);
-    display: flex;
-    align-items: baseline;
-    gap: 20px;
 }
 
-    .sticky-header > h1 {
-        display: inline-block;
-        padding-right: 2rem;
-    }
+.control-bar {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    gap: 1.5rem;
+}
 
 #searchView, #blueprintView {
-    padding: 0 2rem 2rem 2rem;
+    padding: 2rem; /* Simplified padding */
 }
 
 .bp-row {
+    display: flex;
     font-family: Consolas, monospace;
     padding: 2px 5px;
     border-bottom: 1px solid var(--bp-row-border);
@@ -197,7 +209,6 @@ tbody td {
     border: 1px solid transparent;
     border-radius: 6px;
     transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-    /* Default button colors */
     background-color: var(--btn-bg);
     color: var(--btn-text-color);
 }
@@ -208,10 +219,9 @@ tbody td {
 
     .btn:active {
         background-color: var(--btn-active-bg);
-        transform: translateY(1px); /* Gives a "pressed" feel */
+        transform: translateY(1px);
     }
 
-    /* Accessible focus state for keyboard users */
     .btn:focus-visible {
         outline: none;
         box-shadow: 0 0 0 3px var(--accent-focus-shadow);
@@ -229,57 +239,46 @@ tbody td {
 
 
 .bp-toggle {
-    /* Use your button variables for semantic consistency */
     background-color: var(--btn-bg);
     border: 1px solid var(--border-color);
     color: var(--btn-text-color);
-    /* Layout styles to make it a nice square button */
     border-radius: 4px;
     height: 20px;
     width: 20px;
-    line-height: 20px; /* Vertically center the arrow */
+    line-height: 20px;
     text-align: center;
-    vertical-align: middle; /* Align the box with the text */
+    vertical-align: middle;
     margin-right: 4px;
-    /* Interaction styles */
     cursor: pointer;
-    user-select: none; /* Prevent text selection */
+    user-select: none;
     display: inline-block;
     transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
 }
 
-    /* Use your button hover variable for the hover state */
     .bp-toggle:hover {
         background-color: var(--btn-hover-bg);
-        border-color: var(--input-border-color); /* A slightly stronger border on hover */
+        border-color: var(--input-border-color);
     }
 
 .bp-toggle.disabled {
-    /* Make it look visually "faded" or inactive */
     opacity: 0.4;
-    /* Prevent all mouse interactions: clicks, hovers, etc. */
     pointer-events: none;
 }
 
-/* 2. A placeholder for non-collapsible rows to keep keys aligned */
 .bp-toggle-placeholder {
     display: inline-block;
     width: 20px;
-    height: 22px; /* 20px height + 2px border */
+    height: 22px;
     margin-right: 4px;
     vertical-align: middle;
 }
 
-/* 3. The rule for indentation and visual guide lines */
 .bp-children-container {
-    /* Use your specific variable for blueprint borders */
     border-left: 1px solid var(--bp-row-border);
-    /* Layout remains the same */
     padding-left: 19px;
     margin-left: 10px;
 }
 
-    /* 4. The rule that makes collapsing work by hiding the container */
     .bp-children-container.hide {
         display: none;
     }
@@ -288,6 +287,61 @@ a {
     color: inherit;
 }
 
+    #theme-toggle-label::after {
+        content: "Dark/Light";
+    }
+
 .hide {
     display: none !important;
+}
+
+@media (max-width: 1280px) {
+    .col-priority-2,
+    .col-priority-3 {
+        display: none;
+    }
+}
+
+/* === ADDITION 3: Responsive Styles for Mobile & Tablets === */
+/* These rules apply only when the screen width is 768px or less. */
+@media (max-width: 768px) {
+    
+    /* 1. Reduce overall padding to give content more room */
+    .sticky-header,
+    #searchView, 
+    #blueprintView {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    /* 2. Hide the main title because it gets squished */
+    .sticky-header > h1 {
+        display: none;
+    }
+
+    #theme-toggle-label::after {
+        content: "d/l";
+    }
+    
+    /* 3. Make the search box take up the full width */
+    #searchBox {
+        max-width: initial;
+        flex-grow: 1;
+        margin-bottom: 0;
+    }
+
+    /* 4. Slightly smaller font for main headings on mobile */
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    /* 5. Reduce padding in table cells for more space */
+    thead th,
+    tbody td {
+        padding: 0.6rem 0.75rem;
+    }
+
+    .col-priority-1 {
+        display: none;
+    }
 }

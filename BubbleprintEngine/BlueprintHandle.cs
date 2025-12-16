@@ -35,10 +35,12 @@ namespace BlueprintExplorer
     public static class JsonExtensions
     {
         public static bool ContainsIgnoreCase(this string haystack, string needle) => haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
-        public static string ParseAsString(this JsonElement node, string nodeKey = null)
+        public static string ParseAsString(this JsonElement node, string nodeKey = null, BlueprintDB db = null)
         {
             if (node.ValueKind != JsonValueKind.Object)
                 return null;
+
+            db ??= BlueprintDB.Instance;
 
             if (node.TryGetProperty("m_Key", out var strKey) && node.TryGetProperty("Shared", out var sharedString) && node.TryGetProperty("m_OwnerString", out _))
             {
@@ -48,7 +50,7 @@ namespace BlueprintExplorer
 
                 if (key.Length > 0)
                 {
-                    if (BlueprintDB.Instance.Strings.TryGetValue(key, out var str))
+                    if (db.Strings.TryGetValue(key, out var str))
                         return str;
                     else
                         return "<string-not-present>";
@@ -63,7 +65,7 @@ namespace BlueprintExplorer
                 var key = dirsharedKey.GetString();
                 if (key.Length > 0)
                 {
-                    if (BlueprintDB.Instance.Strings.TryGetValue(key, out var str))
+                    if (db.Strings.TryGetValue(key, out var str))
                         return str;
                     else
                         return "<string-not-present>";

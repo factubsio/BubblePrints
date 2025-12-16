@@ -28,6 +28,7 @@ export function initApp() {
     searchBar.addEventListener('focus', () => {
         // Switch immediately to search view
         searchView.classList.remove('hide');
+        titleSpan.classList.add('hide');
         blueprintView.classList.add('hide');
     });
     handleRouting();
@@ -45,6 +46,7 @@ function handleRouting() {
 }
 function showSearch() {
     blueprintView.classList.add('hide');
+    titleSpan.classList.add('hide');
     searchView.classList.remove('hide');
 }
 // Helper to change URL without reloading
@@ -84,9 +86,9 @@ function renderResults(data) {
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td><a href="/rt/${row.guidText}">${row.name}</a></td>
-            <td>${row.namespace}</td>
-            <td>${row.guidText}</td>
-            <td>${row.typeForResults}</td>
+            <td class="col-priority-2">${row.namespace}</td>
+            <td class="col-priority-3">${row.guidText}</td>
+            <td class="col-priority-1">${row.typeForResults}</td>
         `;
         const link = tr.firstElementChild;
         link.addEventListener('click', async (e) => {
@@ -106,6 +108,7 @@ const viewCallbacks = {
 };
 async function loadAndShowBlueprint(game, guid) {
     searchView.classList.add('hide');
+    titleSpan.classList.remove('hide');
     blueprintView.classList.remove('hide');
     const container = document.getElementById('bp-content');
     container.innerHTML = "Loading...";

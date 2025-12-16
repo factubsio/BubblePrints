@@ -536,7 +536,7 @@ public static class BinzImportExport
 
                     BlueprintDB.ExtractKeyWords(keyWords, word, element.key);
 
-                    string localisedStr = element.Node.ParseAsString(element.key);
+                    string localisedStr = element.Node.ParseAsString(element.key, db);
                     if (localisedStr is not null)
                     {
                         if (localisedStr is not "<string-not-present>" and not "<null-string>")

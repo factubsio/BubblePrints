@@ -37,6 +37,25 @@ public class BlueprintDbController : ControllerBase
 
     }
 
+    private static string? GetString(BlueprintDB db, IDisplayableElement el)
+    {
+        if (el.levelDelta < 0) return null;
+        return el.Node.ParseAsString(null, db);
+    }
+
+    private static string GetLinkTarget(BlueprintDB db, IDisplayableElement el)
+    {
+        if (string.IsNullOrEmpty(el.link)) return "";
+        if (db.Blueprints.TryGetValue(Guid.Parse(el.link), out var target))
+        {
+            return target.Name;
+        }
+        else
+        {
+            return "stale";
+        }
+    }
+
     [HttpGet("view/{game}/{guid}", Name = "ViewBlueprint")]
     [ResponseCache(Duration = 86400, Location = ResponseCacheLocation.Client)]
 
@@ -52,6 +71,8 @@ public class BlueprintDbController : ControllerBase
             e.levelDelta,
             e.link,
             e.isObj,
+            String = GetString(db, e),
+            Target = GetLinkTarget(db, e),
             typeName = e.MaybeType.Name // Assumes MaybeType name is available here, or pass e.MaybeType?.Name
         }));
     }
@@ -71,6 +92,8 @@ public class BlueprintDbController : ControllerBase
     [HttpGet("find/{game}", Name = "FindBlueprint")]
     public IActionResult FindBlueprint(BlueprintDB db, string game, string query)
     {
+        if (query.Length > 512) return NotFound();
+
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
         if (!_active.TryAdd(ip, true))

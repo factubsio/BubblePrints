@@ -9,6 +9,8 @@ export interface DisplayableElement {
     isObj: boolean;
     typeName?: string;
     levelDelta: number;
+    string?: string;
+    target: string; 
 }
 
 export interface ViewCallbacks {
@@ -119,13 +121,25 @@ export function createBlueprintView(flatElements: DisplayableElement[], game: st
         keySpan.textContent = element.key;
         row.appendChild(keySpan);
 
-        if (element.value) {
+        if (element.string && element.string !== '') {
+            const strEl = document.createElement('span');
+            strEl.className = 'bp-val';
+            strEl.textContent = element.string;
+            row.appendChild(strEl);
+        } if (element.value) {
             let valEl: HTMLElement;
             if (element.link) {
                 const linkEl = document.createElement('a');
                 linkEl.className = 'bp-link';
-                linkEl.href = `/${game}/${element.link}`;
-                linkEl.textContent = element.value;
+
+                if (element.target === '') {
+                    linkEl.href = '#';
+                    linkEl.textContent = `${element.value} -> stale`;
+                    linkEl.className = 'bp-link-dead';
+                } else {
+                    linkEl.href = `/${game}/${element.link}`;
+                    linkEl.textContent = `${element.value} -> ${element.target}`;
+                }
                 linkEl.onclick = evt => cb.handleLinkClick(evt, game, element.link!);
                 valEl = linkEl;
             } else {

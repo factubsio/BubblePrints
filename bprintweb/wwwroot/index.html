@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <title>Blueprint Explorer</title>
     <link rel="stylesheet" href="/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <script>
         function applyTheme(theme) {
             document.documentElement.setAttribute('data-theme', theme);
@@ -33,10 +35,14 @@
 <body>
 
     <div class="sticky-header">
-        <h1 style="opacity: 0.7">Blueprint Explorer</h1>
-        <input id="searchBox" type="text" placeholder="Search blueprints..." autocomplete="off"/>
-        <h1 id="currentTitle" style="flex-grow: 1">-</h1>
-        <button id="theme-toggle" class="btn" style="margin-right: 1em">Toggle Theme</button>
+        <div class="control-bar">
+            <!--<h1 style="opacity: 0.7">Blueprint Explorer</h1>-->
+            <input id="searchBox" type="text" placeholder="Search blueprints..." autocomplete="off" />
+            <button id="theme-toggle" class="btn" style="margin-right: 1em"><span id="theme-toggle-label"></span></button>
+        </div>
+        <div class="title-bar">
+            <h1 id="currentTitle" class="hide">-</h1>
+        </div>
     </div>
 
     <!-- results table -->
