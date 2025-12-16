@@ -135,7 +135,6 @@ tbody td {
     display: flex;
     align-items: baseline;
     gap: 20px;
-    
 }
 
     .sticky-header > h1 {
@@ -163,9 +162,10 @@ tbody td {
     user-select: all;
     margin-right: 1em;
 }
-.bp-key::after {
-    content: ':';
-}
+
+    .bp-key::after {
+        content: ':';
+    }
 
 .bp-val {
     user-select: all;
@@ -227,9 +227,59 @@ tbody td {
         background-color: var(--btn-primary-hover-bg);
     }
 
+.bp-toggle {
+    /* Use your button variables for semantic consistency */
+    background-color: var(--btn-bg);
+    border: 1px solid var(--border-color);
+    color: var(--btn-text-color);
+    /* Layout styles to make it a nice square button */
+    border-radius: 4px;
+    height: 20px;
+    width: 20px;
+    line-height: 20px; /* Vertically center the arrow */
+    text-align: center;
+    vertical-align: middle; /* Align the box with the text */
+    margin-right: 4px;
+    /* Interaction styles */
+    cursor: pointer;
+    user-select: none; /* Prevent text selection */
+    display: inline-block;
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+}
+
+    /* Use your button hover variable for the hover state */
+    .bp-toggle:hover {
+        background-color: var(--btn-hover-bg);
+        border-color: var(--input-border-color); /* A slightly stronger border on hover */
+    }
+
+/* 2. A placeholder for non-collapsible rows to keep keys aligned */
+.bp-toggle-placeholder {
+    display: inline-block;
+    width: 20px;
+    height: 22px; /* 20px height + 2px border */
+    margin-right: 4px;
+    vertical-align: middle;
+}
+
+/* 3. The rule for indentation and visual guide lines */
+.bp-children-container {
+    /* Use your specific variable for blueprint borders */
+    border-left: 1px solid var(--bp-row-border);
+    /* Layout remains the same */
+    padding-left: 19px;
+    margin-left: 10px;
+}
+
+    /* 4. The rule that makes collapsing work by hiding the container */
+    .bp-children-container.hide {
+        display: none;
+    }
+
 a {
     color: inherit;
 }
+
 .hide {
     display: none !important;
 }

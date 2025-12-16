@@ -1,3 +1,95 @@
+// frontend/treeView.ts
+function createBlueprintView(flatElements, game, guid, cb) {
+  const rootContainer = document.createElement("div");
+  const parentContainerStack = [rootContainer];
+  const localStorageKey = `bp-state-${guid}`;
+  const savedState = JSON.parse(localStorage.getItem(localStorageKey) || "{}");
+  const pathStack = [];
+  for (const element of flatElements) {
+    if (element.levelDelta < 0) {
+      parentContainerStack.pop();
+      pathStack.pop();
+    }
+    if (element.key === null) {
+      continue;
+    }
+    const currentPath = [...pathStack, element.key].join("/");
+    const nodeWrapper = document.createElement("div");
+    nodeWrapper.className = "bp-node";
+    const row = document.createElement("div");
+    row.className = "bp-row";
+    const childrenContainer = document.createElement("div");
+    childrenContainer.className = "bp-children-container";
+    const hasChildren = element.levelDelta > 0;
+    if (hasChildren) {
+      const toggle = document.createElement("span");
+      toggle.className = "bp-toggle";
+      const isInitiallyCollapsed = savedState[currentPath] ?? false;
+      if (isInitiallyCollapsed) {
+        childrenContainer.classList.add("hide");
+        toggle.textContent = "\u25BA";
+      } else {
+        toggle.textContent = "\u25BC";
+      }
+      toggle.onclick = () => {
+        const isHidden = childrenContainer.classList.toggle("hide");
+        toggle.textContent = isHidden ? "\u25BA" : "\u25BC";
+        if (isHidden) {
+          savedState[currentPath] = true;
+        } else {
+          delete savedState[currentPath];
+        }
+        if (Object.keys(savedState).length === 0) {
+          localStorage.removeItem(localStorageKey);
+        } else {
+          localStorage.setItem(localStorageKey, JSON.stringify(savedState));
+        }
+      };
+      row.appendChild(toggle);
+    } else {
+      const placeholder = document.createElement("span");
+      placeholder.className = "bp-toggle-placeholder";
+      row.appendChild(placeholder);
+    }
+    const keySpan = document.createElement("span");
+    keySpan.className = "bp-key";
+    keySpan.textContent = element.key;
+    row.appendChild(keySpan);
+    if (element.value) {
+      let valEl;
+      if (element.link) {
+        const linkEl = document.createElement("a");
+        linkEl.className = "bp-link";
+        linkEl.href = `/${game}/${element.link}`;
+        linkEl.textContent = element.value;
+        linkEl.onclick = (evt) => cb.handleLinkClick(evt, game, element.link);
+        valEl = linkEl;
+      } else {
+        const valSpan = document.createElement("span");
+        valSpan.className = "bp-val";
+        valSpan.textContent = element.value;
+        valEl = valSpan;
+      }
+      row.appendChild(valEl);
+    }
+    if (element.isObj && element.typeName) {
+      const typeSpan = document.createElement("span");
+      typeSpan.className = "bp-type";
+      typeSpan.textContent = ` [${element.typeName}]`;
+      row.appendChild(typeSpan);
+    }
+    nodeWrapper.appendChild(row);
+    nodeWrapper.appendChild(childrenContainer);
+    const currentParentContainer = parentContainerStack[parentContainerStack.length - 1];
+    currentParentContainer.appendChild(nodeWrapper);
+    if (element.levelDelta > 0) {
+      parentContainerStack.push(childrenContainer);
+      pathStack.push(element.key);
+    }
+  }
+  return rootContainer;
+}
+
 // frontend/app.ts
 var searchBar = document.getElementById("searchBox");
 var resultsTable = document.getElementById("resultsTable");
@@ -9,23 +101,6 @@ var pendingQuery = null;
 document.getElementById("backBtn")?.addEventListener("click", () => {
   history.pushState(null, "", "/");
   showSearch();
-});
-function applyTheme(theme) {
-  document.documentElement.setAttribute("data-theme", theme);
-  localStorage.setItem("theme", theme);
-}
-var savedTheme = localStorage.getItem("theme");
-if (savedTheme) {
-  applyTheme(savedTheme);
-} else {
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  applyTheme(prefersDark ? "dark" : "light");
-}
-var themeToggle = document.getElementById("theme-toggle");
-themeToggle.addEventListener("click", () => {
-  const currentTheme = document.documentElement.getAttribute("data-theme");
-  const newTheme = currentTheme === "dark" ? "light" : "dark";
-  applyTheme(newTheme);
 });
 function initApp() {
   window.addEventListener("popstate", handleRouting);
@@ -102,6 +177,9 @@ function handleLinkClick(e, game, link) {
     navigateTo(game, link);
   }
 }
+var viewCallbacks = {
+  handleLinkClick
+};
 async function loadAndShowBlueprint(game, guid) {
   searchView.classList.add("hide");
   blueprintView.classList.remove("hide");
@@ -110,47 +188,12 @@ async function loadAndShowBlueprint(game, guid) {
   try {
     const response = await fetch(`/bp/view/${game}/${guid}`);
     const elements = await response.json();
-    titleSpan.innerText = elements[0].key;
+    titleSpan.innerText = elements[0].key || "Blueprint";
     container.innerHTML = "";
-    let level = 0;
-    for (const e of elements) {
-      if (e.levelDelta < 0) level += e.levelDelta;
-      if (e.key == null) continue;
-      const row = document.createElement("div");
-      row.className = "bp-row";
-      row.style.paddingLeft = level * 20 + "px";
-      const keySpan = document.createElement("span");
-      keySpan.className = "bp-key";
-      keySpan.textContent = e.key;
-      row.appendChild(keySpan);
-      if (e.value) {
-        let valEl;
-        if (e.link) {
-          const valSpan = document.createElement("a");
-          valSpan.className = "bp-link";
-          valSpan.href = `/${game}/${e.link}`;
-          valSpan.textContent = e.value;
-          valSpan.onclick = (evt) => handleLinkClick(evt, game, e.link);
-          valEl = valSpan;
-        } else {
-          const valSpan = document.createElement("span");
-          valSpan.className = "bp-val";
-          valSpan.textContent = e.value;
-          valEl = valSpan;
-        }
-        row.appendChild(valEl);
-      }
-      if (e.isObj && e.typeName) {
-        const typeSpan = document.createElement("span");
-        typeSpan.style.color = "gray";
-        typeSpan.textContent = ` [${e.typeName}]`;
-        row.appendChild(typeSpan);
-      }
-      container.appendChild(row);
-      if (e.levelDelta > 0) level += e.levelDelta;
-    }
+    const blueprintDom = createBlueprintView(elements, game, guid, viewCallbacks);
+    container.appendChild(blueprintDom);
   } catch (err) {
-    container.textContent = "Error: " + err;
+    container.textContent = "Error: " + (err instanceof Error ? err.message : String(err));
   }
 }
 export {
