@@ -205,8 +205,6 @@ namespace BlueprintExplorer
             InvalidateFragments(Text, primaryFragments);
         }
 
-        private StringFormat _StringFormat;
-
         protected override void OnPaintBackground(PaintEventArgs pevent)
         {
             pevent.Graphics.Clear(BackColor);

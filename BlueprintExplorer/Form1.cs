@@ -208,6 +208,9 @@ namespace BlueprintExplorer
             ctrlP.Daddy = this;
             ctrlP.VisibleChanged += CtrlP_VisibleChanged;
 
+            resultsBuffer[0].Init(BlueprintDB.Instance.Blueprints.Values, BlueprintHandle.MatchKeys);
+            resultsBuffer[1].Init(BlueprintDB.Instance.Blueprints.Values, BlueprintHandle.MatchKeys);
+
             UpdatePinResults(BubblePrints.Settings.PinSearchResults);
 
 
@@ -328,9 +331,6 @@ namespace BlueprintExplorer
                 var settingsView = new SettingsView();
                 settingsView.ShowDialog();
             };
-
-            BubblePrints.SetWrathPath(false, FolderChooser);
-            BubblePrints.LoadAssemblies();
 
             //blueprintViews.DrawMode = TabDrawMode.OwnerDrawFixed;
             //blueprintViews.DrawItem += (sender, e) =>
@@ -678,6 +678,8 @@ namespace BlueprintExplorer
         private CancellationTokenSource finishingLast;
         private Task<List<BlueprintHandle>> overlappedSearch;
 
+        private MatchResultBuffer[] resultsBuffer = [new(), new()];
+
         private void SetResults(List<BlueprintHandle> results, CancellationTokenSource cancellation, int matchBuffer, ulong sequenceNumber)
         {
             if (cancellation == finishingFirst)
@@ -686,7 +688,6 @@ namespace BlueprintExplorer
                 finishingLast = null;
 
             lastFinished = matchBuffer;
-            BlueprintDB.UnlockBuffer(matchBuffer);
 
             if (sequenceNumber < lastCompleted)
                 return;
@@ -717,7 +718,6 @@ namespace BlueprintExplorer
             {
                 finishingLast.Cancel();
                 finishingLast.Token.WaitHandle.WaitOne();
-                BlueprintDB.UnlockBuffer(1);
             }
 
             finishingLast = cancellation;
@@ -739,18 +739,18 @@ namespace BlueprintExplorer
 
             if (matchBuffer == 1)
             {
-                overlappedSearch = BlueprintDB.Instance.SearchBlueprintsAsync(searchTerm, cancellation.Token, matchBuffer);
+                overlappedSearch = BlueprintDB.Instance.SearchBlueprintsAsync(searchTerm, cancellation.Token, resultsBuffer[matchBuffer]);
                 search = overlappedSearch;
             }
             else
             {
-                search = BlueprintDB.Instance.SearchBlueprintsAsync(searchTerm, cancellation.Token, matchBuffer);
+                search = BlueprintDB.Instance.SearchBlueprintsAsync(searchTerm, cancellation.Token, resultsBuffer[matchBuffer]);
             }
 
             search.ContinueWith(task =>
             {
                 if (!task.IsCanceled && !cancellation.IsCancellationRequested)
-                    this.Invoke((Action<List<BlueprintHandle>, CancellationTokenSource, int, ulong>)SetResults, task.Result, cancellation, matchBuffer, sequenceNumber);
+                    this.Invoke(SetResults, task.Result, cancellation, matchBuffer, sequenceNumber);
             });
 
         }
@@ -989,7 +989,7 @@ namespace BlueprintExplorer
                 0 => resultsCache[row].Name,
                 1 => resultsCache[row].TypeName,
                 2 => resultsCache[row].Namespace,
-                3 => resultsCache[row].Score(lastFinished).ToString(),
+                3 => resultsBuffer[lastFinished].Score(resultsCache[row]).ToString(),
                 4 => resultsCache[row].GuidText,
                 _ => "<error>",
             };

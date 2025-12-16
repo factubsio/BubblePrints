@@ -181,7 +181,6 @@ namespace BlueprintExplorer
             internal bool PreviewHover;
             private string _Path;
             public string Type;
-            internal string Default;
             public string Extra = "";
             internal bool LinkStale;
 
@@ -549,49 +548,44 @@ namespace BlueprintExplorer
                             }
                         }
 
-                        if (row.key == "m_IntValue" && row.Parent.TypeFull == "Kingmaker.Blueprints.Classes.Spells.SpellDescriptorWrapper") 
-                        {
-                            Type GetRuntimePrimitiveTypeFromMetadataType(Type t) {
-                                return t.FullName switch {
-                                    "System.Int32" => typeof(int),
-                                    "System.UInt32" => typeof(uint),
-                                    "System.Int64" => typeof(long),
-                                    "System.UInt64" => typeof(ulong),
-                                    "System.Byte" => typeof(byte),
-                                    "System.SByte" => typeof(sbyte),
-                                    "System.Int16" => typeof(short),
-                                    "System.UInt16" => typeof(ushort),
-                                    _ => throw new NotSupportedException($"Unsupported underlying enum type '{t.FullName}'")
-                                };
-                            }
+                        //if (row.key == "m_IntValue" && row.Parent.TypeFull == "Kingmaker.Blueprints.Classes.Spells.SpellDescriptorWrapper") 
+                        //{
+                        //    Type GetRuntimePrimitiveTypeFromMetadataType(Type t) {
+                        //        return t.FullName switch {
+                        //            "System.Int32" => typeof(int),
+                        //            "System.UInt32" => typeof(uint),
+                        //            "System.Int64" => typeof(long),
+                        //            "System.UInt64" => typeof(ulong),
+                        //            "System.Byte" => typeof(byte),
+                        //            "System.SByte" => typeof(sbyte),
+                        //            "System.Int16" => typeof(short),
+                        //            "System.UInt16" => typeof(ushort),
+                        //            _ => throw new NotSupportedException($"Unsupported underlying enum type '{t.FullName}'")
+                        //        };
+                        //    }
 
-                            string PoorMansEnumParse(Type t, string value) {
-                                var fields = t.GetFields(BindingFlags.Public | BindingFlags.Static); 
-                                var underlyingType = GetRuntimePrimitiveTypeFromMetadataType(Enum.GetUnderlyingType(t));
-                                object rawValue = Convert.ChangeType(value, underlyingType, CultureInfo.InvariantCulture);
-                                long convertedValue = Convert.ToInt64(rawValue);
-                                var matching = fields
-                                    .Where(f => ((Convert.ToInt64(f.GetRawConstantValue()) & convertedValue) != 0))
-                                    .Select(f => f.Name);
+                        //    string PoorMansEnumParse(Type t, string value) {
+                        //        var fields = t.GetFields(BindingFlags.Public | BindingFlags.Static); 
+                        //        var underlyingType = GetRuntimePrimitiveTypeFromMetadataType(Enum.GetUnderlyingType(t));
+                        //        object rawValue = Convert.ChangeType(value, underlyingType, CultureInfo.InvariantCulture);
+                        //        long convertedValue = Convert.ToInt64(rawValue);
+                        //        var matching = fields
+                        //            .Where(f => ((Convert.ToInt64(f.GetRawConstantValue()) & convertedValue) != 0))
+                        //            .Select(f => f.Name);
 
-                                return string.Join(" | ", matching);
+                        //        return string.Join(" | ", matching);
 
-                            }
-                            List<StyledString.StyleSpan> spans = new();
-                            spans.Add(new(row.value + "    -    ", StyleFlags.Bold));
-                            // spans.Add(new(Enum.Parse(BubblePrints.Wrath.GetType("Kingmaker.Blueprints.Classes.Spells.SpellDescriptor"), row.value).ToString(), 0));
-                            spans.Add(new(PoorMansEnumParse(BubblePrints.Wrath.GetType("Kingmaker.Blueprints.Classes.Spells.SpellDescriptor"), row.value), 0));
-                            row.ValueStyled = new(spans);
-                        }
+                        //    }
+                        //    List<StyledString.StyleSpan> spans = new();
+                        //    spans.Add(new(row.value + "    -    ", StyleFlags.Bold));
+                        //    // spans.Add(new(Enum.Parse(BubblePrints.Wrath.GetType("Kingmaker.Blueprints.Classes.Spells.SpellDescriptor"), row.value).ToString(), 0));
+                        //    spans.Add(new(PoorMansEnumParse(BubblePrints.Wrath.GetType("Kingmaker.Blueprints.Classes.Spells.SpellDescriptor"), row.value), 0));
+                        //    row.ValueStyled = new(spans);
+                        //}
 
                         if (row.key == "$type" && row.Parent != null)
                             continue;
 
-
-                        if (e.levelDelta == 0 && row.Parent != null)
-                        {
-                            row.Default = BlueprintDB.Instance.DefaultForField(row.Parent?.TypeFull, e.key);
-                        }
 
                         if (row.String != null)
                         {
@@ -803,20 +797,13 @@ namespace BlueprintExplorer
                 render.Graphics.DrawLine(RowLineGuide, xOffset + keyWidth + 3, lineY, NameColumnWidth - 3, lineY);
                 if (elem.String == null)
                 {
-                    bool empty = false;
-                    float right = NameColumnWidth;
                     var brush = new SolidBrush(valueColor);
                     if (elem.ValueStyled == null)
                     {
                         var str = elem.value + elem.Extra;
                         if (str.Length > 0)
                         {
-                            right += render.Graphics.MeasureString(str, valueFont).Width;
                             render.Graphics.DrawString(str, valueFont, brush, new PointF(NameColumnWidth, 0));
-                        }
-                        else
-                        {
-                            empty = true;
                         }
                     }
                     else
@@ -831,22 +818,7 @@ namespace BlueprintExplorer
                             render.Graphics.DrawString(span.Value, font, brush, p);
                             p.X += width;
                         }
-
-                        right = p.X;
                     }
-
-
-                    //if (elem.Default != null)
-                    //{
-                    //    if (!empty)
-                    //    {
-                    //        right += 64;
-                    //        if (right < NameColumnWidth + 400)
-                    //            right = NameColumnWidth + 400;
-                    //    }
-
-                    //    render.Graphics.DrawString("[default: " + elem.Default + "]", Font, Brushes.Gray, new PointF(right, 0));
-                    //}
                 }
             }
 

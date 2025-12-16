@@ -73,7 +73,7 @@ namespace WikiGen
             }
 
 
-            var progress = new BlueprintDB.ConnectionProgress();
+            var progress = new ConnectionProgress();
             var load = Task.Run(() => BlueprintDB.Instance.TryConnect(progress));
 
             var print = Task.Run(() =>
@@ -693,8 +693,6 @@ namespace WikiGen
             }
 
             casterLevelModifier = spellsBp.obj.Int("CasterLevelModifier");
-
-            int _ = 0;
         }
 
         private static void WriteStats(FlagProgression flags, Utf8JsonWriter jsonWriter)

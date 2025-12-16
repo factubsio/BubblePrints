@@ -1,4 +1,5 @@
-﻿using BlueprintExplorer.Properties;
+﻿using BinzFactory;
+using BlueprintExplorer.Properties;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -74,7 +75,7 @@ public partial class SplashScreenChooserJobbie : Form
         Form1 main = new()
         {
             Splash = this,
-            Text = "BubblePrints - " + binz.Version.ToString()
+            Text = $"BubblePrints - {binz.Version}"
         };
         main.Show();
     }
@@ -104,14 +105,6 @@ public partial class SplashScreenChooserJobbie : Form
 
         ShowLoadAnimation();
 
-        BubblePrints.Game_Data = toLoad.Version.Game switch
-        {
-            "Wrath" => "Wrath_Data",
-            "KM" => "Kingmaker_Data",
-            "RT" => "WH40KRT_Data",
-            _ => throw new NotSupportedException(),
-        };
-
         if (!toLoad.Local)
         {
             if (toLoad.Version.Game != "KM" && toLoad.Version.Game != "Wrath" && toLoad.Version.Game != "RT")
@@ -131,7 +124,7 @@ public partial class SplashScreenChooserJobbie : Form
         loadAnim.ShowProgressBar = false;
         loadAnim.Caption = "Loading";
 
-        var loadProgress = new BlueprintDB.ConnectionProgress();
+        var loadProgress = new ConnectionProgress();
         var initialize = Task.Run(() => BlueprintDB.Instance.TryConnect(loadProgress, toLoad.Path));
         var idle = Task.Run(() =>
         {
@@ -150,18 +143,19 @@ public partial class SplashScreenChooserJobbie : Form
 
     private async void DoImportFromGame(object sender, EventArgs e)
     {
-        BubblePrints.SetWrathPath(true, Form1.FolderChooser);
-        if (!BubblePrints.TryGetWrathPath(out var wrathPath))
-        {
-            return;
-        }
+        var queryPath = new FormsFolderChooser();
+        queryPath.Prepare();
 
-        var version = BubblePrints.GetGameVersion(wrathPath);
-        var filename = BlueprintDB.FileNameFor(version, BubblePrints.CurrentGame);
+
+        if (!queryPath.Choose("Game.exe", out string gamePath))
+            return;
+
+        var version = BinzImporter.GetGameVersion(gamePath);
+        var filename = BlueprintDB.FileNameFor(version, BinzImporter.CurrentGame);
         while (File.Exists(Path.Join(BubblePrints.DataPath, filename)))
         {
             version.Bubble++;
-            filename = BlueprintDB.FileNameFor(version, BubblePrints.CurrentGame);
+            filename = BlueprintDB.FileNameFor(version, BinzImporter.CurrentGame);
         }
 
         Console.WriteLine(version);
@@ -178,8 +172,8 @@ public partial class SplashScreenChooserJobbie : Form
             }
             else if (result == DialogResult.Yes)
             {
-                version.Bubble = version.Bubble - 1;
-                filename = BlueprintDB.FileNameFor(version, BubblePrints.CurrentGame);
+                version.Bubble--;
+                filename = BlueprintDB.FileNameFor(version, BinzImporter.CurrentGame);
             }
         }
 
@@ -192,7 +186,7 @@ public partial class SplashScreenChooserJobbie : Form
         {
             ConnectionProgress progress = new();
             var path = Path.Join(BubblePrints.DataPath, filename);
-            var extract = Task.Run(() => BlueprintDB.Instance.ExtractFromGame(progress, wrathPath, path, version));
+            var extract = Task.Run(() => BinzImporter.Import(progress, gamePath, path, version));
             var idle = Task.Run(() =>
             {
                 while (!extract.IsCompleted)
@@ -209,7 +203,7 @@ public partial class SplashScreenChooserJobbie : Form
                     }
                 }
             });
-            await extract;
+            BlueprintDB.SetInstance(await extract);
             await idle;
             Binz binz = new()
             {
@@ -217,7 +211,7 @@ public partial class SplashScreenChooserJobbie : Form
                 Version = new()
                 {
                     Version = version,
-                    Game = BubblePrints.CurrentGame,
+                    Game = BinzImporter.CurrentGame,
                 },
                 Path = path,
                 Source = "local",

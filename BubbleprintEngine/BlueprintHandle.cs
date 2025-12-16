@@ -315,6 +315,8 @@ namespace BlueprintExplorer
                     obj => (obj as BlueprintHandle).NamespaceLower,
                     obj => (obj as BlueprintHandle).GuidText);
 
+        public static string[] MatchKeys => ["name", "type", "space", "guid"];
+
         private MatchResult[] CreateResultArray()
         {
             return new MatchResult[] {
@@ -439,27 +441,8 @@ namespace BlueprintExplorer
 
         public IEnumerable<IDisplayableElement> DisplayableElements => Elements;
 
-        public static void VisitObjects(JsonElement node, HashSet<string> types)
-        {
-            if (node.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var elem in node.EnumerateArray())
-                    VisitObjects(elem, types);
-            }
-            else if (node.ValueKind == JsonValueKind.Object)
-            {
-                if (node.TryGetProperty("$type", out var raw)) {
-                    if (BubblePrints.CurrentGame == "KM") {
-                        types.Add(raw.NewTypeStr().FullName);
-                    } else {
-                        types.Add(raw.NewTypeStr().Guid);
-                    }
-                }
-                foreach (var elem in node.EnumerateObject())
-                    VisitObjects(elem.Value, types);
-            }
+        public Guid Guid { get; internal set; }
 
-        }
 
         public static IEnumerable<VisitedElement> Visit(JsonElement node, string name)
         {

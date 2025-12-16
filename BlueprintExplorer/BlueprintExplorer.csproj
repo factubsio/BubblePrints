@@ -12,6 +12,7 @@
     <SignAssembly>false</SignAssembly>
     <AssemblyOriginatorKeyFile>bubbleprintskey.pfx</AssemblyOriginatorKeyFile>
     <DelaySign>false</DelaySign>
+    <Configurations>Debug;Release;WebDebug;WebRelease</Configurations>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,6 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\BinzFactory\BinzFactory.csproj" />
     <ProjectReference Include="..\BubbleprintEngine\BubbleprintEngine.csproj" />
   </ItemGroup>
 

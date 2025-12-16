@@ -1,9 +1,10 @@
 ﻿using BlueprintExplorer;
 using static BlueprintExplorer.BlueprintDB;
+using BinzFactory;
 
 namespace bprint;
 
-public class Program
+public static class Program
 {
     public static async Task Main(string[] args)
     {
@@ -34,7 +35,7 @@ public class Program
 
         var binz = bins.Available.First(b => b.Local && b.Version.Game == game) ?? throw new Exception($"no {game} binz available");
 
-        var loadProgress = new BlueprintDB.ConnectionProgress();
+        var loadProgress = new ConnectionProgress();
         var initialize = Task.Run(() => BlueprintDB.Instance.TryConnect(loadProgress, binz.Path));
         var idle = Task.Run(() =>
         {
@@ -50,9 +51,12 @@ public class Program
 
         var db = BlueprintDB.Instance;
 
+        MatchResultBuffer resultsBuffer = new();
+        resultsBuffer.Init(db.Blueprints.Values, BlueprintHandle.MatchKeys);
+
         string query = args[2];
         Console.WriteLine($"searching for {game}:{query}");
-        var matches = db.SearchBlueprints(query, 0, CancellationToken.None);
+        var matches = db.SearchBlueprints(query, resultsBuffer, CancellationToken.None);
 
         Console.WriteLine("Showing top 10 (max) results");
         foreach (var match in matches.Take(10))
@@ -65,27 +69,20 @@ public class Program
     public static async Task Import(string[] args)
     {
         string gamePath = args[1];
-        BubblePrints.SetWrathPath(true, new FixedGamePath(gamePath));
-        BubblePrints.LoadAssemblies();
 
-        if (!BubblePrints.TryGetWrathPath(out var wrathPath))
-        {
-            return;
-        }
-
-
-        var version = BubblePrints.GetGameVersion(wrathPath);
-        var filename = BlueprintDB.FileNameFor(version, BubblePrints.CurrentGame);
+        var version = BinzImporter.GetGameVersion(gamePath);
+        var filename = BlueprintDB.FileNameFor(version, BinzImporter.CurrentGame);
         while (File.Exists(Path.Join(BubblePrints.DataPath, filename)))
         {
             version.Bubble++;
-            filename = BlueprintDB.FileNameFor(version, BubblePrints.CurrentGame);
+            filename = BlueprintDB.FileNameFor(version, BinzImporter.CurrentGame);
         }
 
         Console.WriteLine(version);
 
         if (version.Bubble > 0)
         {
+
             string? handleOverwrite = args.Length > 2 ? args[2] : null;
             string? promptResult = handleOverwrite switch
             {
@@ -109,8 +106,8 @@ public class Program
 
             if (promptResult == "0")
             {
-                version.Bubble = version.Bubble - 1;
-                filename = BlueprintDB.FileNameFor(version, BubblePrints.CurrentGame);
+                version.Bubble--;
+                filename = BlueprintDB.FileNameFor(version, BinzImporter.CurrentGame);
             }
             else if (promptResult != "1")
             {
@@ -124,7 +121,7 @@ public class Program
             BPFile.BPWriter.Verbose = false;
             var path = Path.Join(BubblePrints.DataPath, filename);
             Console.WriteLine($"Writing binz to: {path}");
-            var extract = Task.Run(() => BlueprintDB.Instance.ExtractFromGame(progress, wrathPath, path, version));
+            var extract = Task.Run(() => BinzImporter.Import(progress, gamePath, path, version));
 
             var (left, top) = Console.GetCursorPosition();
             const int barWidth = 60;
@@ -161,7 +158,7 @@ public class Program
                 Version = new()
                 {
                     Version = version,
-                    Game = BubblePrints.CurrentGame,
+                    Game = BinzImporter.CurrentGame,
                 },
                 Path = path,
                 Source = "local",

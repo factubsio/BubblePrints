@@ -4,9 +4,47 @@ using System.Collections.Generic;
 namespace BlueprintExplorer
 {
     public interface ISearchable {
-        //Dictionary<string, Func<string>> Providers { get; }     // named functions to extract different text out of the target
-        MatchResult[] GetMatches(int index);
+        public Guid Guid { get; }
     }
+
+    public class MatchResultBuffer()
+    {
+        public readonly Dictionary<Guid, MatchResult[]> Results = [];
+
+        public void Init(IEnumerable<ISearchable> items, string[] keys)
+        {
+            foreach (var item in items)
+            {
+                Results[item.Guid] = [.. keys.Select(key => new MatchResult(key, item))];
+            }
+        }
+
+        internal MatchResult[] Create(ISearchable item)
+        {
+            var resultsForSearchable = Results[item.Guid];
+            foreach (var r in resultsForSearchable)
+                r.Clean();
+            return resultsForSearchable;
+        }
+
+        internal MatchResult[] Query(ISearchable item) => Results[item.Guid];
+
+        public float Score(ISearchable item)
+        {
+            var matches = Query(item);
+            if (matches == null)
+                return float.PositiveInfinity;
+            var score = 0f;
+            foreach (var match in matches) {
+                score += match.Score;
+            //    if (match.Score > 50) {
+            //        System.Console.WriteLine($"{match}");
+            //    }
+            }
+            return score;
+        }
+    }
+
     public class MatchResult {
         public struct Span {
             public UInt16 From;
@@ -213,8 +251,8 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
 
         private MatchProvider Provider;
 
-        public ISearchable Evaluate(ISearchable searchable, int index) {
-            var matches = searchable.CleanedMatches(index);
+        public void Evaluate(ISearchable searchable, MatchResultBuffer resultsBuffer) {
+            var matches = resultsBuffer.Create(searchable);
             if (SearchText?.Length > 0 || StrictSearchTexts.Count > 0) {
                 bool foundRestricted = false;
                 for (int i = 0; i < matches.Length; i++) {
@@ -233,89 +271,29 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
                     FuzzyMatch(Provider.Terms[0](searchable), matches[0]);
                 }
             }
-            return searchable;
         }
     }
     public static class MatchHelpers {
-        public static bool HasMatches(this ISearchable searchable, int index) {
-            if (searchable.GetMatches(index) == null)
+        public static bool HasMatches(this ISearchable searchable, MatchResultBuffer resultsBuffer) {
+            var matches = resultsBuffer.Query(searchable);
+            if (matches == null)
                 return true;
             var fuzzyCount = 0;
             var strictFailures = 0;
             var strictMatches = 0;
-            foreach (var match in searchable.GetMatches(index)) {
+            foreach (var match in matches) {
                 if (match.IsFuzzy) {
                     if (match.Score >= 10)
-                        fuzzyCount += 1;
+                        fuzzyCount++;
                 }
                 else {
                     if (match.TotalMatched > 0)
-                        strictMatches += 1;
+                        strictMatches++;
                     else if (!match.IsClean)
-                        strictFailures += 1;
+                        strictFailures++;
                 }
             }
             return (fuzzyCount >= 1 || strictMatches > 0) && strictFailures == 0;
         }
-        public static float Score(this ISearchable searchable, int index) {
-            if (searchable.GetMatches(index) == null)
-                return float.PositiveInfinity;
-            var score = 0f;
-            foreach (var match in searchable.GetMatches(index)) {
-                score += match.Score;
-            //    if (match.Score > 50) {
-            //        System.Console.WriteLine($"{match}");
-            //    }
-            }
-            return score;
-        }
-        public static MatchResult[] CleanedMatches(this ISearchable searchable, int index) {
-            var matches = searchable.GetMatches(index);
-            // cleanup old match results
-            var count = matches.Length;
-            for (var ii = 0; ii<count; ii++)
-                matches[ii].Clean();
-            return matches;
-        }
     }
-#if false
-    public static class FuzzyMatcher {
-        public static IEnumerable<T> FuzzyMatch<T>(this IEnumerable<(T, string)> input, string needle, float scoreThreshold = 10) {
-            var result = new MatchQuery<T>(needle.ToLower());
-            return input.Select(i => result.Match(i.Item2, i.Item1)).Where(match => match.Score > scoreThreshold).OrderByDescending(match => match.Score).Select(m => m.Handle);
-        }
-        /// <summary>
-        /// Fuzzy Match all items in input against the needle
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="input">input items</param>
-        /// <param name="haystack">function to get the 'string' key of an input item to match against</param>
-        /// <param name="needle">value to match against</param>
-        /// <param name="scoreThreshold">discard all results under this score (default: 10)</param>
-        /// <returns>An IEnumerable<out T> that contains elements from the input sequence that score above the threshold, sorted by score</out></returns>
-        public static IEnumerable<T> FuzzyMatch<T>(this IEnumerable<T> input, Func<T, string> haystack, string needle, float scoreThreshold = 10) {
-            return input.Select(i => (i, haystack(i))).FuzzyMatch(needle, scoreThreshold);
-        }
-
-
-        public class ExampleType {
-            int Foo;
-            string Bar;
-
-            public string Name => $"{Bar}.{Foo}";
-        }
-
-        public static void Example() {
-            //Assume some input list (or enumerable)
-            List<ExampleType> inputList = new();
-
-            //Get an enumerable of all the matches (above a score threshold, default = 10)
-            var matches = inputList.FuzzyMatch(type => type.Name, "string_to_search");
-
-            //Get top 20 results
-            var top20 = matches.Take(20).ToList();
-        }
-
-    }
-#endif
 }

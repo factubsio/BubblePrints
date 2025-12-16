@@ -4,7 +4,8 @@ namespace BlueprintExplorer
 {
     public partial class BlueprintDB
     {
-        public struct GameVersion : IComparable<GameVersion> {
+        public struct GameVersion : IComparable<GameVersion>
+        {
             public int Major, Minor, Patch;
             public string Suffix;
             public int Bubble;
@@ -39,10 +40,14 @@ namespace BlueprintExplorer
             public override int GetHashCode() => HashCode.Combine(Major, Minor, Patch, Suffix, Bubble);
 
 
-            public override string ToString() {
-                if (int.TryParse(Suffix, out var _)) {
+            public override string ToString()
+            {
+                if (int.TryParse(Suffix, out var _))
+                {
                     return $"{Major}.{Minor}.{Patch}.{Suffix}_{Bubble}";
-                } else {
+                }
+                else
+                {
                     return $"{Major}.{Minor}.{Patch}{(Suffix == default ? "" : Suffix)}_{Bubble}";
                 }
             }

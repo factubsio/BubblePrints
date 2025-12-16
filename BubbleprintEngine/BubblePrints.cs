@@ -1,9 +1,5 @@
 using System.ComponentModel;
-using System.Reflection;
 using System.Text.Json;
-using System.Text.RegularExpressions;
-
-using static BlueprintExplorer.BlueprintDB;
 
 namespace BlueprintExplorer;
 
@@ -16,19 +12,11 @@ public static class BubblePrints
     public static event SettingsChangedDelegate OnSettingsChanged;
 
     public static SettingsProxy Settings = new();
-    private static string StoredWrathPath = null;
-    public static bool TryGetWrathPath(out string path)
-    {
-        path = StoredWrathPath;
-        return path != null;
-    }
 
 #if !NO_CONSOLE
     [System.Runtime.InteropServices.DllImport("kernel32.dll")]
     private static extern bool AllocConsole();
 #endif
-
-    public static Assembly Wrath;
 
     public static void Install()
     {
@@ -59,130 +47,10 @@ public static class BubblePrints
         }
     }
 
-    private static Regex ExtractVersionPattern = new(@"(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?<suffix>\.\d+|[a-zA-Z]*)");
-
-    public static GameVersion GetGameVersion(string wrathPath)
-    {
-        if (Game_Data == "Kingmaker_Data")
-        {
-            return new(2, 1, 7, "b", 0);
-        }
-
-        var versionPath = Path.Combine(wrathPath, Game_Data, "StreamingAssets", "Version.info");
-        if (!File.Exists(versionPath))
-        {
-            throw new Exception("Cannot find Version.info in given wrath path");
-        }
-
-        var lines = File.ReadAllLines(versionPath);
-        if (lines.Length == 0)
-        {
-            throw new Exception("Version.info is empty");
-        }
-
-        var split = lines[0].Split(" ");
-        if (split.Length <= 2)
-        {
-            throw new Exception("Game Version string is invalid");
-        }
-
-        var maybeVersion = split[^2];
-        var r = ExtractVersionPattern.Match(maybeVersion);
-        if (!r.Success)
-        {
-            throw new Exception("Game Version string is invalid");
-        }
-
-        var major = int.Parse(r.Groups["major"].Value);
-        var minor = int.Parse(r.Groups["minor"].Value);
-        var patch = int.Parse(r.Groups["patch"].Value);
-        var suffix = r.Groups["suffix"].Value;
-        return new(major, minor, patch, suffix, 0);
-    }
-
-    public static void SetWrathPath(bool forceSelect, IFolderChooser queryPath)
-    {
-        var path = BubblePrints.Game_Data switch
-        {
-            "Wrath_Data" => Settings.WrathPath,
-            "Kingmaker_Data" => Settings.KMPath,
-            "WH40KRT_Data" => Settings.RTPath,
-            _ => throw new NotSupportedException()
-        };
-        if (forceSelect)
-        {
-            path = null;
-        }
-        if (string.IsNullOrEmpty(path) || !File.Exists(Path.Combine(path, GameExe)))
-        {
-            queryPath.Prepare();
-
-            while (true)
-            {
-                if (!queryPath.Choose(GameExe, out path))
-                    return;
-
-                static bool ContainsDirectory(string path, string directoryName)
-                {
-                    Console.WriteLine($"checking: {path}");
-
-                    var dirs = Directory.GetDirectories(path);
-
-                    return dirs
-                        .Select(path => Path.EndsInDirectorySeparator(path) ? Path.GetDirectoryName(path) : Path.GetFileName(path))
-                        .Contains(directoryName);
-                }
-
-                if (ContainsDirectory(path, "WH40KRT_Data"))
-                    BubblePrints.Game_Data = "WH40KRT_Data";
-                else
-                if (ContainsDirectory(path, "Wrath_Data"))
-                    BubblePrints.Game_Data = "Wrath_Data";
-                else
-                if (ContainsDirectory(path, "Kingmaker_Data"))
-                    BubblePrints.Game_Data = "Kingmaker_Data";
-
-                var exePath = Path.Combine(path, GameExe);
-                if (File.Exists(exePath))
-                    break;
-            }
-
-            switch (BubblePrints.Game_Data)
-            {
-                case "Wrath_Data": Settings.WrathPath = path; break;
-                case "Kingmaker_Data": Settings.KMPath = path; break;
-                case "WH40KRT_Data": Settings.RTPath = path; break;
-                default: break;
-            }
-            SaveSettings();
-        }
-
-        StoredWrathPath = path;
-    }
-
     public static string DataPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints");
     public static string MakeDataPath(string subpath) => Path.Combine(DataPath, subpath);
     public static string SettingsPath => MakeDataPath("settings.json");
 
-    public static string GameExe => Game_Data switch
-    {
-        "Kingmaker_Data" => "Kingmaker.exe",
-        "Wrath_Data" => "Wrath.exe",
-        "WH40KRT_Data" => "WH40KRT.exe",
-        _ => throw new NotSupportedException(),
-    };
-
-    public static string CurrentGame => Game_Data switch
-    {
-        "Kingmaker_Data" => "KM",
-        "Wrath_Data" => "Wrath",
-        "WH40KRT_Data" => "RT",
-        _ => throw new NotSupportedException(),
-    };
-
-
-    // Change this for import new
-    public static string Game_Data = "WH40KRT_Data";
 
     public static void SaveSettings()
     {
@@ -190,25 +58,6 @@ public static class BubblePrints
         OnSettingsChanged?.Invoke();
     }
     public static void NotifyTemplatesChanged(int oldCount, int newCount) => OnTemplatesChanged?.Invoke(oldCount, newCount);
-    public static string GetBlueprintSource(string wrathPath) => Game_Data switch
-    {
-        "Wrath_Data" or "WH40KRT_Data" or "Kingmaker_Data" => Path.Combine(wrathPath, "blueprints.zip"),
-        _ => throw new NotSupportedException("unknown game: " + Game_Data)
-    };
-    public static void LoadAssemblies()
-    {
-        if (TryGetWrathPath(out var wrathPath))
-        {
-            var gamePath = Path.Combine(wrathPath, BubblePrints.Game_Data, "Managed");
-            var resolver = new PathAssemblyResolver(Directory.EnumerateFiles(gamePath, "*.dll"));
-            var _mlc = new MetadataLoadContext(resolver);
-            if (CurrentGame == "RT")
-                Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(gamePath, "Code.dll"));
-            else
-                Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(gamePath, "Assembly-CSharp.dll"));
-        }
-
-    }
 }
 
 public enum ExportMode
