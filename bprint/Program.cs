@@ -71,11 +71,12 @@ public static class Program
         string gamePath = args[1];
 
         var version = BinzImporter.GetGameVersion(gamePath);
-        var filename = BlueprintDB.FileNameFor(version, BinzImporter.CurrentGame);
+        var gameName = BinzImporter.GetGameName(gamePath);
+        var filename = BlueprintDB.FileNameFor(version, gameName);
         while (File.Exists(Path.Join(BubblePrints.DataPath, filename)))
         {
             version.Bubble++;
-            filename = BlueprintDB.FileNameFor(version, BinzImporter.CurrentGame);
+            filename = BlueprintDB.FileNameFor(version, gameName);
         }
 
         Console.WriteLine(version);
@@ -107,7 +108,7 @@ public static class Program
             if (promptResult == "0")
             {
                 version.Bubble--;
-                filename = BlueprintDB.FileNameFor(version, BinzImporter.CurrentGame);
+                filename = BlueprintDB.FileNameFor(version, gameName);
             }
             else if (promptResult != "1")
             {
@@ -158,7 +159,7 @@ public static class Program
                 Version = new()
                 {
                     Version = version,
-                    Game = BinzImporter.CurrentGame,
+                    Game = gameName,
                 },
                 Path = path,
                 Source = "local",

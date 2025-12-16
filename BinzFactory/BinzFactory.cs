@@ -5,48 +5,27 @@ using System.Text.RegularExpressions;
 
 namespace BinzFactory;
 
-public static class BinzImporter
+public static partial class BinzImporter
 {
-    public static Assembly Wrath;
+    private static readonly List<GameIdentification> KnownGames =
+    [
+        new("WH40KRT_Data", "RT", typeof(RtGame)),
+        new("Wrath_Data", "Wrath", typeof(WrathGame)),
+        new("Kingmaker_Data", "KM", typeof(KmGame)),
+    ];
 
-    // Change this for import new
-    public static string Game_Data { get; private set; } = "WH40KRT_Data";
+    private static GameIdentification? GameForPath(string gamePath) => KnownGames.FirstOrDefault(x => x.Matches(gamePath));
 
-    public static string CurrentGame => Game_Data switch
+    private static readonly Regex ExtractVersionPattern = MakeExtractVersionPattern();
+    public static BlueprintExplorer.BlueprintDB.GameVersion GetGameVersion(string gamePath)
     {
-        "Kingmaker_Data" => "KM",
-        "Wrath_Data" => "Wrath",
-        "WH40KRT_Data" => "RT",
-        _ => throw new NotSupportedException(),
-    };
-
-    //public static void LoadAssemblies(string gameData, string dllName)
-    //{
-    //    if (TryGetWrathPath(out var wrathPath))
-    //    {
-    //        var gamePath = Path.Combine(wrathPath, gameData, "Managed");
-    //        var resolver = new PathAssemblyResolver(Directory.EnumerateFiles(gamePath, "*.dll"));
-    //        var _mlc = new MetadataLoadContext(resolver);
-    //        Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(gamePath, dllName));
-    //    }
-
-    //}
-
-    public static string GetBlueprintSource(string wrathPath) => Game_Data switch
-    {
-        "Wrath_Data" or "WH40KRT_Data" or "Kingmaker_Data" => Path.Combine(wrathPath, "blueprints.zip"),
-        _ => throw new NotSupportedException("unknown game: " + Game_Data)
-    };
-
-    private static Regex ExtractVersionPattern = new(@"(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?<suffix>\.\d+|[a-zA-Z]*)");
-    public static BlueprintExplorer.BlueprintDB.GameVersion GetGameVersion(string wrathPath)
-    {
+        string Game_Data = GameDataFromPath(gamePath);
         if (Game_Data == "Kingmaker_Data")
         {
             return new(2, 1, 7, "b", 0);
         }
 
-        var versionPath = Path.Combine(wrathPath, Game_Data, "StreamingAssets", "Version.info");
+        var versionPath = Path.Combine(gamePath, Game_Data, "StreamingAssets", "Version.info");
         if (!File.Exists(versionPath))
         {
             throw new Exception("Cannot find Version.info in given wrath path");
@@ -78,70 +57,32 @@ public static class BinzImporter
         return new(major, minor, patch, suffix, 0);
     }
 
+    public static string GetGameName(string gamePath) => GameForPath(gamePath)?.Name ?? "unknown";
+    private static string GameDataFromPath(string gamePath) => GameForPath(gamePath)?.DataFolder ?? "unknown";
+
     public static BlueprintDB Import(ConnectionProgress progress, string gamePath, string path, BlueprintDB.GameVersion version)
     {
+        IGameDefinitions game = GameForPath(gamePath)?.Create(gamePath) ?? throw new NotSupportedException();
 
-        static bool ContainsDirectory(string path, string directoryName)
-        {
-            var dirs = Directory.GetDirectories(path);
+        var db = BinzImportExport.ExtractFromGame(game, progress);
 
-            return dirs
-                .Select(path => Path.EndsInDirectorySeparator(path) ? Path.GetDirectoryName(path) : Path.GetFileName(path))
-                .Contains(directoryName);
-        }
+        BinzImportExport.WriteBlueprints(db, progress, game, path, version);
 
-        if (ContainsDirectory(gamePath, "WH40KRT_Data"))
-            Game_Data = "WH40KRT_Data";
-        else if (ContainsDirectory(gamePath, "Wrath_Data"))
-            Game_Data = "Wrath_Data";
-        else if (ContainsDirectory(gamePath, "Kingmaker_Data"))
-            Game_Data = "Kingmaker_Data";
-
-        IGameImporter importer = new FromZipImporter();
-        return importer.ExtractFromGame(progress, gamePath, path, version);
+        return db;
     }
 
-    public static string GameExe => Game_Data switch
-    {
-        "Kingmaker_Data" => "Kingmaker.exe",
-        "Wrath_Data" => "Wrath.exe",
-        "WH40KRT_Data" => "WH40KRT.exe",
-        _ => throw new NotSupportedException(),
-    };
-
+    [GeneratedRegex(@"(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?<suffix>\.\d+|[a-zA-Z]*)")]
+    private static partial Regex MakeExtractVersionPattern();
 }
 
-public interface IGameImporter
+
+internal record class GameIdentification(string DataFolder, string Name, Type GameType)
 {
-    public BlueprintDB ExtractFromGame(ConnectionProgress progress, string wrathPath, string outputFile, BlueprintExplorer.BlueprintDB.GameVersion version);
+    public IGameDefinitions? Create(string gamePath) => GameType.GetConstructor([typeof(string), typeof(string)])?.Invoke([gamePath, DataFolder]) as IGameDefinitions;
+
+    internal bool Matches(string path) =>
+        Directory.GetDirectories(path)
+            .Select(path => Path.EndsInDirectorySeparator(path) ? Path.GetDirectoryName(path) : Path.GetFileName(path))
+            .Contains(DataFolder);
 }
 
-public static class ReferenceExtractor
-{
-    public static void VisitObjects(JsonElement node, HashSet<string> types)
-    {
-        if (node.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var elem in node.EnumerateArray())
-                VisitObjects(elem, types);
-        }
-        else if (node.ValueKind == JsonValueKind.Object)
-        {
-            if (node.TryGetProperty("$type", out var raw))
-            {
-                if (BinzImporter.CurrentGame == "KM")
-                {
-                    types.Add(raw.NewTypeStr().FullName);
-                }
-                else
-                {
-                    types.Add(raw.NewTypeStr().Guid);
-                }
-            }
-            foreach (var elem in node.EnumerateObject())
-                VisitObjects(elem.Value, types);
-        }
-
-    }
-
-}

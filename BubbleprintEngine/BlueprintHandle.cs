@@ -25,7 +25,7 @@ namespace BlueprintExplorer
         //public string linkTarget;
         public bool Empty { get; }
         public JsonElement Node { get; }
-        public (string Guid, string Name, string FullName) MaybeType { get; }
+        public BpNewType MaybeType { get; }
         public bool HasType { get; }
         public bool Last { get; }
 
@@ -107,7 +107,7 @@ namespace BlueprintExplorer
             return elem.Str("$type").ParseTypeString();
         }
 
-        public static (string Guid, string Name, string FullName) NewTypeStr(this string raw, bool strict = false)
+        public static BpNewType NewTypeStr(this string raw, bool strict = false)
         {
             var comma = raw.LastIndexOf(',');
             var shortName = raw[(comma + 2)..];
@@ -133,7 +133,7 @@ namespace BlueprintExplorer
             }
         }
 
-        public static (string Guid, string Name, string FullName) NewTypeStr(this JsonElement elem, bool strict = false)
+        public static BpNewType NewTypeStr(this JsonElement elem, bool strict = false)
         {
             if (elem.ValueKind == JsonValueKind.String)
                 return elem.GetString().NewTypeStr();
@@ -400,7 +400,7 @@ namespace BlueprintExplorer
             //public string linkTarget;
             public bool Empty { get; set; }
             public JsonElement Node { get; set; }
-            public (string Guid, string Name, string FullName) MaybeType { get; set; }
+            public BpNewType MaybeType { get; set; }
             public bool HasType => MaybeType.Name != null;
             public bool Last { get; set; }
         }
@@ -574,5 +574,18 @@ namespace BlueprintExplorer
         public string path;
         public Guid to;
 
+    }
+
+    public record struct BpNewType(string Guid, string Name, string FullName)
+    {
+        public static implicit operator (string Guid, string Name, string FullName)(BpNewType value)
+        {
+            return (value.Guid, value.Name, value.FullName);
+        }
+
+        public static implicit operator BpNewType((string Guid, string Name, string FullName) value)
+        {
+            return new BpNewType(value.Guid, value.Name, value.FullName);
+        }
     }
 }

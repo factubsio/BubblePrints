@@ -8,248 +8,206 @@ using System.Text.Json;
 
 namespace BinzFactory;
 
-internal class FromZipImporter : IGameImporter
+public interface IGameDefinitions
 {
-    public BlueprintDB ExtractFromGame(ConnectionProgress progress, string wrathPath, string outputFile, BlueprintExplorer.BlueprintDB.GameVersion version)
+    public Assembly Wrath { get; }
+    public IEnumerable<Assembly> Assemblies { get; }
+    public IEnumerable<Type?> Types { get; }
+    bool HasTypeSupport { get; }
+    bool IsComponentType(Type type);
+    void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress);
+
+    byte[] LoadDictionary();
+    void FindReferences(JsonElement node, HashSet<string> types);
+}
+
+public abstract class OwlcatGame : IGameDefinitions
+{
+    protected OwlcatGame(string gamePath, string gameData, string assemblyName, string typeIdTypeName)
     {
-        BlueprintDB db = new();
+        var managedPath = Path.Combine(gamePath, gameData, "Managed");
+        this.gamePath = gamePath;
+        this.gameData = gameData;
 
-        // Should put this somewhere sensible
-        AppDomain.CurrentDomain.AssemblyResolve += (_, args) =>
-        {
-            var assName = new AssemblyName(args.Name);
-
-            var dir = Path.GetDirectoryName(args.RequestingAssembly?.Location) ?? throw new NotSupportedException();
-
-            var assFile = Directory.EnumerateFiles(dir, "*.dll")
-                .FirstOrDefault(assFile => Path.GetFileNameWithoutExtension(assFile) == assName.Name);
-
-            if (assFile is not null)
-                return Assembly.LoadFrom(assFile);
-
-            return null;
-        };
-
-        var gamePath = Path.Combine(wrathPath, BinzImporter.Game_Data, "Managed");
-        var resolver = new PathAssemblyResolver(Directory.EnumerateFiles(gamePath, "*.dll"));
+        var resolver = new PathAssemblyResolver(Directory.EnumerateFiles(managedPath, "*.dll"));
         var _mlc = new MetadataLoadContext(resolver);
-        if (BinzImporter.Game_Data == "WH40KRT_Data")
-            BinzImporter.Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(gamePath, "Code.dll"));
-        else
-            BinzImporter.Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(gamePath, "Assembly-CSharp.dll"));
 
-        var writeOptions = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-        };
+        Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(managedPath, assemblyName));
 
-        if (BinzImporter.Game_Data is "Wrath_Data" or "WH40KRT_Data" or "Kingmaker_Data")
-        {
-            var assemblies = Directory
-                .EnumerateFiles(Path.GetDirectoryName(BinzImporter.Wrath.Location) ?? throw new NotSupportedException(), "*.dll")
-                .SelectMany(assFile =>
-                {
-                    try
-                    {
-                        return new[] { _mlc.LoadFromAssemblyPath(assFile) };
-                    }
-                    catch
-                    {
-                        return [];
-                    }
-                });
-
-            var types = assemblies.SelectMany(ass =>
+        Assemblies = Directory
+            .EnumerateFiles(Path.GetDirectoryName(Wrath.Location) ?? throw new NotSupportedException(), "*.dll")
+            .SelectMany(assFile =>
             {
                 try
                 {
-                    return ass.GetTypes();
+                    return new[] { _mlc.LoadFromAssemblyPath(assFile) };
                 }
-                catch (ReflectionTypeLoadException ex)
+                catch
                 {
-                    return ex.Types.Where(t => t != null).ToArray();
+                    return [];
                 }
             });
 
-            var typeIdType = assemblies
-                .Select(FindTypeId)
-                .FirstOrDefault(t => t is not null) ?? throw new NotSupportedException("cannot find TypeId Type");
-
-            foreach (var type in types)
-            {
-                if (type?.FullName == null) continue;
-
-                if (BinzImporter.CurrentGame == "KM" && KMInheritsFromBPComponent(type))
-                {
-                    if (db.GuidToFullTypeName.TryAdd(type.FullName, type.FullName))
-                        db.TypeGuidsInOrder.Add(type.FullName);
-                }
-                else
-                {
-                    foreach (var data in type.GetCustomAttributesData())
-                    {
-                        try
-                        {
-                            if (data.AttributeType.Name == typeIdType.Name)
-                            {
-                                if (data.ConstructorArguments[0].Value is string guid)
-                                {
-                                    if (db.GuidToFullTypeName.TryAdd(guid, type.FullName))
-                                    {
-                                        db.TypeGuidsInOrder.Add(guid);
-                                    }
-                                }
-                            }
-                        }
-                        catch // Pretty sure this is some cursed attribute and not the TypeId we want
-                        { }
-                    }
-                }
-            }
-
-            db.TypeGuidsInOrder.Sort();
-            db.FlatIndexToTypeName = new string[db.TypeGuidsInOrder.Count];
-            for (int i = 0; i < db.TypeGuidsInOrder.Count; i++)
-            {
-                var guid = db.TypeGuidsInOrder[i];
-                db.GuidToFlatIndex[guid] = (ushort)i;
-                db.FlatIndexToTypeName[i] = db.GuidToFullTypeName[guid];
-            }
-        }
-        Dictionary<string, string> TypenameToGuid = [];
-        progress.Phase = "Extracting";
-        HashSet<string> referencedTypes = [];
-        int index = 0;
-
-        if (BinzImporter.Game_Data == "WH40KRT_Data")
+        Types = Assemblies.SelectMany(ass =>
         {
-            const string bpPath = "WhRtModificationTemplate/Blueprints/";
-            var tarPath = Path.Combine(wrathPath, "Modding", "WhRtModificationTemplate.tar");
-            using var tarStream = new FileStream(tarPath, FileMode.Open, FileAccess.Read);
-            using var reader = new TarReader(tarStream) ?? throw new FileNotFoundException(tarPath);
-            List<TarEntry> entries = [];
-            TarEntry? entry;
-            while ((entry = reader.GetNextEntry()) != null)
+            try
             {
-                if (entry.EntryType.HasFlag(TarEntryType.RegularFile))
-                {
-                    if (entry.Name.StartsWith(bpPath) && entry.Name.EndsWith(".jbp"))
-                    {
-                        entries.Add(entry);
-                    }
-                }
+                return ass.GetTypes();
             }
-            progress.EstimatedTotal = entries.Count;
-            foreach (var tarEntry in entries)
+            catch (ReflectionTypeLoadException ex)
             {
-                try
-                {
-                    using var stream = tarEntry.DataStream ?? throw new FileNotFoundException(tarEntry.Name);
-                    ReadDumpFromStream(db, stream, writeOptions, tarEntry.Name.Split('/').Last(), ref referencedTypes, ref progress, ref index, bp => bp.FullPath = tarEntry.Name);
-                }
-                catch (Exception e)
-                {
-                    Console.Error.WriteLine(e.Message);
-                    Console.Error.WriteLine(e.StackTrace);
-                    throw;
-                }
+                return ex.Types.Where(t => t != null);
             }
-        }
-        else
-        {
-
-            using var bpDump = ZipFile.OpenRead(BinzImporter.GetBlueprintSource(wrathPath));
-
-            progress.EstimatedTotal = bpDump.Entries.Count(e => e.Name.EndsWith(".jbp"));
-            if (BinzImporter.Game_Data == "Kingmaker_Data")
-            {
-                LoadFromBubbleMine(db, progress, bpDump);
-            }
-            else if (BinzImporter.Game_Data is "Wrath_Data" or "WH40KRT_Data")
-            {
-                foreach (var entry in bpDump.Entries)
-                {
-                    if (!entry.Name.EndsWith(".jbp")) continue;
-                    if (entry.Name.StartsWith("Appsflyer")) continue;
-                    try
-                    {
-                        using Stream? stream = entry.GetType().GetMethod("OpenInReadMode", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(entry, [false]) as Stream;
-                        ReadDumpFromStream(db, stream ?? throw new FileNotFoundException(entry.FullName), writeOptions, entry.Name, ref referencedTypes, ref progress, ref index);
-                    }
-                    catch (Exception e)
-                    {
-                        Console.Error.WriteLine(e.Message);
-                        Console.Error.WriteLine(e.StackTrace);
-                        throw;
-                    }
-                }
-
-            }
-        }
-
-        progress.Phase = "Writing";
-        progress.Current = 0;
-
-        WriteBlueprints(db, progress, wrathPath, outputFile, version);
-
-        return db;
-
+        });
+        typeIdType = Assemblies
+            .Select(ass => ass.GetType(typeIdTypeName))
+            .FirstOrDefault(t => t is not null) ?? throw new NotSupportedException("cannot find TypeId Type");
     }
-    private static Type? FindTypeId(Assembly ass)
+
+    public virtual bool IsComponentType(Type type)
     {
-        string typeIdTypeName = BinzImporter.CurrentGame switch
+        foreach (var data in type.GetCustomAttributesData())
         {
-            "RT" => "Kingmaker.Blueprints.JsonSystem.Helpers.TypeIdAttribute",
-            "KM" => "Kingmaker.Blueprints.DirectSerialization.TypeIdAttribute",
-            _ => "Kingmaker.Blueprints.JsonSystem.TypeIdAttribute",
-
-        };
-        return ass.GetType(typeIdTypeName);
+            try
+            {
+                if (data.AttributeType.Name == typeIdType.Name)
+                {
+                    if (data.ConstructorArguments[0].Value is string guid)
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch // Pretty sure this is some cursed attribute and not the TypeId we want
+            { }
+        }
+        return false;
     }
 
-    private static readonly ushort[] NoRefs = [];
+    public abstract void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress);
 
-    private static void ReadDumpFromStream(BlueprintDB db, Stream stream, JsonSerializerOptions writeOptions, string name, ref HashSet<string> referencedTypes, ref ConnectionProgress progress, ref int index, Action<BlueprintHandle>? finalizeImport = null)
+    protected readonly Type typeIdType;
+    private readonly string gamePath;
+    private readonly string gameData;
+
+    public bool HasTypeSupport => true;
+
+    public IEnumerable<Assembly> Assemblies { get; }
+    public IEnumerable<Type?> Types { get; }
+
+    public Assembly Wrath { get; }
+
+    protected string GetGamePath(params string[] path)
     {
-        var reader = new StreamReader(stream);
-        var contents = reader.ReadToEnd();
-        var json = JsonSerializer.Deserialize<JsonElement>(contents);
-        var type = json.GetProperty("Data").NewTypeStr();
-
-        var handle = new BlueprintHandle
-        {
-            GuidText = json.Str("AssetId"),
-            Name = name[0..^4],
-            Type = type.FullName ?? type.Name,
-            Raw = JsonSerializer.Serialize(json.GetProperty("Data"), writeOptions),
-        };
-        var components = handle.Type.Split('.');
-        if (components.Length <= 1)
-        {
-            handle.TypeName = handle.Type;
-        }
-        else
-        {
-            handle.TypeName = components[^1];
-            handle.Namespace = string.Join('.', components.Take(components.Length - 1));
-        }
-
-        handle.EnsureParsed();
-        foreach (var _ in handle.GetDirectReferences()) { }
-
-        referencedTypes.Clear();
-        ReferenceExtractor.VisitObjects(handle.EnsureObj, referencedTypes);
-        handle.ComponentIndex = [.. referencedTypes.SelectMany(typeId => db.GuidToFlatIndex.TryGetValue(typeId, out ushort value) ? [value] : NoRefs)];
-
-        finalizeImport?.Invoke(handle);
-
-        db.AddBlueprint(handle);
-
-        progress.Current++;
-        index++;
+        return Path.Combine([gamePath, .. path]);
     }
 
-    private static bool KMInheritsFromBPComponent(Type type)
+    public byte[] LoadDictionary() => File.ReadAllBytes(GetGamePath(gameData, @"StreamingAssets\Localization\enGB.json"));
+    public void FindReferences(JsonElement node, HashSet<string> types)
+    {
+        if (node.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var elem in node.EnumerateArray())
+                FindReferences(elem, types);
+        }
+        else if (node.ValueKind == JsonValueKind.Object)
+        {
+            if (node.TryGetProperty("$type", out var raw))
+            {
+                types.Add(ParseJsonType(raw));
+            }
+            foreach (var elem in node.EnumerateObject())
+                FindReferences(elem.Value, types);
+        }
+
+    }
+
+    protected abstract string ParseJsonType(JsonElement raw);
+}
+
+
+public class RtGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Code.dll", "Kingmaker.Blueprints.JsonSystem.Helpers.TypeIdAttribute")
+{
+    protected override string ParseJsonType(JsonElement raw) => raw.NewTypeStr().Guid;
+
+    public override void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress)
+    {
+        const string bpPath = "WhRtModificationTemplate/Blueprints/";
+        var tarPath = GetGamePath("Modding", "WhRtModificationTemplate.tar");
+        using var tarStream = new FileStream(tarPath, FileMode.Open, FileAccess.Read);
+        using var reader = new TarReader(tarStream) ?? throw new FileNotFoundException(tarPath);
+        List<TarEntry> entries = [];
+        TarEntry? entry;
+        while ((entry = reader.GetNextEntry()) != null)
+        {
+            if (entry.EntryType.HasFlag(TarEntryType.RegularFile))
+            {
+                if (entry.Name.StartsWith(bpPath) && entry.Name.EndsWith(".jbp"))
+                {
+                    entries.Add(entry);
+                }
+            }
+        }
+        progress.EstimatedTotal = entries.Count;
+        foreach (var tarEntry in entries)
+        {
+            try
+            {
+                using var stream = tarEntry.DataStream ?? throw new FileNotFoundException(tarEntry.Name);
+                BinzImportExport.ReadDumpFromStream(db, stream, writeOptions, tarEntry.Name.Split('/').Last(), referencedTypes, progress, this, bp => bp.FullPath = tarEntry.Name);
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine(e.Message);
+                Console.Error.WriteLine(e.StackTrace);
+                throw;
+            }
+        }
+    }
+
+}
+public class WrathGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Assembly-CSharp.dll", "Kingmaker.Blueprints.JsonSystem.TypeIdAttribute")
+{
+    protected override string ParseJsonType(JsonElement raw) => raw.NewTypeStr().Guid;
+
+    public override void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress)
+    {
+        using var bpDump = ZipFile.OpenRead(GetGamePath("blueprints.zip"));
+
+        progress.EstimatedTotal = bpDump.Entries.Count(e => e.Name.EndsWith(".jbp"));
+        foreach (var entry in bpDump.Entries)
+        {
+            if (!entry.Name.EndsWith(".jbp")) continue;
+            if (entry.Name.StartsWith("Appsflyer")) continue;
+            try
+            {
+                using Stream? stream = entry.GetType().GetMethod("OpenInReadMode", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(entry, [false]) as Stream;
+                BinzImportExport.ReadDumpFromStream(db, stream ?? throw new FileNotFoundException(entry.FullName), writeOptions, entry.Name, referencedTypes, progress, this);
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine(e.Message);
+                Console.Error.WriteLine(e.StackTrace);
+                throw;
+            }
+        }
+    }
+
+}
+
+public class KmGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Assembly-CSharp.dll", "Kingmaker.Blueprints.DirectSerialization.TypeIdAttribute")
+{
+    protected override string ParseJsonType(JsonElement raw) => raw.NewTypeStr().FullName;
+
+    public override void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress)
+    {
+        using var bpDump = ZipFile.OpenRead(GetGamePath("blueprints.zip"));
+
+        progress.EstimatedTotal = bpDump.Entries.Count(e => e.Name.EndsWith(".jbp"));
+        BinzImportExport.LoadFromBubbleMine(db, progress, bpDump, this);
+    }
+
+    public override bool IsComponentType(Type type)
     {
         if (type?.FullName == null) return false;
         if (m_InheritsCache.TryGetValue(type.FullName, out bool result))
@@ -280,94 +238,117 @@ internal class FromZipImporter : IGameImporter
             return false;
         }
     }
-    //private static void LoadFromKingmakerZip(BlueprintDB db, ConnectionProgress progress, string path)
-    //{
-    //    var writeOptions = new JsonSerializerOptions
-    //    {
-    //        WriteIndented = true,
-    //    };
 
-    //    using var stream = File.OpenRead(@"D:\rt_bp.json");
-    //    using var doc = JsonDocument.Parse(stream);
+    private readonly Dictionary<string, bool> m_InheritsCache = [];
+}
 
-    //    JsonElement all = doc.RootElement;
+public static class BinzImportExport
+{
+    public static BlueprintDB ExtractFromGame(IGameDefinitions game, ConnectionProgress progress)
+    {
+        BlueprintDB db = new();
 
-    //    var iterator = all.EnumerateArray();
+        // Should put this somewhere sensible
+        AppDomain.CurrentDomain.AssemblyResolve += (_, args) =>
+        {
+            var assName = new AssemblyName(args.Name);
 
-    //    HashSet<string> referencedTypes = new();
+            var dir = Path.GetDirectoryName(args.RequestingAssembly?.Location) ?? throw new NotSupportedException();
 
-    //    while (iterator.MoveNext())
-    //    {
-    //        try
-    //        {
-    //            string name = iterator.Current.GetString() ?? throw new NotSupportedException();
-    //            if (!iterator.MoveNext()) throw new Exception();
+            var assFile = Directory.EnumerateFiles(dir, "*.dll")
+                .FirstOrDefault(assFile => Path.GetFileNameWithoutExtension(assFile) == assName.Name);
 
-    //            string guid = iterator.Current.GetString() ?? throw new NotSupportedException();
-    //            if (!iterator.MoveNext()) throw new Exception();
+            if (assFile is not null)
+                return Assembly.LoadFrom(assFile);
 
-    //            string fullTypeSanity = iterator.Current.GetString() ?? throw new NotSupportedException();
-    //            if (!iterator.MoveNext()) throw new Exception();
+            return null;
+        };
 
-    //            JsonElement json = iterator.Current;
+        var writeOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+        };
 
-    //            if (json.ValueKind != JsonValueKind.Object)
-    //            {
-    //                Console.Error.WriteLine("Non object type: " + name + ", " + fullTypeSanity);
-    //                continue;
-    //            }
+        if (game.HasTypeSupport)
+        {
+            foreach (var type in game.Types)
+            {
+                if (type?.FullName == null) continue;
 
-    //            var type = json.TypeString();
+                if (game.IsComponentType(type))
+                {
+                    if (db.GuidToFullTypeName.TryAdd(type.FullName, type.FullName))
+                        db.TypeGuidsInOrder.Add(type.FullName);
+                }
+            }
 
-    //            if (type == null)
-    //            {
-    //                Console.WriteLine("BadBadBad");
-    //            }
+            db.TypeGuidsInOrder.Sort();
+            db.FlatIndexToTypeName = new string[db.TypeGuidsInOrder.Count];
+            for (int i = 0; i < db.TypeGuidsInOrder.Count; i++)
+            {
+                var guid = db.TypeGuidsInOrder[i];
+                db.GuidToFlatIndex[guid] = (ushort)i;
+                db.FlatIndexToTypeName[i] = db.GuidToFullTypeName[guid];
+            }
+        }
+        Dictionary<string, string> TypenameToGuid = [];
+        progress.Phase = "Extracting";
+        HashSet<string> referencedTypes = [];
 
-    //            var handle = new BlueprintHandle
-    //            {
-    //                GuidText = guid,
-    //                Name = name,
-    //                Type = type,
-    //                Raw = json.GetRawText(),
-    //            };
-    //            var components = handle.Type?.Split('.');
-    //            if (components == null || components.Length <= 1)
-    //            {
-    //                handle.TypeName = handle.Type;
-    //            }
-    //            else
-    //            {
-    //                handle.TypeName = components[^1];
-    //                handle.Namespace = string.Join('.', components.Take(components.Length - 1));
-    //            }
+        game.Import(db, writeOptions, referencedTypes, progress);
 
-    //            handle.EnsureParsed();
-    //            foreach (var _ in handle.GetDirectReferences()) { }
+        //else
+        //{
+        //}
 
-    //            referencedTypes.Clear();
-    //            ReferenceExtractor.VisitObjects(handle.EnsureObj, referencedTypes);
-    //            handle.ComponentIndex = referencedTypes.Select(typeId => db.GuidToFlatIndex[typeId]).ToArray();
+        progress.Phase = "Writing";
+        progress.Current = 0;
 
-    //            db.AddBlueprint(handle);
+        return db;
 
+    }
+    private static readonly ushort[] NoRefs = [];
 
+    internal static void ReadDumpFromStream(BlueprintDB db, Stream stream, JsonSerializerOptions writeOptions, string name, HashSet<string> referencedTypes, ConnectionProgress progress, IGameDefinitions game, Action<BlueprintHandle>? finalizeImport = null)
+    {
+        var reader = new StreamReader(stream);
+        var contents = reader.ReadToEnd();
+        var json = JsonSerializer.Deserialize<JsonElement>(contents);
+        var type = json.GetProperty("Data").NewTypeStr();
 
-    //            progress.Current++;
-    //        }
-    //        catch (Exception e)
-    //        {
-    //            Console.Error.WriteLine(e.Message);
-    //            Console.Error.WriteLine(e.StackTrace);
-    //            throw;
-    //        }
+        var handle = new BlueprintHandle
+        {
+            GuidText = json.Str("AssetId"),
+            Name = name[0..^4],
+            Type = type.FullName ?? type.Name,
+            Raw = JsonSerializer.Serialize(json.GetProperty("Data"), writeOptions),
+        };
+        var components = handle.Type.Split('.');
+        if (components.Length <= 1)
+        {
+            handle.TypeName = handle.Type;
+        }
+        else
+        {
+            handle.TypeName = components[^1];
+            handle.Namespace = string.Join('.', components.Take(components.Length - 1));
+        }
 
-    //    }
+        handle.EnsureParsed();
+        foreach (var _ in handle.GetDirectReferences()) { }
 
-    //    Console.WriteLine("here");
-    //}
+        referencedTypes.Clear();
+        game.FindReferences(handle.EnsureObj, referencedTypes);
+        handle.ComponentIndex = [.. referencedTypes.SelectMany(typeId => db.GuidToFlatIndex.TryGetValue(typeId, out ushort value) ? [value] : NoRefs)];
 
-    private static void LoadFromBubbleMine(BlueprintDB db, ConnectionProgress progress, ZipArchive bpDump)
+        finalizeImport?.Invoke(handle);
+
+        db.AddBlueprint(handle);
+
+        progress.Current++;
+    }
+
+    internal static void LoadFromBubbleMine(BlueprintDB db, ConnectionProgress progress, ZipArchive bpDump, IGameDefinitions game)
     {
         var writeOptions = new JsonSerializerOptions
         {
@@ -423,7 +404,7 @@ internal class FromZipImporter : IGameImporter
                 foreach (var _ in handle.GetDirectReferences()) { }
 
                 referencedTypes.Clear();
-                ReferenceExtractor.VisitObjects(handle.EnsureObj, referencedTypes);
+                game.FindReferences(handle.EnsureObj, referencedTypes);
                 handle.ComponentIndex = [.. referencedTypes.Select<string, ushort?>(typeId =>
                 {
                     if (db.GuidToFlatIndex.TryGetValue(typeId, out var val))
@@ -451,7 +432,8 @@ internal class FromZipImporter : IGameImporter
             }
         }
     }
-    public static void WriteBlueprints(BlueprintDB db, ConnectionProgress progress, string wrathPath, string outPath, BlueprintExplorer.BlueprintDB.GameVersion version)
+
+    public static void WriteBlueprints(BlueprintDB db, ConnectionProgress progress, IGameDefinitions game, string outPath, BlueprintExplorer.BlueprintDB.GameVersion version)
     {
 
         progress.EstimatedTotal += 3;
@@ -545,11 +527,8 @@ internal class FromZipImporter : IGameImporter
 
             current?.Dispose();
 
-
-
-            var rawLangDict = File.ReadAllBytes(Path.Combine(wrathPath, BinzImporter.Game_Data, @"StreamingAssets\Localization\enGB.json"));
+            var rawLangDict = game.LoadDictionary();
             file.Write((ushort)ChunkTypes.Strings, 0, rawLangDict);
-
 
             var stringDictRaw = JsonSerializer.Deserialize<JsonElement>(rawLangDict).GetProperty("strings");
             db.SetStrings(BlueprintDB.LoadStringDatabase(stringDictRaw));
@@ -650,5 +629,4 @@ internal class FromZipImporter : IGameImporter
         Console.WriteLine($"mostReferred: {mostReferred}, biggestRefList: {biggestRefList}");
     }
 
-    private static readonly Dictionary<string, bool> m_InheritsCache = [];
 }

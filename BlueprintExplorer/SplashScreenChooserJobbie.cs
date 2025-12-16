@@ -146,16 +146,16 @@ public partial class SplashScreenChooserJobbie : Form
         var queryPath = new FormsFolderChooser();
         queryPath.Prepare();
 
-
         if (!queryPath.Choose("Game.exe", out string gamePath))
             return;
 
         var version = BinzImporter.GetGameVersion(gamePath);
-        var filename = BlueprintDB.FileNameFor(version, BinzImporter.CurrentGame);
+        var gameName = BinzImporter.GetGameName(gamePath);
+        var filename = BlueprintDB.FileNameFor(version, gameName);
         while (File.Exists(Path.Join(BubblePrints.DataPath, filename)))
         {
             version.Bubble++;
-            filename = BlueprintDB.FileNameFor(version, BinzImporter.CurrentGame);
+            filename = BlueprintDB.FileNameFor(version, gameName);
         }
 
         Console.WriteLine(version);
@@ -173,7 +173,7 @@ public partial class SplashScreenChooserJobbie : Form
             else if (result == DialogResult.Yes)
             {
                 version.Bubble--;
-                filename = BlueprintDB.FileNameFor(version, BinzImporter.CurrentGame);
+                filename = BlueprintDB.FileNameFor(version, gameName);
             }
         }
 
@@ -211,7 +211,7 @@ public partial class SplashScreenChooserJobbie : Form
                 Version = new()
                 {
                     Version = version,
-                    Game = BinzImporter.CurrentGame,
+                    Game = gameName,
                 },
                 Path = path,
                 Source = "local",
