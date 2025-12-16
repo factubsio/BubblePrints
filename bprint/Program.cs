@@ -62,6 +62,7 @@ public static class Program
         foreach (var match in matches.Take(10))
         {
             Console.WriteLine(match.Name);
+            Console.WriteLine($"ns: {match.Namespace}");
         }
     }
 

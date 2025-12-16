@@ -14,11 +14,11 @@ public interface IGameDefinitions
     public IEnumerable<Assembly> Assemblies { get; }
     public IEnumerable<Type?> Types { get; }
     bool HasTypeSupport { get; }
-    bool IsComponentType(Type type);
     void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress);
 
     byte[] LoadDictionary();
-    void FindReferences(JsonElement node, HashSet<string> types);
+    void FindReferences(BlueprintDB db, JsonElement node, HashSet<string> types);
+    void AddComponentType(Type? type, BlueprintDB db);
 }
 
 public abstract class OwlcatGame : IGameDefinitions
@@ -64,26 +64,6 @@ public abstract class OwlcatGame : IGameDefinitions
             .FirstOrDefault(t => t is not null) ?? throw new NotSupportedException("cannot find TypeId Type");
     }
 
-    public virtual bool IsComponentType(Type type)
-    {
-        foreach (var data in type.GetCustomAttributesData())
-        {
-            try
-            {
-                if (data.AttributeType.Name == typeIdType.Name)
-                {
-                    if (data.ConstructorArguments[0].Value is string guid)
-                    {
-                        return true;
-                    }
-                }
-            }
-            catch // Pretty sure this is some cursed attribute and not the TypeId we want
-            { }
-        }
-        return false;
-    }
-
     public abstract void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress);
 
     protected readonly Type typeIdType;
@@ -103,32 +83,54 @@ public abstract class OwlcatGame : IGameDefinitions
     }
 
     public byte[] LoadDictionary() => File.ReadAllBytes(GetGamePath(gameData, @"StreamingAssets\Localization\enGB.json"));
-    public void FindReferences(JsonElement node, HashSet<string> types)
+    public void FindReferences(BlueprintDB db, JsonElement node, HashSet<string> types)
     {
         if (node.ValueKind == JsonValueKind.Array)
         {
             foreach (var elem in node.EnumerateArray())
-                FindReferences(elem, types);
+                FindReferences(db, elem, types);
         }
         else if (node.ValueKind == JsonValueKind.Object)
         {
             if (node.TryGetProperty("$type", out var raw))
             {
-                types.Add(ParseJsonType(raw));
+                types.Add(ParseJsonType(db, raw));
             }
             foreach (var elem in node.EnumerateObject())
-                FindReferences(elem.Value, types);
+                FindReferences(db, elem.Value, types);
         }
 
     }
 
-    protected abstract string ParseJsonType(JsonElement raw);
+    public virtual void AddComponentType(Type? type, BlueprintDB db)
+    {
+        if (type?.FullName == null) return;
+
+        foreach (var data in type.GetCustomAttributesData())
+        {
+            try
+            {
+                if (data.AttributeType.Name == typeIdType.Name)
+                {
+                    if (data.ConstructorArguments[0].Value is string guid)
+                    {
+                        if (db.GuidToFullTypeName.TryAdd(guid, type.FullName))
+                            db.TypeGuidsInOrder.Add(guid);
+                    }
+                }
+            }
+            catch // Pretty sure this is some cursed attribute and not the TypeId we want
+            { }
+        }
+    }
+
+    protected abstract string ParseJsonType(BlueprintDB db, JsonElement raw);
 }
 
 
 public class RtGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Code.dll", "Kingmaker.Blueprints.JsonSystem.Helpers.TypeIdAttribute")
 {
-    protected override string ParseJsonType(JsonElement raw) => raw.NewTypeStr().Guid;
+    protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(false, db).Guid;
 
     public override void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress)
     {
@@ -168,7 +170,7 @@ public class RtGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, d
 }
 public class WrathGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Assembly-CSharp.dll", "Kingmaker.Blueprints.JsonSystem.TypeIdAttribute")
 {
-    protected override string ParseJsonType(JsonElement raw) => raw.NewTypeStr().Guid;
+    protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(false, db).Guid;
 
     public override void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress)
     {
@@ -197,7 +199,7 @@ public class WrathGame(string gamePath, string dataFolder) : OwlcatGame(gamePath
 
 public class KmGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Assembly-CSharp.dll", "Kingmaker.Blueprints.DirectSerialization.TypeIdAttribute")
 {
-    protected override string ParseJsonType(JsonElement raw) => raw.NewTypeStr().FullName;
+    protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(false, db).FullName;
 
     public override void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress)
     {
@@ -207,14 +209,10 @@ public class KmGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, d
         BinzImportExport.LoadFromBubbleMine(db, progress, bpDump, this);
     }
 
-    public override bool IsComponentType(Type type)
+    public override void AddComponentType(Type? type, BlueprintDB db)
     {
-        if (type?.FullName == null) return false;
-        if (m_InheritsCache.TryGetValue(type.FullName, out bool result))
-        {
-            return result;
-        }
-        else
+        if (type?.FullName == null) return;
+        if (!m_InheritsCache.ContainsKey(type.FullName))
         {
             var baseType = type;
             while (baseType != null)
@@ -222,7 +220,8 @@ public class KmGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, d
                 if (baseType.FullName is "Kingmaker.Blueprints.BlueprintComponent" or "Kingmaker.Blueprints.BlueprintScriptableObject")
                 {
                     m_InheritsCache[type.FullName] = true;
-                    return true;
+                    if (db.GuidToFullTypeName.TryAdd(type.FullName, type.FullName))
+                        db.TypeGuidsInOrder.Add(type.FullName);
                 }
                 try
                 {
@@ -235,7 +234,6 @@ public class KmGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, d
                 }
             }
             m_InheritsCache[type.FullName] = false;
-            return false;
         }
     }
 
@@ -273,13 +271,7 @@ public static class BinzImportExport
         {
             foreach (var type in game.Types)
             {
-                if (type?.FullName == null) continue;
-
-                if (game.IsComponentType(type))
-                {
-                    if (db.GuidToFullTypeName.TryAdd(type.FullName, type.FullName))
-                        db.TypeGuidsInOrder.Add(type.FullName);
-                }
+                game.AddComponentType(type, db);
             }
 
             db.TypeGuidsInOrder.Sort();
@@ -314,7 +306,7 @@ public static class BinzImportExport
         var reader = new StreamReader(stream);
         var contents = reader.ReadToEnd();
         var json = JsonSerializer.Deserialize<JsonElement>(contents);
-        var type = json.GetProperty("Data").NewTypeStr();
+        var type = json.GetProperty("Data").NewTypeStr(false, db);
 
         var handle = new BlueprintHandle
         {
@@ -338,7 +330,7 @@ public static class BinzImportExport
         foreach (var _ in handle.GetDirectReferences()) { }
 
         referencedTypes.Clear();
-        game.FindReferences(handle.EnsureObj, referencedTypes);
+        game.FindReferences(db, handle.EnsureObj, referencedTypes);
         handle.ComponentIndex = [.. referencedTypes.SelectMany(typeId => db.GuidToFlatIndex.TryGetValue(typeId, out ushort value) ? [value] : NoRefs)];
 
         finalizeImport?.Invoke(handle);
@@ -404,7 +396,7 @@ public static class BinzImportExport
                 foreach (var _ in handle.GetDirectReferences()) { }
 
                 referencedTypes.Clear();
-                game.FindReferences(handle.EnsureObj, referencedTypes);
+                game.FindReferences(db, handle.EnsureObj, referencedTypes);
                 handle.ComponentIndex = [.. referencedTypes.Select<string, ushort?>(typeId =>
                 {
                     if (db.GuidToFlatIndex.TryGetValue(typeId, out var val))

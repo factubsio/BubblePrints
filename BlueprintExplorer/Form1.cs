@@ -60,21 +60,11 @@ namespace BlueprintExplorer
 
             viewer.OnLinkOpenNewTab += bp =>
             {
-                //var existing = blueprintDock.PageForUniqueName(bp.GuidText);
-                //if (existing != null)
-                //{
-                //    blueprintDock.ActivePage = existing;
-                //}
-                //else
-                {
-                    var cell = blueprintDock.CellForPage(page);
-                    var viewer = NewBlueprintViewer(cell);
-                    viewer.ShowBlueprint(bp, ShowFlags.F_ClearHistory | ShowFlags.F_UpdateHistory);
+                var cell = blueprintDock.CellForPage(page);
+                var viewer = NewBlueprintViewer(cell);
+                viewer.ShowBlueprint(bp, ShowFlags.F_ClearHistory | ShowFlags.F_UpdateHistory);
 
-                    var parent = (viewer.Parent as KryptonPage);
-
-                    cell.SelectedPage = parent;
-                }
+                cell.SelectedPage = (viewer.Parent as KryptonPage);
             };
 
             var nav = cell ?? blueprintDock.ActiveCell;
@@ -103,13 +93,6 @@ namespace BlueprintExplorer
                     page
                 });
             }
-
-
-            //for (int i =0; i < blueprintViews.TabCount; i++)
-            //{
-            //    (blueprintViews.TabPages[i].Controls[0] as BlueprintViewer).CanClose = blueprintViews.TabCount > 1;
-            //}
-
 
             return viewer;
         }
@@ -890,48 +873,6 @@ namespace BlueprintExplorer
             };
         }
 
-        //private void omniSearch_KeyDown(object sender, KeyEventArgs e)
-        //{
-        //    if (e.KeyCode == Keys.Return || e.KeyCode == Keys.Enter)
-        //    {
-        //        if (resultsCache.Count > 0)
-        //        {
-        //            ShowSelected();
-        //        }
-        //    }
-        //    else if (e.KeyCode == Keys.Up)
-        //    {
-        //        if (resultsCache.Count > 1)
-        //        {
-        //            int row = resultsGrid.SelectedRow() - 1;
-        //            if (row >= 0 && row < resultsCache.Count)
-        //            {
-        //                resultsGrid.Rows[row].Selected = true;
-        //                resultsGrid.CurrentCell = resultsGrid[0, row];
-        //                resultsGrid.CurrentCell.ToolTipText = "";
-        //            }
-        //        }
-        //        e.Handled = true;
-        //        e.SuppressKeyPress = true;
-        //    }
-        //    else if (e.KeyCode == Keys.Down)
-        //    {
-        //        if (resultsCache.Count > 1)
-        //        {
-        //            int row = resultsGrid.SelectedRow() + 1;
-        //            if (row < resultsCache.Count)
-        //            {
-        //                resultsGrid.Rows[row].Selected = true;
-        //                resultsGrid.CurrentCell = resultsGrid[0, row];
-        //                resultsGrid.CurrentCell.ToolTipText = "";
-        //            }
-        //        }
-        //        e.Handled = true;
-        //        e.SuppressKeyPress = true;
-        //    }
-
-        //}
-
         public void ShowBlueprint(int row, bool newTab)
         {
             if (row >= 0 && row < resultsCache.Count)
@@ -954,7 +895,6 @@ namespace BlueprintExplorer
                 Show();
             }
         }
-
 
         private void ShowBlueprint(BlueprintHandle bp, ShowFlags flags)
         {

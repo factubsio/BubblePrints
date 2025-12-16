@@ -1,4 +1,5 @@
 var _a;
+import { createBlueprintView } from "./treeView";
 const searchBar = document.getElementById('searchBox');
 const resultsTable = document.getElementById('resultsTable');
 const searchView = document.getElementById('searchView');
@@ -9,24 +10,6 @@ let pendingQuery = null;
 (_a = document.getElementById('backBtn')) === null || _a === void 0 ? void 0 : _a.addEventListener('click', () => {
     history.pushState(null, "", "/"); // Go to root
     showSearch();
-});
-function applyTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-}
-const savedTheme = localStorage.getItem('theme');
-if (savedTheme) {
-    applyTheme(savedTheme);
-}
-else {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    applyTheme(prefersDark ? 'dark' : 'light');
-}
-const themeToggle = document.getElementById('theme-toggle');
-themeToggle.addEventListener('click', () => {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    applyTheme(newTheme);
 });
 export function initApp() {
     window.addEventListener('popstate', handleRouting);
@@ -118,6 +101,9 @@ function handleLinkClick(e, game, link) {
         navigateTo(game, link);
     }
 }
+const viewCallbacks = {
+    handleLinkClick,
+};
 async function loadAndShowBlueprint(game, guid) {
     searchView.classList.add('hide');
     blueprintView.classList.remove('hide');
@@ -126,60 +112,16 @@ async function loadAndShowBlueprint(game, guid) {
     try {
         const response = await fetch(`/bp/view/${game}/${guid}`);
         const elements = await response.json(); // This is now a flat array
-        titleSpan.innerText = elements[0].key;
+        // Assume the first element always contains the title info
+        titleSpan.innerText = elements[0].key || "Blueprint";
+        // Clear the container
         container.innerHTML = "";
-        let level = 0;
-        for (const e of elements) {
-            // Mimic C# logic: Adjust level based on delta
-            // In your C#, if delta < 0, we pop stack/reduce level immediately
-            if (e.levelDelta < 0)
-                level += e.levelDelta; // e.levelDelta is usually -1
-            if (e.key == null)
-                continue;
-            // Render the row
-            const row = document.createElement('div');
-            row.className = 'bp-row';
-            // Indentation using padding/margin
-            row.style.paddingLeft = (level * 20) + 'px';
-            // 1. Key
-            const keySpan = document.createElement('span');
-            keySpan.className = 'bp-key';
-            keySpan.textContent = e.key;
-            row.appendChild(keySpan);
-            // 2. Value
-            if (e.value) {
-                let valEl;
-                // Link Logic
-                if (e.link) {
-                    const valSpan = document.createElement('a');
-                    valSpan.className = 'bp-link';
-                    valSpan.href = `/${game}/${e.link}`;
-                    valSpan.textContent = e.value; // Or e.link if you prefer
-                    valSpan.onclick = evt => handleLinkClick(evt, game, e.link);
-                    valEl = valSpan;
-                }
-                else {
-                    const valSpan = document.createElement('span');
-                    valSpan.className = 'bp-val';
-                    valSpan.textContent = e.value;
-                    valEl = valSpan;
-                }
-                row.appendChild(valEl);
-            }
-            // 3. Type hint (optional, matching your "IsObj" logic)
-            if (e.isObj && e.typeName) { // <--- Changed from e.type
-                const typeSpan = document.createElement('span');
-                typeSpan.style.color = 'gray';
-                typeSpan.textContent = ` [${e.typeName}]`; // <--- Changed from e.type
-                row.appendChild(typeSpan);
-            }
-            container.appendChild(row);
-            // In C#, if delta > 0, we increment level for SUBSEQUENT rows
-            if (e.levelDelta > 0)
-                level += e.levelDelta;
-        }
+        // Create the entire interactive view with one function call
+        const blueprintDom = createBlueprintView(elements, game, guid, viewCallbacks);
+        // Append the result to the page
+        container.appendChild(blueprintDom);
     }
     catch (err) {
-        container.textContent = "Error: " + err;
+        container.textContent = "Error: " + (err instanceof Error ? err.message : String(err));
     }
 }

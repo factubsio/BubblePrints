@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "bprint": {
+      "commandName": "Project",
+      "commandLineArgs": "import \"D:\\steamlib\\steamapps\\common\\Warhammer 40,000 Rogue Trader\"  overwrite",
+      "workingDirectory": "C:\\Users\\worce\\source\\repos\\BlueprintExplorer\\bprint"
+    }
+  }
+}

@@ -227,6 +227,7 @@ tbody td {
         background-color: var(--btn-primary-hover-bg);
     }
 
+
 .bp-toggle {
     /* Use your button variables for semantic consistency */
     background-color: var(--btn-bg);
@@ -252,6 +253,13 @@ tbody td {
         background-color: var(--btn-hover-bg);
         border-color: var(--input-border-color); /* A slightly stronger border on hover */
     }
+
+.bp-toggle.disabled {
+    /* Make it look visually "faded" or inactive */
+    opacity: 0.4;
+    /* Prevent all mouse interactions: clicks, hovers, etc. */
+    pointer-events: none;
+}
 
 /* 2. A placeholder for non-collapsible rows to keep keys aligned */
 .bp-toggle-placeholder {

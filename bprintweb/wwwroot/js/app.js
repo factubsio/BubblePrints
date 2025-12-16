@@ -5,7 +5,9 @@ function createBlueprintView(flatElements, game, guid, cb) {
   const localStorageKey = `bp-state-${guid}`;
   const savedState = JSON.parse(localStorage.getItem(localStorageKey) || "{}");
   const pathStack = [];
-  for (const element of flatElements) {
+  for (let eIndex = 0; eIndex < flatElements.length; eIndex++) {
+    const element = flatElements[eIndex];
+    const nextElement = flatElements[eIndex + 1];
     if (element.levelDelta < 0) {
       parentContainerStack.pop();
       pathStack.pop();
@@ -21,9 +23,14 @@ function createBlueprintView(flatElements, game, guid, cb) {
     const childrenContainer = document.createElement("div");
     childrenContainer.className = "bp-children-container";
     const hasChildren = element.levelDelta > 0;
+    let toggle;
     if (hasChildren) {
-      const toggle = document.createElement("span");
+      const childrenPresent = nextElement && nextElement.levelDelta != -1;
+      toggle = document.createElement("span");
       toggle.className = "bp-toggle";
+      if (!childrenPresent) {
+        toggle.classList.add("disabled");
+      }
       const isInitiallyCollapsed = savedState[currentPath] ?? false;
       if (isInitiallyCollapsed) {
         childrenContainer.classList.add("hide");
@@ -31,20 +38,22 @@ function createBlueprintView(flatElements, game, guid, cb) {
       } else {
         toggle.textContent = "\u25BC";
       }
-      toggle.onclick = () => {
-        const isHidden = childrenContainer.classList.toggle("hide");
-        toggle.textContent = isHidden ? "\u25BA" : "\u25BC";
-        if (isHidden) {
-          savedState[currentPath] = true;
-        } else {
-          delete savedState[currentPath];
-        }
-        if (Object.keys(savedState).length === 0) {
-          localStorage.removeItem(localStorageKey);
-        } else {
-          localStorage.setItem(localStorageKey, JSON.stringify(savedState));
-        }
-      };
+      if (childrenPresent) {
+        toggle.onclick = () => {
+          const isHidden = childrenContainer.classList.toggle("hide");
+          toggle.textContent = isHidden ? "\u25BA" : "\u25BC";
+          if (isHidden) {
+            savedState[currentPath] = true;
+          } else {
+            delete savedState[currentPath];
+          }
+          if (Object.keys(savedState).length === 0) {
+            localStorage.removeItem(localStorageKey);
+          } else {
+            localStorage.setItem(localStorageKey, JSON.stringify(savedState));
+          }
+        };
+      }
       row.appendChild(toggle);
     } else {
       const placeholder = document.createElement("span");

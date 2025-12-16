@@ -107,8 +107,10 @@ namespace BlueprintExplorer
             return elem.Str("$type").ParseTypeString();
         }
 
-        public static BpNewType NewTypeStr(this string raw, bool strict = false)
+        public static BpNewType NewTypeStr(this string raw, bool strict = false, BlueprintDB db = null)
         {
+            db ??= BlueprintDB.Instance;
+
             var comma = raw.LastIndexOf(',');
             var shortName = raw[(comma + 2)..];
             string guid = "";
@@ -119,7 +121,7 @@ namespace BlueprintExplorer
             else if (shortName != "Assembly-CSharp") {
                 guid = raw[0..comma];
 
-                if (BlueprintDB.Instance.GuidToFullTypeName.TryGetValue(guid, out var fullTypeName))
+                if (db.GuidToFullTypeName.TryGetValue(guid, out var fullTypeName))
                     return (guid, shortName, fullTypeName);
 
                 if (strict)
@@ -133,12 +135,12 @@ namespace BlueprintExplorer
             }
         }
 
-        public static BpNewType NewTypeStr(this JsonElement elem, bool strict = false)
+        public static BpNewType NewTypeStr(this JsonElement elem, bool strict = false, BlueprintDB db = null)
         {
             if (elem.ValueKind == JsonValueKind.String)
-                return elem.GetString().NewTypeStr();
+                return elem.GetString().NewTypeStr(false, db);
             else if (elem.ValueKind == JsonValueKind.Object)
-                return elem.Str("$type").NewTypeStr(strict);
+                return elem.Str("$type").NewTypeStr(strict, db);
             else
                 throw new Exception("invalid type query??");
         }
