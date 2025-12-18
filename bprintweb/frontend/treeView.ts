@@ -29,6 +29,7 @@ export interface ViewCallbacks {
  */
 export function createBlueprintView(flatElements: DisplayableElement[], game: string, guid: string, cb: ViewCallbacks): HTMLDivElement {
     const rootContainer = document.createElement('div');
+    rootContainer.className = "bp-root";
     const parentContainerStack: HTMLElement[] = [rootContainer];
 
     const localStorageKey = `bp-state-${guid}`;
@@ -57,6 +58,9 @@ export function createBlueprintView(flatElements: DisplayableElement[], game: st
 
         const row = document.createElement('div');
         row.className = 'bp-row';
+        const depth = pathStack.length;
+        row.style.setProperty('--depth', depth.toString());
+
 
         const childrenContainer = document.createElement('div');
         childrenContainer.className = 'bp-children-container';
@@ -79,15 +83,21 @@ export function createBlueprintView(flatElements: DisplayableElement[], game: st
 
             if (isInitiallyCollapsed) {
                 childrenContainer.classList.add('hide');
-                toggle.textContent = '►';
+                toggle.classList.add('collapsed');
             } else {
-                toggle.textContent = '▼';
+                toggle.classList.remove('collapsed');
             }
+            toggle.textContent = '▼';
 
             if (childrenPresent) {
                 toggle.onclick = () => {
                     const isHidden = childrenContainer.classList.toggle('hide');
-                    toggle.textContent = isHidden ? '►' : '▼';
+                    if (isHidden) {
+                        toggle.classList.add('collapsed');
+                    } else {
+                        toggle.classList.remove('collapsed');
+                    }
+                    //toggle.textContent = isHidden ? '►' : '▼';
 
                     // --- THE OPTIMIZATION IS HERE ---
                     if (isHidden) {
@@ -106,6 +116,16 @@ export function createBlueprintView(flatElements: DisplayableElement[], game: st
                     }
                     // --- END OF OPTIMIZATION ---
                 };
+                row.addEventListener('mousedown', e => {
+                    if (e.detail > 1) {
+                        e.preventDefault();
+                        toggle.click()
+                    }
+                });
+            //    row.addEventListener('dblclick', e => {
+            //        document.body.style.userSelect = 'none';
+            //        document.body.style.userSelect = 'initial';
+            //    });
             }
             row.appendChild(toggle);
         } else {

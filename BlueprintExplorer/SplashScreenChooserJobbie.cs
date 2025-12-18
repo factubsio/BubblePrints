@@ -147,7 +147,10 @@ public partial class SplashScreenChooserJobbie : Form
         queryPath.Prepare();
 
         if (!queryPath.Choose("Game.exe", out string gamePath))
+        {
+            Console.WriteLine("NO");
             return;
+        }
 
         var version = BinzImporter.GetGameVersion(gamePath);
         var gameName = BinzImporter.GetGameName(gamePath);

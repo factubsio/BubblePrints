@@ -1,0 +1,65 @@
+﻿:root {
+    /* Light Theme (Default) */
+    --bg-color: #f9fafb;
+    --text-color: #333;
+    --heading-color: #222;
+    --surface-bg-color: #fff;
+    --border-color: #eee;
+    --hover-bg-color: #f1f7ff;
+    --shadow-color: rgba(0,0,0,0.05);
+    --sticky-shadow-color: rgba(0,0,0,0.1);
+    --accent-color: #0078d4;
+    --accent-text-color: #fff;
+    --accent-focus-shadow: rgba(0, 120, 212, 0.2);
+    --input-bg-color: #fff;
+    --input-text-color: #333;
+    --input-border-color: #ccc;
+    --bp-key-color: #333;
+    --bp-link-color: green;
+    --bp-link-hover-bg: #e0ffe0;
+    --bp-row-hover-bg: #f5f5f5;
+    --bp-row-border: #f0f0f0;
+    /* Button Variables */
+    --btn-bg: #e5e7eb;
+    --btn-text-color: #374151;
+    --btn-hover-bg: #d1d5db;
+    --btn-active-bg: #9ca3af;
+    /* Primary Button Variables */
+    --btn-primary-bg: var(--accent-color);
+    --btn-primary-text-color: var(--accent-text-color);
+    --btn-primary-hover-bg: #005a9e; /* Darker accent */
+    --search-highlight: rgb(120, 120, 255, 0.20);
+    --toggle-highlight: rgb(120, 120, 255, 0.50);
+}
+
+[data-theme="dark"] {
+    --bg-color: #121212;
+    --text-color: #e0e0e0;
+    --heading-color: #f5f5f5;
+    --surface-bg-color: #1e1e1e;
+    --border-color: #3a3a3a;
+    --hover-bg-color: #333;
+    --shadow-color: rgba(0,0,0,0.3);
+    --sticky-shadow-color: rgba(0,0,0,0.5);
+    --accent-color: #0090ff;
+    --accent-focus-shadow: rgba(0, 144, 255, 0.25);
+    --input-bg-color: #2d2d2d;
+    --input-text-color: #e0e0e0;
+    --input-border-color: #444;
+    --bp-key-color: #f5f5f5;
+    --bp-link-color: #66bb6a;
+    --bp-link-hover-bg: #2e442e;
+    --bp-row-hover-bg: #404040;
+    --bp-row-border: #3a3a3a;
+    /* Button Variables */
+    --btn-bg: #374151;
+    --btn-text-color: #e5e7eb;
+    --btn-hover-bg: #4b5563;
+    --btn-active-bg: #6b7280;
+    /* Primary Button Variables */
+    --btn-primary-bg: var(--accent-color);
+    --btn-primary-text-color: #fff;
+    --btn-primary-hover-bg: #00bfff; /* Lighter accent */
+    --search-highlight: rgb(239, 255, 0, 0.10);
+    --toggle-highlight: rgb(239, 255, 0, 0.40);
+}

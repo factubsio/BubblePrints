@@ -1,65 +1,4 @@
-﻿:root {
-    /* Light Theme (Default) */
-    --bg-color: #f9fafb;
-    --text-color: #333;
-    --heading-color: #222;
-    --surface-bg-color: #fff;
-    --border-color: #eee;
-    --hover-bg-color: #f1f7ff;
-    --shadow-color: rgba(0,0,0,0.05);
-    --sticky-shadow-color: rgba(0,0,0,0.1);
-    --accent-color: #0078d4;
-    --accent-text-color: #fff;
-    --accent-focus-shadow: rgba(0, 120, 212, 0.2);
-    --input-bg-color: #fff;
-    --input-text-color: #333;
-    --input-border-color: #ccc;
-    --bp-key-color: #333;
-    --bp-link-color: green;
-    --bp-link-hover-bg: #e0ffe0;
-    --bp-row-hover-bg: #f5f5f5;
-    --bp-row-border: #f0f0f0;
-    /* Button Variables */
-    --btn-bg: #e5e7eb;
-    --btn-text-color: #374151;
-    --btn-hover-bg: #d1d5db;
-    --btn-active-bg: #9ca3af;
-    /* Primary Button Variables */
-    --btn-primary-bg: var(--accent-color);
-    --btn-primary-text-color: var(--accent-text-color);
-    --btn-primary-hover-bg: #005a9e; /* Darker accent */
-}
-
-[data-theme="dark"] {
-    --bg-color: #121212;
-    --text-color: #e0e0e0;
-    --heading-color: #f5f5f5;
-    --surface-bg-color: #1e1e1e;
-    --border-color: #3a3a3a;
-    --hover-bg-color: #333;
-    --shadow-color: rgba(0,0,0,0.3);
-    --sticky-shadow-color: rgba(0,0,0,0.5);
-    --accent-color: #0090ff;
-    --accent-focus-shadow: rgba(0, 144, 255, 0.25);
-    --input-bg-color: #2d2d2d;
-    --input-text-color: #e0e0e0;
-    --input-border-color: #444;
-    --bp-key-color: #f5f5f5;
-    --bp-link-color: #66bb6a;
-    --bp-link-hover-bg: #2e442e;
-    --bp-row-hover-bg: #404040;
-    --bp-row-border: #3a3a3a;
-    /* Button Variables */
-    --btn-bg: #374151;
-    --btn-text-color: #e5e7eb;
-    --btn-hover-bg: #4b5563;
-    --btn-active-bg: #6b7280;
-    /* Primary Button Variables */
-    --btn-primary-bg: var(--accent-color);
-    --btn-primary-text-color: #fff;
-    --btn-primary-hover-bg: #00bfff; /* Lighter accent */
-}
-
+﻿
 /* === MODIFICATION 1: Global Box Sizing Reset === */
 /* This is the key fix for the width/padding issue. It tells the browser */
 /* to include padding and borders *inside* an element's total width. */
@@ -70,7 +9,8 @@
 
 body {
     margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    /*font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;*/
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: var(--bg-color);
     color: var(--text-color);
 }
@@ -88,7 +28,6 @@ h1 {
     font-size: 1rem;
     border: 1px solid var(--input-border-color);
     border-radius: 6px;
-    /* MODIFICATION: Removed margin-bottom here to be controlled by the header */
     transition: border-color 0.2s, box-shadow 0.2s;
     background-color: var(--input-bg-color);
     color: var(--input-text-color);
@@ -128,6 +67,14 @@ tbody tr {
         background-color: var(--hover-bg-color);
     }
 
+/*    tbody tr.cursor-active > td:first-child::before {
+        content: '>>> ';
+    }
+*/
+    tbody tr.cursor-active {
+        box-shadow: inset 0px 0px 9px 7px var(--search-highlight);
+    }
+
 tbody td {
     padding: 0.75rem 1rem;
     font-size: 0.95rem;
@@ -150,22 +97,68 @@ tbody td {
     display: flex;
     flex-wrap: nowrap;
     align-items: baseline;
-    gap: 1.5rem;
+    gap: 1.0rem;
 }
 
 #searchView, #blueprintView {
     padding: 2rem; /* Simplified padding */
 }
 
-.bp-row {
+#blueprintView {
     display: flex;
-    font-family: Consolas, monospace;
+    max-height: calc(100vh - 200px);
+}
+
+#bp-content {
+    flex-grow: 1;
+}
+
+#bp-references {
+    padding-left: 1rem;
+    min-width: fit-content;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+#bp-content,
+#bp-references {
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#bp-references > a{
+    display: block;
+}
+
+.json-view,
+#blueprintView,
+.bp-root {
+    box-shadow: 0px 11px 11px 3px var(--sticky-shadow-color);
+}
+
+/*.bp-row {
+    display: grid;*/
+    /*font-family: Consolas, monospace;*/
+    /*line-height: 1.4;
     padding: 2px 5px;
     border-bottom: 1px solid var(--bp-row-border);
+    grid-template-columns: 32px 200px 1fr;
+}*/
+
+.bp-node:last-child > .bp-row {
+    border-bottom: initial;
+
 }
 
     .bp-row:hover {
         background-color: var(--bp-row-hover-bg);
+    }
+
+
+    .bp-type {
+        font-weight: bold;
+
     }
 
 .bp-key {
@@ -181,6 +174,44 @@ tbody td {
 
 .bp-val {
     user-select: all;
+}
+
+.bp-row {
+    --indent-per-level: 30px; /* Or your preferred indent */
+    --key-column-width: 350px; /* A fixed width for all keys */
+    
+    display: flex;
+    align-items: baseline; /* Aligns text across different spans */
+    line-height: 1.4;
+    padding: 2px 5px;
+    border-bottom: 1px solid var(--bp-row-border);
+
+    /* The magic: Calculate indentation based on depth */
+}
+
+/* Give toggle and key fixed widths so they don't shrink */
+.bp-row > .bp-toggle,
+.bp-row > .bp-toggle-placeholder {
+    flex-shrink: 0;
+    width: 20px;
+}
+
+.bp-row > .bp-key {
+    flex-shrink: 0;
+    width: var(--key-column-width);
+    /* Optional: for long keys */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The value and type will now naturally fall into place */
+.bp-row > .bp-val,
+.bp-row > .bp-type,
+.bp-row > .bp-link {
+    /* No special styling needed */
+    margin-left: calc(-1 * var(--depth, 0) * var(--indent-per-level));
+    /*calc(1 * var(--depth, 0) * var(--indent-per-level));*/
 }
 
 .bp-link {
@@ -227,6 +258,11 @@ tbody td {
         box-shadow: 0 0 0 3px var(--accent-focus-shadow);
     }
 
+    .btn:disabled {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+
 /* Primary Button Modifier */
 .btn-primary {
     background-color: var(--btn-primary-bg);
@@ -237,12 +273,19 @@ tbody td {
         background-color: var(--btn-primary-hover-bg);
     }
 
+.toggle-active > .btn{
+    box-shadow: inset 0px 0px 4px 4px var(--toggle-highlight);
+}
+.toggle-inactive > .btn{
+
+}
+
 
 .bp-toggle {
     background-color: var(--btn-bg);
     border: 1px solid var(--border-color);
     color: var(--btn-text-color);
-    border-radius: 4px;
+    border-radius: 3px;
     height: 20px;
     width: 20px;
     line-height: 20px;
@@ -252,12 +295,17 @@ tbody td {
     cursor: pointer;
     user-select: none;
     display: inline-block;
-    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
-}
+    transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, transform 0.07s;
+    transition-property: background-color, transform;
+    }
 
     .bp-toggle:hover {
         background-color: var(--btn-hover-bg);
         border-color: var(--input-border-color);
+    }
+
+    .bp-toggle.collapsed {
+        transform: rotate(-90deg);
     }
 
 .bp-toggle.disabled {
@@ -274,7 +322,7 @@ tbody td {
 }
 
 .bp-children-container {
-    border-left: 1px solid var(--bp-row-border);
+    background: linear-gradient( to bottom, var(--bp-row-border) calc(100% - 1.2rem), transparent calc(100% - 0.2rem) ) 4px / 1px no-repeat;
     padding-left: 19px;
     margin-left: 10px;
 }
@@ -290,6 +338,25 @@ a {
     #theme-toggle-label::after {
         content: "Dark/Light";
     }
+    #show-help-label::after {
+        content: "Help";
+    }
+
+    .title-bar {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    .title-bar > button {
+        max-height: 40px;
+
+    }
+
+.json-view {
+    white-space: pre;
+    font-family: Consolas, monospace;
+    line-height: 1.4;
+}
 
 .hide {
     display: none !important;
@@ -303,45 +370,50 @@ a {
 }
 
 /* === ADDITION 3: Responsive Styles for Mobile & Tablets === */
-/* These rules apply only when the screen width is 768px or less. */
-@media (max-width: 768px) {
-    
-    /* 1. Reduce overall padding to give content more room */
-    .sticky-header,
-    #searchView, 
-    #blueprintView {
-        padding-left: 1rem;
-        padding-right: 1rem;
-    }
-    
-    /* 2. Hide the main title because it gets squished */
-    .sticky-header > h1 {
-        display: none;
+    /* These rules apply only when the screen width is 768px or less. */
+    @media (max-width: 768px) {
+
+        /* 1. Reduce overall padding to give content more room */
+        .sticky-header,
+        #searchView,
+        #blueprintView {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+            /* 2. Hide the main title because it gets squished */
+            .sticky-header > h1 {
+                display: none;
+            }
+
+        #theme-toggle-label::after {
+            content: "d/l";
+        }
+
+        #show-help-label::after {
+            content: "?";
+        }
+
+        /* 3. Make the search box take up the full width */
+        #searchBox {
+            max-width: initial;
+            flex-grow: 1;
+            margin-bottom: 0;
+        }
+
+        /* 4. Slightly smaller font for main headings on mobile */
+        h1 {
+            font-size: 1.5rem;
+        }
+
+        /* 5. Reduce padding in table cells for more space */
+        thead th,
+        tbody td {
+            padding: 0.6rem 0.75rem;
+        }
+
+        .col-priority-1 {
+            display: none;
+        }
     }
 
-    #theme-toggle-label::after {
-        content: "d/l";
-    }
-    
-    /* 3. Make the search box take up the full width */
-    #searchBox {
-        max-width: initial;
-        flex-grow: 1;
-        margin-bottom: 0;
-    }
-
-    /* 4. Slightly smaller font for main headings on mobile */
-    h1 {
-        font-size: 1.5rem;
-    }
-
-    /* 5. Reduce padding in table cells for more space */
-    thead th,
-    tbody td {
-        padding: 0.6rem 0.75rem;
-    }
-
-    .col-priority-1 {
-        display: none;
-    }
-}

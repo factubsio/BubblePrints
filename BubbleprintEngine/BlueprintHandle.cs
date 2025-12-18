@@ -35,6 +35,49 @@ namespace BlueprintExplorer
     public static class JsonExtensions
     {
         public static bool ContainsIgnoreCase(this string haystack, string needle) => haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
+        public static (string, string) ParseAsStringWithKey(this JsonElement node, string nodeKey = null, BlueprintDB db = null)
+        {
+            if (node.ValueKind != JsonValueKind.Object)
+                return (null, null);
+
+            db ??= BlueprintDB.Instance;
+
+            if (node.TryGetProperty("m_Key", out var strKey) && node.TryGetProperty("Shared", out var sharedString) && node.TryGetProperty("m_OwnerString", out _))
+            {
+                var key = strKey.GetString();
+                if (key.Length == 0 && sharedString.ValueKind == JsonValueKind.Object && sharedString.TryGetProperty("stringkey", out var sharedKey))
+                    key = sharedKey.GetString();
+
+                if (key.Length > 0)
+                {
+                    if (db.Strings.TryGetValue(key, out var str))
+                        return (key, str);
+                    else
+                        return (key, "<string-not-present>");
+                }
+                else
+                {
+                    return (key, "<null-string>");
+                }
+            }
+            if (nodeKey != "Shared" && node.TryGetProperty("assetguid", out var assetguidKey) && node.TryGetProperty("stringkey", out var dirsharedKey))
+            {
+                var key = dirsharedKey.GetString();
+                if (key.Length > 0)
+                {
+                    if (db.Strings.TryGetValue(key, out var str))
+                        return (key, str);
+                    else
+                        return (key, "<string-not-present>");
+                }
+                else
+                {
+                    return (key, "<null-string>");
+                }
+            }
+            return (null, null);
+        }
+
         public static string ParseAsString(this JsonElement node, string nodeKey = null, BlueprintDB db = null)
         {
             if (node.ValueKind != JsonValueKind.Object)

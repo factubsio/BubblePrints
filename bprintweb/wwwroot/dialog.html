@@ -1,0 +1,54 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dialogue Cue Viewer</title>
+</head>
+<body>
+
+    <div id="cue-container">
+
+        <header>
+            <!-- Speaker's name will go here -->
+            <h2 id="cue-speaker-name">[Speaker Name]</h2>
+        </header>
+
+        <main>
+            <div id="current-id"></div>
+            <!-- The actual dialogue text -->
+            <blockquote id="cue-text">
+                [This is where the line of dialogue spoken by the character will be displayed.]
+            </blockquote>
+
+            <!-- Game actions triggered by this cue -->
+            <h3>Effects</h3>
+            <ul id="cue-effects">
+                <!-- JavaScript will add <li> elements here. Ex: <li>Gives 50 XP</li> -->
+            </ul>
+
+            <!-- Player's response options -->
+            <h3 id="answers-title">Player Answers</h3>
+            <ul id="cue-answers">
+                <!-- JavaScript will add <li><a>...</a></li> elements here. Ex: <li><a href="#" data-cue-id="...">[Player response text]</a></li> -->
+            </ul>
+        </main>
+
+        <footer>
+            <!-- Developer comments for modding context -->
+            <h3>Developer Comment</h3>
+            <p id="dev-comment">[Developer comments will appear here if they exist.]</p>
+        </footer>
+
+    </div>
+
+    <!-- Your main.js script will be linked here -->
+    <!-- <script src="main.js"></script> -->
+
+    <script type="module">
+        import { DialogPage } from "/js/app.js";
+        const page = new DialogPage()
+    </script>
+
+</body>
+</html>

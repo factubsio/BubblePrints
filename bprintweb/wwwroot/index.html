@@ -3,45 +3,27 @@
 <head>
     <meta charset="utf-8" />
     <title>Blueprint Explorer</title>
+    <link rel="stylesheet" href="/theme.css">
     <link rel="stylesheet" href="/style.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <script>
-        function applyTheme(theme) {
-            document.documentElement.setAttribute('data-theme', theme);
-            localStorage.setItem('theme', theme);
-        }
-
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme) {
-            applyTheme(savedTheme);
-        } else {
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            applyTheme(prefersDark ? 'dark' : 'light');
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const themeToggle = document.getElementById('theme-toggle');
-            themeToggle.addEventListener('click', () => {
-                const currentTheme = document.documentElement.getAttribute('data-theme');
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                applyTheme(newTheme);
-            });
-        });
-
-
-    </script>
+    <script src="/js/theme.js"></script>
 </head>
 <body>
 
     <div class="sticky-header">
         <div class="control-bar">
             <!--<h1 style="opacity: 0.7">Blueprint Explorer</h1>-->
-            <input id="searchBox" type="text" placeholder="Search blueprints..." autocomplete="off" />
-            <button id="theme-toggle" class="btn" style="margin-right: 1em"><span id="theme-toggle-label"></span></button>
+            <input id="searchBox" type="text" placeholder="Search blueprints  &#x1F50E;&#xFE0E;                   [Ctrl-P]" autocomplete="off" />
+            <a href="/help.html"><span id="show-help" class="btn" ><span id="show-help-label"></span></span></a>
+            <button id="theme-toggle" class="btn" ><span id="theme-toggle-label"></span></button>
         </div>
-        <div class="title-bar">
-            <h1 id="currentTitle" class="hide">-</h1>
+        <div id="title-bar" class="title-bar hide">
+            <h1 id="currentTitle">-</h1>
+            <button id="backBtn" class="btn">&larr; Back to Search</button>
+            <button id="copy-raw" class="btn">Copy Raw</button>
+            <a id="show-raw-link" class="toggle-inactive"><button class="btn">Raw</button></a>
+            <span id="toggle-references" class="toggle-inactive"><button class="btn">References</button></span>
         </div>
     </div>
 
@@ -58,16 +40,13 @@
     </div>
 
     <div id="blueprintView" class="hide">
-        <div style="margin-bottom: 1rem;">
-            <button id="backBtn" class="btn">&larr; Back to Search</button>
-        </div>
-        <!-- Tree renders here -->
         <div id="bp-content"></div> 
+        <div id="bp-references" class="hide"></div> 
     </div>
 
     <script type="module">
-        import { initApp } from "/js/app.js";
-        initApp();
+        import { MainPage } from "/js/app.js";
+        const page = new MainPage()
     </script>
 </body>
 </html>

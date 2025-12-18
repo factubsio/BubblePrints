@@ -1,7 +1,10 @@
 using BlueprintExplorer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.ObjectPool;
+using Microsoft.OpenApi.Extensions;
 using System.Collections.Concurrent;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace bprintweb.Controllers;
 
@@ -32,7 +35,7 @@ public class BlueprintDbController : ControllerBase
             x.Name,
             x.Namespace,
             x.GuidText,
-            x.TypeForResults,
+            x.TypeName,
         }));
 
     }
@@ -61,32 +64,87 @@ public class BlueprintDbController : ControllerBase
 
     public IActionResult GetBlueprintView(BlueprintDB db, string guid)
     {
-        if (db == null || !db.Blueprints.TryGetValue(Guid.Parse(guid), out var bp))
-            return NotFound();
-
-        return Ok(bp.DisplayableElements.Select(e => new
-        {
-            e.key,
-            e.value,
-            e.levelDelta,
-            e.link,
-            e.isObj,
-            String = GetString(db, e),
-            Target = GetLinkTarget(db, e),
-            typeName = e.MaybeType.Name // Assumes MaybeType name is available here, or pass e.MaybeType?.Name
-        }));
-    }
-
-    [HttpGet("get/{game}/{guid}", Name = "GetBlueprint")]
-    [ResponseCache(Duration = 86400, Location = ResponseCacheLocation.Client)]
-    public IActionResult GetBlueprint(BlueprintDB db, string guid)
-    {
-        if (db == null || !db.Blueprints.TryGetValue(Guid.Parse(guid), out var blueprint))
+        if (db == null || !Guid.TryParse(guid, out var guidObj) || !db.Blueprints.TryGetValue(guidObj, out var blueprint))
         {
             return NotFound();
         }
 
-        return Ok(blueprint.Raw);
+        return Ok(
+            new
+            {
+                Blueprint = blueprint.DisplayableElements.Select(e => new
+                {
+                    e.key,
+                    e.value,
+                    e.levelDelta,
+                    e.link,
+                    e.isObj,
+                    String = GetString(db, e),
+                    Target = GetLinkTarget(db, e),
+                    typeName = e.MaybeType.Name
+                }),
+                References = blueprint.BackReferences.Select(x => new
+                {
+                    Id = x,
+                    Name = db.Blueprints.GetValueOrDefault(x)?.Name ?? "-"
+                })
+            });
+    }
+
+    [HttpGet("get/{game}/{guid}", Name = "GetBlueprint")]
+    [ResponseCache(Duration = 86400, Location = ResponseCacheLocation.Client)]
+    public IActionResult GetBlueprint(BlueprintDB db, string guid, bool? strings)
+    {
+        if (db == null || !Guid.TryParse(guid, out var guidObj) || !db.Blueprints.TryGetValue(guidObj, out var blueprint))
+        {
+            return NotFound();
+        }
+
+        if (strings != true)
+        {
+            Response.Headers.Append("BP-Name", blueprint.Name);
+            return Ok(blueprint.Raw);
+        }
+        else
+        {
+            var root = blueprint.EnsureObj;
+            Dictionary<string, string> strs = [];
+
+            FindStrings(db, root, strs);
+
+            return Ok(new
+            {
+                root,
+                meta = new
+                {
+                    name = blueprint.Name,
+                },
+                strs,
+            });
+        }
+    }
+
+    private static void FindStrings(BlueprintDB db, JsonElement root, Dictionary<string, string> strs)
+    {
+        var (k, v) = root.ParseAsStringWithKey(null, db);
+        if (!string.IsNullOrEmpty(k) && !string.IsNullOrEmpty(v))
+        {
+            strs[k] = v;
+        }
+        else if (root.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in root.EnumerateObject())
+            {
+                FindStrings(db, prop.Value, strs);
+            }
+        }
+        else if (root.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var val in root.EnumerateArray())
+            {
+                FindStrings(db, val, strs);
+            }
+        }
     }
 
     [HttpGet("find/{game}", Name = "FindBlueprint")]
@@ -139,4 +197,17 @@ public static class MatchResultsPool
     }
 
     public static ObjectPool<MatchResultBuffer> RT { get; private set; } = null!;
+}
+
+public class LiteralJsonConverter : JsonConverter<string>
+{
+    public override string Read(ref Utf8JsonReader reader,
+                                Type typeToConvert,
+                                JsonSerializerOptions options)
+                                => reader.GetString()!;
+
+    public override void Write(Utf8JsonWriter writer,
+                               string value,
+                               JsonSerializerOptions options)
+                               => writer.WriteRawValue(value);
 }

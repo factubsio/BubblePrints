@@ -21,8 +21,8 @@ public class FormsFolderChooser : IFolderChooser
         if (folderBrowser.ShowDialog() != DialogResult.OK)
             return false;
 
-        choice = "";
-        return false;
+        choice = folderBrowser.SelectedPath;
+        return true;
     }
 
     public void Prepare()

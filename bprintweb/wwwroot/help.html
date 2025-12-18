@@ -1,0 +1,52 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BubblePrints Help</title>
+    <link rel="stylesheet" href="/theme.css">
+    <link rel="stylesheet" href="/help.css">
+    <script src="/js/theme.js"></script>
+</head>
+<body>
+    <main>
+        <h1>BubblePrints Help</h1>
+
+        <!--<h2>Keyboard Shortcuts</h2>
+        <p>You can use vim-ish keys within a blueprint to navigate around:</p>
+        <ul>
+            <li><code>j</code> – next line</li>
+            <li><code>k</code> – previous line</li>
+            <li><code>Ctrl-U</code> / <code>page-up</code> – scroll up a bit</li>
+            <li><code>Ctrl-D</code> / <code>page-down</code> – scroll down a bit</li>
+            <li><code>&lt;space&gt;</code> – toggle expansion</li>
+            <li><code>&lt;enter&gt;</code> - follow link</li>
+            <li><code>Ctrl-&lt;enter&gt;</code> - follow link in new tab</li>
+            <li><code>Ctrl-o</code> – go back in history</li>
+            <li><code>Ctrl-i</code> – go forward in history</li>
+        </ul>-->
+
+        <h2>Searching</h2>
+        <p>Type in the big search bar at the top of the window. BubblePrints will search all blueprints by name and do a fuzzy match, then return the matches in the "best" order. It doesn't get it right 100% of the time, but what you're looking for should be in the top few results.</p>
+        <p>Pressing <code>ctrl-p</code> will focus the search bar.</p>
+        <p>You can choose which blueprint to open by using the <code>arrow</code> keys and <code>enter</code> or by clicking on the name of the result<p></p>
+
+        <p>If your search begins with <code>!bp_</code> the rest of the search string will be treated as a blueprint guid.</p>
+        <p>You can also search by type/guid/namespace:</p>
+        <ul>
+            <li><code>t:Type</code></li>
+            <li><code>g:Guid</code> (<code>g: Guid</code> will ignore a leading <code>!bp_</code>)</li>
+            <li><code>n:Namespace</code></li>
+        </ul>
+        <p>For example, <code>glitter t:Buff</code> will fuzzy match by name on glitter, and restrict the results to only blueprints whose type matches Buff.</p>
+        <p><code>?type</code> will show limit results to only blueprints that contain a sub-component with that type, for example: <code>?AreaEffect t:BlueprintAbility</code>.</p>
+        <p><code>#this is a string</code> will perform a full-text search through every blueprint, this will also search the (English) localised text.</p>
+
+        <h2>Expanding & Collapsing</h2>
+        <p>Clicking on the expand/collapse button will toggle the row and its children’s visibility. Double click on a row to toggle its (and its children’s) collapse state. Hold <code>Control</code> while toggling to toggle all the children of the node (instead of the node itself).</p>
+
+        <h2>Following Links</h2>
+        <p>To follow links (denoted by the exclamation point prefixing them), click the link.</p>
+    </main>
+</body>
+</html>

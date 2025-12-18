@@ -11,6 +11,7 @@
 export function createBlueprintView(flatElements, game, guid, cb) {
     var _a;
     const rootContainer = document.createElement('div');
+    rootContainer.className = "bp-root";
     const parentContainerStack = [rootContainer];
     const localStorageKey = `bp-state-${guid}`;
     // Load state - no change here, this still works perfectly.
@@ -31,6 +32,8 @@ export function createBlueprintView(flatElements, game, guid, cb) {
         nodeWrapper.className = 'bp-node';
         const row = document.createElement('div');
         row.className = 'bp-row';
+        const depth = pathStack.length;
+        row.style.setProperty('--depth', depth.toString());
         const childrenContainer = document.createElement('div');
         childrenContainer.className = 'bp-children-container';
         const hasChildren = element.levelDelta > 0;
@@ -47,15 +50,22 @@ export function createBlueprintView(flatElements, game, guid, cb) {
             const isInitiallyCollapsed = (_a = savedState[currentPath]) !== null && _a !== void 0 ? _a : false;
             if (isInitiallyCollapsed) {
                 childrenContainer.classList.add('hide');
-                toggle.textContent = '►';
+                toggle.classList.add('collapsed');
             }
             else {
-                toggle.textContent = '▼';
+                toggle.classList.remove('collapsed');
             }
+            toggle.textContent = '▼';
             if (childrenPresent) {
                 toggle.onclick = () => {
                     const isHidden = childrenContainer.classList.toggle('hide');
-                    toggle.textContent = isHidden ? '►' : '▼';
+                    if (isHidden) {
+                        toggle.classList.add('collapsed');
+                    }
+                    else {
+                        toggle.classList.remove('collapsed');
+                    }
+                    //toggle.textContent = isHidden ? '►' : '▼';
                     // --- THE OPTIMIZATION IS HERE ---
                     if (isHidden) {
                         // It's collapsed (non-default state), so we ADD it to our state object.
@@ -74,6 +84,16 @@ export function createBlueprintView(flatElements, game, guid, cb) {
                     }
                     // --- END OF OPTIMIZATION ---
                 };
+                row.addEventListener('mousedown', e => {
+                    if (e.detail > 1) {
+                        e.preventDefault();
+                        toggle.click();
+                    }
+                });
+                //    row.addEventListener('dblclick', e => {
+                //        document.body.style.userSelect = 'none';
+                //        document.body.style.userSelect = 'initial';
+                //    });
             }
             row.appendChild(toggle);
         }

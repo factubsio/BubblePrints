@@ -154,6 +154,11 @@ public class BinzManager
             match = extractVersionKM.Match(file);
             game = "KM";
         }
+        else if (fileName.StartsWith("blueprints_raw_DH", StringComparison.InvariantCultureIgnoreCase))
+        {
+            match = extractVersionDH.Match(file);
+            game = "DH";
+        }
         else if (fileName.StartsWith("blueprints_raw_RT", StringComparison.InvariantCultureIgnoreCase))
         {
             match = extractVersionRT.Match(file);
@@ -223,6 +228,7 @@ public class BinzManager
     private static readonly Regex extractVersion = new(@"blueprints_raw_(\d+).(\d+)\.(\d+)(.*)_(\d).binz");
     private static readonly Regex extractVersionKM = new(@"blueprints_raw_KM_(\d+).(\d+)\.(\d+)(.)_(\d).binz");
     private static readonly Regex extractVersionRT = new(@"blueprints_raw_RT_(\d+).(\d+)\.(\d+)(\.\d+|.*)_(\d).binz");
+    private static readonly Regex extractVersionDH = new(@"blueprints_raw_DH_(\d+).(\d+)\.(\d+)(\.\d+|.*)_(\d).binz");
 
 }
 public class BinzVersion : IEquatable<BinzVersion>

@@ -10,6 +10,7 @@ public static partial class BinzImporter
     private static readonly List<GameIdentification> KnownGames =
     [
         new("WH40KRT_Data", "RT", typeof(RtGame)),
+        new("WH40KDH_Data", "DH", typeof(DhGame)),
         new("Wrath_Data", "Wrath", typeof(WrathGame)),
         new("Kingmaker_Data", "KM", typeof(KmGame)),
     ];
