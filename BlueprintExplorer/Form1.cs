@@ -193,9 +193,6 @@ namespace BlueprintExplorer
             ctrlP.Daddy = this;
             ctrlP.VisibleChanged += CtrlP_VisibleChanged;
 
-            resultsBuffer[0].Init(DB.Blueprints.Values, BlueprintHandle.MatchKeys);
-            resultsBuffer[1].Init(DB.Blueprints.Values, BlueprintHandle.MatchKeys);
-
             UpdatePinResults(BubblePrints.Settings.PinSearchResults);
 
 
@@ -663,7 +660,7 @@ namespace BlueprintExplorer
         private CancellationTokenSource finishingLast;
         private Task<List<BlueprintHandle>> overlappedSearch;
 
-        private MatchResultBuffer[] resultsBuffer = [new(), new()];
+        private ScoreBuffer[] resultsBuffer = [new(), new()];
 
         private void SetResults(List<BlueprintHandle> results, CancellationTokenSource cancellation, int matchBuffer, ulong sequenceNumber)
         {
@@ -931,7 +928,7 @@ namespace BlueprintExplorer
                 0 => resultsCache[row].Name,
                 1 => resultsCache[row].TypeName,
                 2 => resultsCache[row].Namespace,
-                3 => resultsBuffer[lastFinished].Score(resultsCache[row]).ToString(),
+                3 => resultsBuffer[lastFinished].Score(resultsCache[row].Guid).ToString(),
                 4 => resultsCache[row].GuidText,
                 _ => "<error>",
             };

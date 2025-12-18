@@ -375,7 +375,7 @@ public partial class BlueprintDB
         public Dictionary<int, Dictionary<string, float>> results = new();
     };
 
-    public List<BlueprintHandle> SearchBlueprints(string searchText, MatchResultBuffer resultBuffer, CancellationToken cancellationToken)
+    public List<BlueprintHandle> SearchBlueprints(string searchText, ScoreBuffer scoreBuffer, CancellationToken cancellationToken)
     {
         if (searchText?.Length == 0)
             return cache;
@@ -542,15 +542,22 @@ public partial class BlueprintDB
 
         searchText = string.Join(" ", passThrough.Where(c => c.Length > 0)).ToLower();
 
+        scoreBuffer.Clear();
         MatchQuery query = new(searchText, BlueprintHandle.MatchProvider);
+        MatchResult[] matches = [.. BlueprintHandle.MatchKeys.Select(key => new MatchResult(key))];
+
         foreach (var handle in toSearch)
         {
-            query.Evaluate(handle, resultBuffer);
-            if (handle.HasMatches(resultBuffer))
+            matches.Clear();
+            query.Evaluate(handle, matches);
+            if (matches.HasAny())
+            {
+                scoreBuffer.Add(handle.Guid, matches);
                 results.Add(handle);
+            }
             cancellationToken.ThrowIfCancellationRequested();
         }
-        results.Sort((x, y) => resultBuffer.Score(y).CompareTo(resultBuffer.Score(x)));
+        results.Sort((x, y) => scoreBuffer.Score(y.Guid).CompareTo(scoreBuffer.Score(x.Guid)));
         return results;
     }
 
@@ -621,7 +628,7 @@ public partial class BlueprintDB
 #endif
     }
 
-    public Task<List<BlueprintHandle>> SearchBlueprintsAsync(string searchText, CancellationToken cancellationToken, MatchResultBuffer resultBuffer)
+    public Task<List<BlueprintHandle>> SearchBlueprintsAsync(string searchText, CancellationToken cancellationToken, ScoreBuffer resultBuffer)
     {
         //Console.WriteLine($"Locking: {matchBuffer}");
         return Task.Run(() =>

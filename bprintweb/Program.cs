@@ -16,7 +16,6 @@ namespace bprintweb;
 public record class GameData(BlueprintDB DB)
 {
     public MemoryMappedViewAccessor Data { get; set; } = null!;
-    public ObjectPool<MatchResultBuffer> ResultBuffer { get; set; } = null!;
 }
 
 public static class Program
@@ -60,7 +59,6 @@ public static class Program
             Console.WriteLine("Caching raw json to disk");
             var tmr = Stopwatch.StartNew();
             var handle = await FlushAllRaw(gameData.DB);
-            gameData.ResultBuffer = new DefaultObjectPool<MatchResultBuffer>(new MatchResultBufferPolicy(gameData.DB), 8);
 
             Console.WriteLine($"Caching complete (in {tmr.Elapsed.TotalSeconds:F1}s)");
             gameData.Data = handle.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);

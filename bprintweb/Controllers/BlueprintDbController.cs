@@ -27,7 +27,7 @@ public class BlueprintDbController : ControllerBase
         _logger = logger;
     }
 
-    private IActionResult DoFind(BlueprintDB db, MatchResultBuffer resultBuffer, string query)
+    private IActionResult DoFind(BlueprintDB db, ScoreBuffer resultBuffer, string query)
     {
         if (db == null)
         {
@@ -254,7 +254,7 @@ public class BlueprintDbController : ControllerBase
         if (!_active.TryAdd(ip, true))
             return StatusCode(429, "Too many concurrent queries");
 
-        var resultsBuffer = gameData.ResultBuffer.Get();
+        var resultsBuffer = ResultsPool.Get();
 
         try
         {
@@ -262,7 +262,7 @@ public class BlueprintDbController : ControllerBase
         }
         finally
         {
-            gameData.ResultBuffer.Return(resultsBuffer);
+            ResultsPool.Return(resultsBuffer);
             _active.TryRemove(ip, out _);
         }
     }
@@ -333,18 +333,18 @@ public class BlueprintDbController : ControllerBase
             """);
         return true;
     }
+    private static readonly ObjectPool<ScoreBuffer> ResultsPool = new DefaultObjectPool<ScoreBuffer>(new MatchResultBufferPolicy());
+
 }
 
-public class MatchResultBufferPolicy(BlueprintDB db) : IPooledObjectPolicy<MatchResultBuffer>
+public class MatchResultBufferPolicy() : IPooledObjectPolicy<ScoreBuffer>
 {
-    public MatchResultBuffer Create()
+    public ScoreBuffer Create()
     {
-        MatchResultBuffer resultBuffer = new();
-        resultBuffer.Init(db.Blueprints.Values, BlueprintHandle.MatchKeys);
-        return resultBuffer;
+        return new();
     }
 
-    public bool Return(MatchResultBuffer obj) { return true; }
+    public bool Return(ScoreBuffer obj) { return true; }
 }
 
 

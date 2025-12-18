@@ -51,8 +51,7 @@ public static class Program
         await idle;
         Console.WriteLine();
 
-        MatchResultBuffer resultsBuffer = new();
-        resultsBuffer.Init(db.Blueprints.Values, BlueprintHandle.MatchKeys);
+        ScoreBuffer resultsBuffer = new();
 
         string query = args[2];
         Console.WriteLine($"searching for {game}:{query}");
