@@ -21,6 +21,8 @@ namespace BlueprintExplorer
     public partial class Form1 : BubbleprintsForm
     {
 
+        public static BlueprintDB DB { get; set; } = new();
+
         private static bool dark;
         public Form Splash;
         protected override void OnClosed(EventArgs e)
@@ -191,8 +193,8 @@ namespace BlueprintExplorer
             ctrlP.Daddy = this;
             ctrlP.VisibleChanged += CtrlP_VisibleChanged;
 
-            resultsBuffer[0].Init(BlueprintDB.Instance.Blueprints.Values, BlueprintHandle.MatchKeys);
-            resultsBuffer[1].Init(BlueprintDB.Instance.Blueprints.Values, BlueprintHandle.MatchKeys);
+            resultsBuffer[0].Init(DB.Blueprints.Values, BlueprintHandle.MatchKeys);
+            resultsBuffer[1].Init(DB.Blueprints.Values, BlueprintHandle.MatchKeys);
 
             UpdatePinResults(BubblePrints.Settings.PinSearchResults);
 
@@ -276,7 +278,7 @@ namespace BlueprintExplorer
 
                 kGlobalManager.GlobalPaletteMode = Krypton.Toolkit.PaletteModeManager.SparkleOrange;
 
-                ShowBlueprint(BlueprintDB.Instance.Blueprints.Values.First(), ShowFlags.F_UpdateHistory);
+                ShowBlueprint(DB.Blueprints.Values.First(), ShowFlags.F_UpdateHistory);
                 //ShowCtrlP();
                 //ctrlP.Select();
                 //ctrlP.Focus();
@@ -349,7 +351,7 @@ namespace BlueprintExplorer
             header.Marquee = false;
             header.Text = "Press @{key.ctrl}-@{key.P} to search (or click here)";
 
-            //foreach (var v in BlueprintDB.Instance.Available)
+            //foreach (var v in DB.Available)
             //    availableVersions.Items.Add(v);
             //availableVersions.SelectedIndex = availableVersions.Items.Count - 1;
             //availableVersions.Enabled = true;
@@ -722,12 +724,12 @@ namespace BlueprintExplorer
 
             if (matchBuffer == 1)
             {
-                overlappedSearch = BlueprintDB.Instance.SearchBlueprintsAsync(searchTerm, cancellation.Token, resultsBuffer[matchBuffer]);
+                overlappedSearch = DB.SearchBlueprintsAsync(searchTerm, cancellation.Token, resultsBuffer[matchBuffer]);
                 search = overlappedSearch;
             }
             else
             {
-                search = BlueprintDB.Instance.SearchBlueprintsAsync(searchTerm, cancellation.Token, resultsBuffer[matchBuffer]);
+                search = DB.SearchBlueprintsAsync(searchTerm, cancellation.Token, resultsBuffer[matchBuffer]);
             }
 
             search.ContinueWith(task =>

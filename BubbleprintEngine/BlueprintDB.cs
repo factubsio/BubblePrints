@@ -41,8 +41,8 @@ public partial class BlueprintDB
 
     public IReadOnlyDictionary<string, List<int>> IndexByWord => _IndexByWord;
 
-    private static BlueprintDB _Instance;
-    public static BlueprintDB Instance => _Instance ??= new();
+    //private static BlueprintDB _Instance;
+    //public static BlueprintDB Instance => _Instance ??= new();
     public readonly Dictionary<string, string> Strings = new();
 
     public readonly Dictionary<string, string> GuidToFullTypeName = new();
@@ -363,12 +363,11 @@ public partial class BlueprintDB
         bp.TypeNameLower = bp.TypeName.ToLower();
         bp.NamespaceLower = bp.Namespace?.ToLower() ?? "";
         bp.Guid = guid;
+        bp.db = this;
         var end = bp.Type.LastIndexOf('.');
         types.Add(bp.Type.Substring(end + 1));
         cache.Add(bp);
         Blueprints[guid] = bp;
-        // preheat this
-        bp.PrimeMatches(2);
     }
 
     public class IndexSearchState
@@ -657,10 +656,10 @@ public partial class BlueprintDB
             _IndexByWord[keyWord] = [handleIndex];
     }
 
-    public static void SetInstance(BlueprintDB db)
-    {
-        _Instance = db;
-    }
+    //public static void SetInstance(BlueprintDB db)
+    //{
+    //    _Instance = db;
+    //}
 }
 
 internal struct NameGuid

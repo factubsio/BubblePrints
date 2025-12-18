@@ -130,7 +130,7 @@ public abstract class OwlcatGame : IGameDefinitions
 
 public class RtGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Code.dll", "Kingmaker.Blueprints.JsonSystem.Helpers.TypeIdAttribute")
 {
-    protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(false, db).Guid;
+    protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(db).Guid;
 
     public override void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress)
     {
@@ -170,7 +170,7 @@ public class RtGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, d
 }
 public class WrathGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, ".dll", "Kingmaker.Blueprints.JsonSystem.TypeIdAttribute")
 {
-    protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(false, db).Guid;
+    protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(db).Guid;
 
     public override void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress)
     {
@@ -199,7 +199,7 @@ public class WrathGame(string gamePath, string dataFolder) : OwlcatGame(gamePath
 
 public class DhGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Code.dll", "Owlcat.Runtime.Core.Utility.TypeIdAttribute")
 {
-    protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(false, db).Guid;
+    protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(db).Guid;
 
     public override void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress)
     {
@@ -228,7 +228,7 @@ public class DhGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, d
 
 public class KmGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Assembly-CSharp.dll", "Kingmaker.Blueprints.DirectSerialization.TypeIdAttribute")
 {
-    protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(false, db).FullName;
+    protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(db).FullName;
 
     public override void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress)
     {
@@ -335,7 +335,7 @@ public static class BinzImportExport
         var reader = new StreamReader(stream);
         var contents = reader.ReadToEnd();
         var json = JsonSerializer.Deserialize<JsonElement>(contents);
-        var type = json.GetProperty("Data").NewTypeStr(false, db);
+        var type = json.GetProperty("Data").NewTypeStr(db);
 
         var handle = new BlueprintHandle
         {
@@ -565,7 +565,7 @@ public static class BinzImportExport
 
                     BlueprintDB.ExtractKeyWords(keyWords, word, element.key);
 
-                    string localisedStr = element.Node.ParseAsString(element.key, db);
+                    string localisedStr = element.Node.ParseAsString(db, element.key);
                     if (localisedStr is not null)
                     {
                         if (localisedStr is not "<string-not-present>" and not "<null-string>")

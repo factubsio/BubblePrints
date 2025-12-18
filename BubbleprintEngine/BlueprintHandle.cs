@@ -35,12 +35,10 @@ namespace BlueprintExplorer
     public static class JsonExtensions
     {
         public static bool ContainsIgnoreCase(this string haystack, string needle) => haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
-        public static (string, string) ParseAsStringWithKey(this JsonElement node, string nodeKey = null, BlueprintDB db = null)
+        public static (string, string) ParseAsStringWithKey(this JsonElement node, BlueprintDB db, string nodeKey = null)
         {
             if (node.ValueKind != JsonValueKind.Object)
                 return (null, null);
-
-            db ??= BlueprintDB.Instance;
 
             if (node.TryGetProperty("m_Key", out var strKey) && node.TryGetProperty("Shared", out var sharedString) && node.TryGetProperty("m_OwnerString", out _))
             {
@@ -78,12 +76,10 @@ namespace BlueprintExplorer
             return (null, null);
         }
 
-        public static string ParseAsString(this JsonElement node, string nodeKey = null, BlueprintDB db = null)
+        public static string ParseAsString(this JsonElement node, BlueprintDB db, string nodeKey = null)
         {
             if (node.ValueKind != JsonValueKind.Object)
                 return null;
-
-            db ??= BlueprintDB.Instance;
 
             if (node.TryGetProperty("m_Key", out var strKey) && node.TryGetProperty("Shared", out var sharedString) && node.TryGetProperty("m_OwnerString", out _))
             {
@@ -152,10 +148,8 @@ namespace BlueprintExplorer
             return elem.Str("$type").ParseTypeString();
         }
 
-        public static BpNewType NewTypeStr(this string raw, bool strict = false, BlueprintDB db = null)
+        public static BpNewType NewTypeStr(this string raw, BlueprintDB db, bool strict = false)
         {
-            db ??= BlueprintDB.Instance;
-
             var comma = raw.LastIndexOf(',');
             var shortName = raw[(comma + 2)..];
             string guid = "";
@@ -180,12 +174,12 @@ namespace BlueprintExplorer
             }
         }
 
-        public static BpNewType NewTypeStr(this JsonElement elem, bool strict = false, BlueprintDB db = null)
+        public static BpNewType NewTypeStr(this JsonElement elem, BlueprintDB db, bool strict = false)
         {
             if (elem.ValueKind == JsonValueKind.String)
-                return elem.GetString().NewTypeStr(false, db);
+                return elem.GetString().NewTypeStr(db, false);
             else if (elem.ValueKind == JsonValueKind.Object)
-                return elem.Str("$type").NewTypeStr(strict, db);
+                return elem.Str("$type").NewTypeStr(db, strict);
             else
                 throw new Exception("invalid type query??");
         }
@@ -228,7 +222,7 @@ namespace BlueprintExplorer
             return bp;
         }
 
-        public static bool TryDeRef(this JsonElement elem, out BlueprintHandle bp)
+        public static bool TryDeRef(this JsonElement elem, BlueprintDB db, out BlueprintHandle bp)
         {
             bp = null;
             if (elem.ValueKind == JsonValueKind.Null || elem.ValueKind == JsonValueKind.Undefined)
@@ -236,7 +230,7 @@ namespace BlueprintExplorer
 
             var link = BlueprintHandle.ParseReference(elem.GetString());
 
-            if (link != null && BlueprintDB.Instance.Blueprints.TryGetValue(System.Guid.Parse(link), out bp))
+            if (link != null && db.Blueprints.TryGetValue(System.Guid.Parse(link), out bp))
             {
                 return true;
 
@@ -316,6 +310,8 @@ namespace BlueprintExplorer
         public static bool ShortType = false;
         //public byte[] guid;
 
+        public BlueprintDB db;
+
         public object UserData = null;
         public string GuidText { get; set; }
         public string Name { get; set; }
@@ -355,30 +351,15 @@ namespace BlueprintExplorer
         public ushort[] ComponentIndex;
         public string FullPath = null;
 
-        public IEnumerable<string> ComponentsList => ComponentIndex.Select(i => BlueprintDB.Instance.FlatIndexToTypeName[i]);
+        public IEnumerable<string> ComponentsList => ComponentIndex.Select(i => db.FlatIndexToTypeName[i]);
+
         public static readonly MatchQuery.MatchProvider MatchProvider = new(
-                    obj => (obj as BlueprintHandle).NameLower,
-                    obj => (obj as BlueprintHandle).TypeNameLower,
-                    obj => (obj as BlueprintHandle).NamespaceLower,
-                    obj => (obj as BlueprintHandle).GuidText);
+            obj => (obj as BlueprintHandle).NameLower,
+            obj => (obj as BlueprintHandle).TypeNameLower,
+            obj => (obj as BlueprintHandle).NamespaceLower,
+            obj => (obj as BlueprintHandle).GuidText);
 
         public static string[] MatchKeys => ["name", "type", "space", "guid"];
-
-        private MatchResult[] CreateResultArray()
-        {
-            return new MatchResult[] {
-                    new MatchResult("name", this),
-                    new MatchResult("type", this),
-                    new MatchResult("space", this),
-                    new MatchResult("guid", this),
-                };
-        }
-        public MatchResult[] GetMatches(int index)
-        {
-            if (_Matches[index] == null)
-                _Matches[index] = CreateResultArray();
-            return _Matches[index];
-        }
 
         public JsonElement EnsureObj
         {
@@ -389,53 +370,21 @@ namespace BlueprintExplorer
             }
         }
 
-
-
-
-
         public void EnsureParsed()
         {
             if (!Parsed)
             {
-                obj = JsonSerializer.Deserialize<JsonElement>(Raw, new JsonSerializerOptions()
-                {
-                    MaxDepth = 128,
-                });
+                obj = JsonSerializer.Deserialize<JsonElement>(Raw, deserOpts);
                 Parsed = true;
             }
         }
 
+        private static readonly JsonSerializerOptions deserOpts = new()
+        {
+            MaxDepth = 128,
+        };
 
         #endregion
-        public void PrimeMatches(int count)
-        {
-            _Matches = new MatchResult[count][];
-            for (int i = 0; i < count; i++)
-                _Matches[i] = CreateResultArray();
-        }
-
-        public class ElementVisitor
-        {
-
-            public static IEnumerable<(VisitedElement, string)> Visit(BlueprintHandle bp)
-            {
-                Stack<string> stack = new();
-                foreach (var elem in BlueprintHandle.Visit(bp.EnsureObj, bp.Name))
-                {
-                    if (elem.levelDelta > 0)
-                    {
-                        stack.Push(elem.key);
-                        yield return (elem, string.Join("/", stack.Reverse()));
-                    }
-                    else if (elem.levelDelta < 0)
-                        stack.Pop();
-                    else
-                        yield return (elem, string.Join("/", stack.Reverse()));
-
-                }
-            }
-
-        }
 
         public class VisitedElement : IDisplayableElement
         {
@@ -482,7 +431,7 @@ namespace BlueprintExplorer
             get
             {
                 EnsureParsed();
-                return Visit(obj, Name);
+                return Visit(db, obj, Name);
             }
         }
 
@@ -491,7 +440,7 @@ namespace BlueprintExplorer
         public Guid Guid { get; internal set; }
 
 
-        public static IEnumerable<VisitedElement> Visit(JsonElement node, string name)
+        public static IEnumerable<VisitedElement> Visit(BlueprintDB db, JsonElement node, string name)
         {
             if (node.ValueKind == JsonValueKind.String)
             {
@@ -513,7 +462,7 @@ namespace BlueprintExplorer
                 int index = 0;
                 foreach (var elem in node.EnumerateArray())
                 {
-                    foreach (var n in Visit(elem, index.ToString()))
+                    foreach (var n in Visit(db, elem, index.ToString()))
                         yield return n;
                     index++;
                 }
@@ -523,11 +472,11 @@ namespace BlueprintExplorer
             {
                 (string, string, string) maybeType = (null, null, null);
                 if (node.TryGetProperty("$type", out var rawType))
-                    maybeType = rawType.NewTypeStr();
+                    maybeType = rawType.NewTypeStr(db);
                 yield return new VisitedElement { key = name, levelDelta = 1, isObj = true, Node = node, MaybeType = maybeType };
                 foreach (var elem in node.EnumerateObject())
                 {
-                    foreach (var n in Visit(elem.Value, elem.Name))
+                    foreach (var n in Visit(db, elem.Value, elem.Name))
                         yield return n;
                 }
                 yield return new VisitedElement { levelDelta = -1 };

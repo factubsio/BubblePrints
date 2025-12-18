@@ -35,8 +35,10 @@ public static class Program
 
         var binz = bins.Available.First(b => b.Local && b.Version.Game == game) ?? throw new Exception($"no {game} binz available");
 
+        BlueprintDB db = new();
+
         var loadProgress = new ConnectionProgress();
-        var initialize = Task.Run(() => BlueprintDB.Instance.TryConnect(loadProgress, binz.Path));
+        var initialize = Task.Run(() => db.TryConnect(loadProgress, binz.Path));
         var idle = Task.Run(() =>
         {
             while (!initialize.IsCompleted)
@@ -48,8 +50,6 @@ public static class Program
         await initialize;
         await idle;
         Console.WriteLine();
-
-        var db = BlueprintDB.Instance;
 
         MatchResultBuffer resultsBuffer = new();
         resultsBuffer.Init(db.Blueprints.Values, BlueprintHandle.MatchKeys);

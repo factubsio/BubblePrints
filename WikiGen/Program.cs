@@ -27,6 +27,7 @@ namespace WikiGen
 
     public static class Program
     {
+        public static readonly BlueprintDB DB = new();
         public static string GetAbilityAcronym(string name)
         {
             StringBuilder stringBuilder = new StringBuilder();
@@ -53,7 +54,7 @@ namespace WikiGen
         public static void Main(string[] args)
         {
             BubblePrints.Install();
-            borderImage = Bitmap.FromFile(@"D:\wrath-data-raw\Sprite\circle_border.png");
+            borderImage = Image.FromFile(@"D:\wrath-data-raw\Sprite\circle_border.png");
 
             TextureDecoder.ForceLoaded();
 
@@ -74,7 +75,7 @@ namespace WikiGen
 
 
             var progress = new ConnectionProgress();
-            var load = Task.Run(() => BlueprintDB.Instance.TryConnect(progress));
+            var load = Task.Run(() => DB.TryConnect(progress));
 
             var print = Task.Run(() =>
             {
@@ -90,7 +91,7 @@ namespace WikiGen
 
             print.Wait();
 
-            var bpByType = BlueprintDB.Instance.Blueprints.ToLookup(x => x.Value.Type);
+            var bpByType = DB.Blueprints.ToLookup(x => x.Value.Type);
 
             var target = @"D:\wrath-wiki\wwwroot\wrath-data";
             if (!Directory.Exists(target))
@@ -143,13 +144,13 @@ namespace WikiGen
 
             HashSet<IconRequest> iconRequests = new();
 
-            var bpRoot = BlueprintDB.Instance.Blueprints[Guid.Parse("2d77316c72b9ed44f888ceefc2a131f6")];
+            var bpRoot = DB.Blueprints[Guid.Parse("2d77316c72b9ed44f888ceefc2a131f6")];
 
             var classList = new List<String>();
 
 
             List<BlueprintHandle> classes = bpRoot.EnsureObj.Find("Progression", "m_CharacterClasses").EnumerateArray().Select(x => x.DeRef()).ToList();
-            classes.Add(BlueprintDB.Instance.Blueprints[Guid.Parse("a406d6ebea5c46bba3160246be03e96f")]);
+            classes.Add(DB.Blueprints[Guid.Parse("a406d6ebea5c46bba3160246be03e96f")]);
 
             foreach (var clazzBp in classes)
             {
@@ -177,7 +178,7 @@ namespace WikiGen
                         featuresByGuid.Add(key, localRef);
                         features.Add(localRef);
 
-                        var locName = bp.EnsureObj.Find("m_DisplayName").ParseAsString();
+                        var locName = bp.EnsureObj.Find("m_DisplayName").ParseAsString(DB);
 
                         if (bp.TypeName == "BlueprintProgression")
                         {
@@ -222,7 +223,7 @@ namespace WikiGen
                         if (!iconGuid.Nullish())
                             iconRequest = iconGuid.GetString();
                         else
-                            iconRequest = "gen__" + GetAbilityAcronym(bp.EnsureObj.Find("m_DisplayName").ParseAsString());
+                            iconRequest = "gen__" + GetAbilityAcronym(bp.EnsureObj.Find("m_DisplayName").ParseAsString(DB));
 
                         //Console.WriteLine($"requesting icon: {bp.Name} -> {iconRequest}");
 
@@ -333,8 +334,8 @@ namespace WikiGen
 
                     var archObj = archBp.EnsureObj;
 
-                    arch.Name = archObj.Find("LocalizedName").ParseAsString();
-                    arch.Desc = archObj.Find("LocalizedDescription").ParseAsString();
+                    arch.Name = archObj.Find("LocalizedName").ParseAsString(DB);
+                    arch.Desc = archObj.Find("LocalizedDescription").ParseAsString(DB);
                     arch.Id = archBp.GuidText;
                     arch.bp = archBp;
 
@@ -478,16 +479,16 @@ namespace WikiGen
 
                     jsonWriter.WriteStartObject();
                     jsonWriter.WriteNumber("__index", featureRef.index);
-                    jsonWriter.WriteString("name", feature.EnsureObj.Find("m_DisplayName").ParseAsString());
-                    jsonWriter.WriteString("desc", feature.EnsureObj.Find("m_Description").ParseAsString());
+                    jsonWriter.WriteString("name", feature.EnsureObj.Find("m_DisplayName").ParseAsString(DB));
+                    jsonWriter.WriteString("desc", feature.EnsureObj.Find("m_Description").ParseAsString(DB));
                     jsonWriter.WriteString("icon", featureRef.icon);
                     jsonWriter.WriteBoolean("isSelection", featureRef.IsSelection);
                     jsonWriter.WriteEndObject();
                 }
                 jsonWriter.WriteEndArray();
 
-                jsonWriter.WriteString("name", obj.Find("LocalizedName").ParseAsString());
-                jsonWriter.WriteString("desc", obj.Find("LocalizedDescription").ParseAsString());
+                jsonWriter.WriteString("name", obj.Find("LocalizedName").ParseAsString(DB));
+                jsonWriter.WriteString("desc", obj.Find("LocalizedDescription").ParseAsString(DB));
 
                 WriteLayout(prog.Rows.Values, jsonWriter);
                 WriteStats(prog.Flags, jsonWriter);
@@ -522,7 +523,7 @@ namespace WikiGen
 
             File.WriteAllLines(@"D:\classes.txt", classList);
 
-            using var saber = new SaberRenderer((Bitmap)Bitmap.FromFile(@"D:\font_atlas.png"), File.ReadAllLines(@"D:\font_atlas_.txt"));
+            using var saber = new SaberRenderer((Bitmap)Image.FromFile(@"D:\font_atlas.png"), File.ReadAllLines(@"D:\font_atlas_.txt"));
 
             int fromName = 0;
             int iconNotFound = 0;
@@ -530,7 +531,7 @@ namespace WikiGen
             int cacheHit = 0;
 
 
-            var placeholderBackground = Bitmap.FromFile(@"D:\wrath-data-raw\Sprite\UI_PlaceHolderIcon7.png");
+            var placeholderBackground = Image.FromFile(@"D:\wrath-data-raw\Sprite\UI_PlaceHolderIcon7.png");
 
 
             foreach (var (request, requestor) in iconRequests.OrderBy(r => r.request))
@@ -689,7 +690,7 @@ namespace WikiGen
                 int cl = byLevel.Int("SpellLevel");
                 if (cl == 0) continue;
 
-                newSpellsByLevel[cl] = byLevel.Find("m_Spells").EnumerateArray().Select(x => x.DeRef().EnsureObj.Find("m_DisplayName").ParseAsString()).ToArray();
+                newSpellsByLevel[cl] = byLevel.Find("m_Spells").EnumerateArray().Select(x => x.DeRef().EnsureObj.Find("m_DisplayName").ParseAsString(DB)).ToArray();
             }
 
             casterLevelModifier = spellsBp.obj.Int("CasterLevelModifier");

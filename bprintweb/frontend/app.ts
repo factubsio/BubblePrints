@@ -2,6 +2,64 @@
 
 const classToggleInactive = 'toggle-inactive';
 const classToggleActive = 'toggle-active';
+
+let apiPrefix = '';
+function getGameIdentifier(url: Location, baseDomain: string): string | null {
+    const host = url.hostname;
+    const subdomainSuffix = `.${baseDomain}`;
+
+    if (host.toLowerCase().endsWith(subdomainSuffix.toLowerCase())) {
+        const gamePart = host.substring(0, host.length - subdomainSuffix.length);
+        if (gamePart && !gamePart.includes('.')) {
+            apiPrefix = '';
+            return gamePart;
+        }
+    }
+
+    const segments = url.pathname.split('/').filter(Boolean);
+    if (segments.length > 0) {
+        apiPrefix = '/' + segments[0];
+        return segments[0];
+    }
+
+    return null;
+}
+
+export let game = getGameIdentifier(window.location, 'bubbleprints.dev');
+interface GameLogo {
+    name: string;
+}
+const knownGames = new Map<string, GameLogo>([
+    ['km', {
+        name: 'King Maker'
+    }],
+    ['wrath', {
+        name: 'Wrath of the Righetous'
+    }],
+    ['rt', {
+        name: 'Rogue Trader'
+    }],
+    ['dh', {
+        name: 'Dark Heresy'
+    }],
+]);
+
+function makeGameLinks() {
+    let response = '';
+    for (const [link, logo] of knownGames) {
+        response += `<a href="https://${link}.bubbleprints.dev"> <h1 style="white-space: nowrap;">${logo.name}</h1></a>`;
+    }
+    return response;
+}
+
+if (game == null) {
+    document.body.style.margin = '0';
+    document.body.innerHTML = `<div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh;"> ${makeGameLinks()}</div>`;
+} else if (!knownGames.has(game)) {
+    document.body.style.margin = '0';
+    document.body.innerHTML = `<div style="display: flex; justify-content: center; align-items: center; height: 100vh;"> <h1 style="font-size: 8vw; white-space: nowrap;">Unknown game: ${game}</h1></div>`;
+}
+
 export function createToggle(id: string, onChange: (on: boolean) => void) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -89,7 +147,7 @@ export class MainPage {
                 e.preventDefault();
                 this.searchBar.blur();
                 if (guid && guid !== '') {
-                    this.navigateTo('rt', guid);
+                    this.navigateTo(guid);
                 }
             }
         });
@@ -106,14 +164,14 @@ export class MainPage {
                 const { game, guid } = this.parseRawLink();
 
                 const showRaw = !this.isShowingRaw;
-                this.navigateTo(game, guid, { raw: showRaw });
+                this.navigateTo(guid, { raw: showRaw });
                 e.preventDefault();
             }
         });
 
         this.copyRaw.addEventListener('click', async _ => {
             const { game, guid } = this.parseRawLink();
-            const { name, bp } = await getRawBlueprint(game, guid);
+            const { name, bp } = await getRawBlueprint(guid);
             const copyable = new ClipboardItem({
                 'text/plain': bp.text()
             });
@@ -156,18 +214,19 @@ export class MainPage {
     }
 
     handleRouting() {
-        const path = window.location.pathname; // e.g. "/rt/b602..."
-        const parts = path.split('/').filter(p => p); // ["rt", "b602..."]
+        const path = window.location.pathname;
+        const parts = path.split('/').filter(p => p);
 
-        const query = new URLSearchParams(window.location.search);
+        const apiParts = apiPrefix.length == 0 ? 0 : 1;
 
-        if (parts.length === 2) {
+        if (parts.length === apiParts) {
+            this.showSearch();
+        } else {
+            const query = new URLSearchParams(window.location.search);
             // Assume first part is game, second is guid
-            this.loadAndShowBlueprint(parts[0], parts[1], {
+            this.loadAndShowBlueprint(parts[apiParts], {
                 raw: query.get('raw') === 'true',
             });
-        } else {
-            this.showSearch();
         }
     }
 
@@ -179,17 +238,17 @@ export class MainPage {
     }
 
     // Helper to change URL without reloading
-    navigateTo(game: string, guid: string, opts?: ViewOpts) {
-        let url = `/${game}/${guid}`;
+    navigateTo(guid: string, opts?: ViewOpts) {
+        let url = `${apiPrefix}/${guid}`;
         if (opts?.raw === true) {
             url += '?raw=true';
         }
         history.pushState(null, "", url);
-        this.loadAndShowBlueprint(game, guid, opts);
+        this.loadAndShowBlueprint(guid, opts);
     }
 
     runQuery(query: string) {
-        this.inFlight = this.findBlueprints("rt", query)
+        this.inFlight = this.findBlueprints(query)
             .then(data => this.renderResults(data))
             .finally(() => {
                 this.inFlight = null;
@@ -201,8 +260,8 @@ export class MainPage {
             });
     }
 
-    async findBlueprints(game: string, query: string): Promise<BlueprintResult[]> {
-        const response = await fetch(`/bp/find/${game}?query=${encodeURIComponent(query)}`);
+    async findBlueprints(query: string): Promise<BlueprintResult[]> {
+        const response = await fetch(`${apiPrefix}/bp/find?query=${encodeURIComponent(query)}`);
         return await response.json();
     }
 
@@ -233,7 +292,7 @@ export class MainPage {
             const active = index == this.resultCursor;
 
             tr.innerHTML = `
-            <td><a href="/rt/${row.guidText}">${row.name}</a></td>
+            <td><a href="${apiPrefix}/${row.guidText}">${row.name}</a></td>
             <td class="col-priority-1">${row.typeName}</td>
             <td class="col-priority-2">${row.namespace}</td>
             <td class="col-priority-3">${row.guidText}</td>
@@ -246,7 +305,7 @@ export class MainPage {
 
             const link = tr.firstElementChild as HTMLLinkElement;
             link.addEventListener('click', async e => {
-                this.handleLinkClick(e, 'rt', row.guidText);
+                this.handleLinkClick(e, row.guidText);
             });
 
             tbody.appendChild(tr);
@@ -256,19 +315,19 @@ export class MainPage {
 
 
 
-    handleLinkClick(e: MouseEvent, game: string, link: string) {
+    handleLinkClick(e: MouseEvent, link: string) {
         if (e.button == 0 && !e.ctrlKey && !e.shiftKey) {
             e.preventDefault();
-            this.navigateTo(game, link);
+            this.navigateTo(link);
         }
     }
 
     viewCallbacks: ViewCallbacks = {
-        handleLinkClick: (e: MouseEvent, game: string, link: string) => this.handleLinkClick(e, game, link),
+        handleLinkClick: (e: MouseEvent, link: string) => this.handleLinkClick(e, link),
     };
 
-    async loadAndShowBlueprint(game: string, guid: string, opts?: ViewOpts) {
-        this.showRaw.href = `/bp/get/${game}/${guid}`;
+    async loadAndShowBlueprint(guid: string, opts?: ViewOpts) {
+        this.showRaw.href = `${apiPrefix}/bp/get/${guid}`;
         this.resultCursor = 0;
         this.activeRow?.classList?.remove('cursor-active');
         this.activeRow = null;
@@ -292,13 +351,13 @@ export class MainPage {
             if (opts?.raw === true) {
                 this.isShowingRaw = true;
                 this.showRaw.classList.replace('toggle-inactive', 'toggle-active');
-                const { name, bp } = await getRawBlueprint(game, guid);
+                const { name, bp } = await getRawBlueprint(guid);
                 this.titleSpan.innerText = name || 'Blueprint';
                 container.innerHTML = `<div class="json-view">${JSON.stringify(await bp.json(), null, 2)}</div>`;
             } else {
                 this.isShowingRaw = false;
                 this.showRaw.classList.replace('toggle-active', 'toggle-inactive');
-                const response = await fetch(`/bp/view/${game}/${guid}`);
+                const response = await fetch(`${apiPrefix}/bp/view/${guid}`);
                 const obj = await response.json();
                 const elements: DisplayableElement[] = obj.blueprint;
 
@@ -309,7 +368,7 @@ export class MainPage {
                 container.innerHTML = "";
 
                 // Create the entire interactive view with one function call
-                const blueprintDom = createBlueprintView(elements, game, guid, this.viewCallbacks);
+                const blueprintDom = createBlueprintView(elements, apiPrefix, guid, this.viewCallbacks);
 
                 const refs: { id: string, name: string }[] = obj.references;
 
@@ -317,8 +376,8 @@ export class MainPage {
                 for (const ref of refs) {
                     const a = document.createElement('a');
                     a.className = 'bp-link';
-                    a.href = `/${game}/${ref.id}`;
-                    a.addEventListener('click', e => this.handleLinkClick(e, game, ref.id));
+                    a.href = `${apiPrefix}/${ref.id}`;
+                    a.addEventListener('click', e => this.handleLinkClick(e, ref.id));
                     a.textContent = ref.name;
                     this.referencePanel.appendChild(a);
                 }
@@ -345,15 +404,15 @@ export interface Blueprint {
 }
 
 
-async function getRawBlueprint(game: string, guid: string) {
-    const rawResponse = await fetch(`/bp/get/${game}/${guid}`);
+async function getRawBlueprint(guid: string) {
+    const rawResponse = await fetch(`${apiPrefix}/bp/get/${guid}`);
     const name = rawResponse.headers.get('BP-Name');
     return { name, bp: rawResponse };
 }
 
-export async function getBlueprint(game: string, guid: string, withStrings = false): Promise<any> {
+export async function getBlueprint(guid: string, withStrings = false): Promise<any> {
     const stringQuery = `?strings=${withStrings}`;
-    const response = await fetch(`/bp/get/${game}/${guid}${stringQuery}`);
+    const response = await fetch(`${apiPrefix}/bp/get/${guid}${stringQuery}`);
     return await response.json();
 }
 interface ViewOpts {

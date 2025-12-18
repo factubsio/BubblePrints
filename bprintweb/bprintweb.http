@@ -1,6 +1,9 @@
 @bprintweb_HostAddress = http://localhost:5011
 
-GET {{bprintweb_HostAddress}}/weatherforecast/
+GET {{bprintweb_HostAddress}}/bp/get/rt/3b41ec206569457dbf0ba25d64042cce/
 Accept: application/json
+###
 
+GET {{bprintweb_HostAddress}}/bp/get/rt/3b41ec206569457dbf0ba25d64042cce?strings=true
+Accept: application/json
 ###

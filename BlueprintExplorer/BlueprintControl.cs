@@ -482,7 +482,7 @@ namespace BlueprintExplorer
                             level = currentLevel,
                             link = e.link,
                             Parent = stack.Peek(),
-                            String = JsonExtensions.ParseAsString(e.Node),
+                            String = e.Node.ParseAsString(Form1.DB),
                             RowCount = 1,
                             IsObj = e.isObj,
                             Collapsed = totalRows != 0 && !BubblePrints.Settings.EagerExpand && currentLevel > 0,
@@ -490,7 +490,7 @@ namespace BlueprintExplorer
 
                         if (row.HasLink)
                         {
-                            if (BlueprintDB.Instance.Blueprints.TryGetValue(Guid.Parse(row.link), out var target))
+                            if (Form1.DB.Blueprints.TryGetValue(Guid.Parse(row.link), out var target))
                             {
                                 row.LinkStale = false;
                                 row.Extra = "  -> " + target.Name + " :" + target.TypeName;
@@ -522,7 +522,7 @@ namespace BlueprintExplorer
                             }
                             else
                             {
-                                var type = BlueprintDB.Instance.TypeForField(parent.TypeFull, e.key);
+                                var type = Form1.DB.TypeForField(parent.TypeFull, e.key);
                                 if (type != null)
                                 {
                                     row.TypeFull = type.FullName;
@@ -534,7 +534,7 @@ namespace BlueprintExplorer
                         if (e.levelDelta > 0 && !e.isObj)
                         {
                             var parent = stack.Peek();
-                            var type = BlueprintDB.Instance.TypeForField(parent.TypeFull, e.key);
+                            var type = Form1.DB.TypeForField(parent.TypeFull, e.key);
 
                             if (type != null)
                             {

@@ -2,9 +2,15 @@ using BlueprintExplorer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.ObjectPool;
 using Microsoft.OpenApi.Extensions;
+using System.Buffers;
 using System.Collections.Concurrent;
+using System.Net;
+using System.Runtime.ConstrainedExecution;
+using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Web;
 
 namespace bprintweb.Controllers;
 
@@ -43,7 +49,7 @@ public class BlueprintDbController : ControllerBase
     private static string? GetString(BlueprintDB db, IDisplayableElement el)
     {
         if (el.levelDelta < 0) return null;
-        return el.Node.ParseAsString(null, db);
+        return el.Node.ParseAsString(db);
     }
 
     private static string GetLinkTarget(BlueprintDB db, IDisplayableElement el)
@@ -59,20 +65,106 @@ public class BlueprintDbController : ControllerBase
         }
     }
 
-    [HttpGet("view/{game}/{guid}", Name = "ViewBlueprint")]
+    private static readonly ConcurrentQueue<BlueprintHandle> _lruQueue = new();
+    private const int MaxResidentBlueprints = 1000;
+    private const int MaxEvictionAttempts = 10;
+    private static int _residentCount = 0;
+
+    /// <summary>
+    /// Atomically makes a blueprint resident, returning the raw json value and
+    /// the root of the parsed tree
+    /// </summary>
+    /// <param name="bp"></param>
+    /// <returns></returns>
+    private static (string Raw, JsonElement root) MakeBlueprintResident(GameData gameData, BlueprintHandle bp)
+    {
+        string raw;
+        JsonElement root;
+
+        lock (bp.UserData)
+        {
+            if (bp.Raw == null)
+            {
+                var meta = (bp.UserData as StringMetadata)!;
+                byte[] tmp = ArrayPool<byte>.Shared.Rent(meta.Length);
+                try
+                {
+                    gameData.Data.ReadArray<byte>(meta.Offset, tmp, 0, meta.Length);
+                    bp.Raw = Encoding.UTF8.GetString(tmp, 0, meta.Length);
+                    bp.EnsureParsed();
+
+                    _lruQueue.Enqueue(bp);
+                    Interlocked.Increment(ref _residentCount);
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(tmp);
+                }
+            }
+            raw = bp.Raw;
+            root = bp.obj;
+        }
+
+        int evictionAttempt = 0;
+
+        // Eviction logic
+        while (_residentCount > MaxResidentBlueprints && evictionAttempt++ < MaxEvictionAttempts)
+        {
+            if (_lruQueue.TryDequeue(out var toEvict))
+            {
+                // Use TryEnter to avoid deadlock if another thread is currently making this specific BP resident
+                if (Monitor.TryEnter(toEvict.UserData))
+                {
+                    try
+                    {
+                        if (toEvict.Raw != null)
+                        {
+                            toEvict.Raw = null;
+                            toEvict.obj = default;
+                            toEvict.Parsed = false;
+                            Interlocked.Decrement(ref _residentCount);
+                        }
+                    }
+                    finally
+                    {
+                        Monitor.Exit(toEvict.UserData);
+                    }
+                }
+                else
+                {
+                    // If we couldn't get the lock, put it back to try later or let another call handle it
+                    _lruQueue.Enqueue(toEvict);
+                    break;
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return (raw, root);
+
+    }
+
+    [HttpGet("view/{guid}", Name = "ViewBlueprint")]
     [ResponseCache(Duration = 86400, Location = ResponseCacheLocation.Client)]
 
-    public IActionResult GetBlueprintView(BlueprintDB db, string guid)
+    public IActionResult GetBlueprintView(string guid)
     {
-        if (db == null || !Guid.TryParse(guid, out var guidObj) || !db.Blueprints.TryGetValue(guidObj, out var blueprint))
+        var gameData = (HttpContext.Items["game"] as GameData)!;
+        var db = gameData.DB;
+        if (!Guid.TryParse(guid, out var guidObj) || !db.Blueprints.TryGetValue(guidObj, out var blueprint))
         {
             return NotFound();
         }
 
+        var (_, root) = MakeBlueprintResident(gameData, blueprint);
+
         return Ok(
             new
             {
-                Blueprint = blueprint.DisplayableElements.Select(e => new
+                Blueprint = BlueprintHandle.Visit(db, root, blueprint.Name).Select(e => new
                 {
                     e.key,
                     e.value,
@@ -91,23 +183,26 @@ public class BlueprintDbController : ControllerBase
             });
     }
 
-    [HttpGet("get/{game}/{guid}", Name = "GetBlueprint")]
+    [HttpGet("get/{guid}", Name = "GetBlueprint")]
     [ResponseCache(Duration = 86400, Location = ResponseCacheLocation.Client)]
-    public IActionResult GetBlueprint(BlueprintDB db, string guid, bool? strings)
+    public IActionResult GetBlueprint(string guid, bool? strings)
     {
+        var gameData = (HttpContext.Items["game"] as GameData)!;
+        var db = gameData.DB;
         if (db == null || !Guid.TryParse(guid, out var guidObj) || !db.Blueprints.TryGetValue(guidObj, out var blueprint))
         {
             return NotFound();
         }
 
+        var (raw, root) = MakeBlueprintResident(gameData, blueprint);
+
         if (strings != true)
         {
             Response.Headers.Append("BP-Name", blueprint.Name);
-            return Ok(blueprint.Raw);
+            return Content(raw, "application/json");
         }
         else
         {
-            var root = blueprint.EnsureObj;
             Dictionary<string, string> strs = [];
 
             FindStrings(db, root, strs);
@@ -126,7 +221,7 @@ public class BlueprintDbController : ControllerBase
 
     private static void FindStrings(BlueprintDB db, JsonElement root, Dictionary<string, string> strs)
     {
-        var (k, v) = root.ParseAsStringWithKey(null, db);
+        var (k, v) = root.ParseAsStringWithKey(db);
         if (!string.IsNullOrEmpty(k) && !string.IsNullOrEmpty(v))
         {
             strs[k] = v;
@@ -147,23 +242,19 @@ public class BlueprintDbController : ControllerBase
         }
     }
 
-    [HttpGet("find/{game}", Name = "FindBlueprint")]
-    public IActionResult FindBlueprint(BlueprintDB db, string game, string query)
+    [HttpGet("find", Name = "FindBlueprint")]
+    public IActionResult FindBlueprint(string query)
     {
         if (query.Length > 512) return NotFound();
+        var gameData = (HttpContext.Items["game"] as GameData)!;
+        var db = gameData.DB;
 
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
         if (!_active.TryAdd(ip, true))
             return StatusCode(429, "Too many concurrent queries");
 
-        ObjectPool<MatchResultBuffer> pool = game switch
-        {
-            "rt" => MatchResultsPool.RT,
-            _ => throw new NotSupportedException()
-        };
-
-        var resultsBuffer = pool.Get();
+        var resultsBuffer = gameData.ResultBuffer.Get();
 
         try
         {
@@ -171,9 +262,76 @@ public class BlueprintDbController : ControllerBase
         }
         finally
         {
-            pool.Return(resultsBuffer);
+            gameData.ResultBuffer.Return(resultsBuffer);
             _active.TryRemove(ip, out _);
         }
+    }
+
+    private static BlueprintHandle? GetBlueprint(HttpContext context)
+    {
+        var gameData = (context.Items["game"] as GameData)!;
+        var db = gameData.DB;
+        ReadOnlySpan<char> path = context.Request.Path.Value.AsSpan();
+
+        if (path.IsEmpty) return null;
+        if (path[0] == '/') path = path[1..];
+
+        int slashIndex = path.IndexOf('/');
+        if (slashIndex == -1) return null;
+
+        ReadOnlySpan<char> gameName = path[..slashIndex];
+        ReadOnlySpan<char> guidSpan = path[(slashIndex + 1)..];
+
+        if (db != null && Guid.TryParse(guidSpan, out Guid guid) && db.Blueprints.TryGetValue(guid, out var blueprint))
+        {
+            return blueprint;
+        }
+
+        return null;
+    }
+
+    internal static async ValueTask<bool> SendEmbedTags(HttpContext context)
+    {
+        return false;
+
+        if (context.Request.Path.Value == null) return false;
+        var blueprint = GetBlueprint(context);
+        if (blueprint == null) return false;
+
+        context.Response.ContentType = "text/html";
+
+        //Zero alloc path, needs to be tested locally...
+        //var writer = context.Response.BodyWriter;
+        //var encoding = Encoding.UTF8;
+
+        //void WriteString(string s)
+        //{
+        //    int byteCount = encoding.GetByteCount(s);
+        //    encoding.GetBytes(s, writer.GetSpan(byteCount));
+        //    writer.Advance(byteCount);
+        //}
+
+        //writer.Write("<html><head><meta property=\"og:title\" content=\""u8);
+        //WriteString(blueprint.Name);
+        //writer.Write("\" /><meta property=\"og:description\" content=\""u8);
+        //WriteString(blueprint.Name);
+        //writer.Write(" ("u8);
+        //WriteString(blueprint.Type);
+        //writer.Write(")\" /><meta property=\"og:type\" content=\"website\" /></head></html>"u8);
+
+        //await writer.FlushAsync();
+        //return true;
+
+        var description = $"{blueprint.Name} ({blueprint.TypeName})";
+
+        await context.Response.WriteAsync($"""
+            <html><head>
+            <meta property="og:title" content="{blueprint.Name}" />
+            <meta property="og:description" content="{HttpUtility.HtmlAttributeEncode(description)}" />
+            <meta property="og:type" content="website" />
+            </head></html>
+            """);
+        return true;
     }
 }
 
@@ -189,25 +347,4 @@ public class MatchResultBufferPolicy(BlueprintDB db) : IPooledObjectPolicy<Match
     public bool Return(MatchResultBuffer obj) { return true; }
 }
 
-public static class MatchResultsPool
-{
-    public static void Init()
-    {
-        RT = new DefaultObjectPool<MatchResultBuffer>(new MatchResultBufferPolicy(Program.DbRt), 8);
-    }
 
-    public static ObjectPool<MatchResultBuffer> RT { get; private set; } = null!;
-}
-
-public class LiteralJsonConverter : JsonConverter<string>
-{
-    public override string Read(ref Utf8JsonReader reader,
-                                Type typeToConvert,
-                                JsonSerializerOptions options)
-                                => reader.GetString()!;
-
-    public override void Write(Utf8JsonWriter writer,
-                               string value,
-                               JsonSerializerOptions options)
-                               => writer.WriteRawValue(value);
-}

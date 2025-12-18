@@ -14,7 +14,7 @@ export interface DisplayableElement {
 }
 
 export interface ViewCallbacks {
-    handleLinkClick: (e: MouseEvent, game: string, guid: string) => void;
+    handleLinkClick: (e: MouseEvent, guid: string) => void;
 }
 
 /**
@@ -22,12 +22,11 @@ export interface ViewCallbacks {
  * with collapsible state persisted in localStorage.
  *
  * @param flatElements The flat array of data from the server.
- * @param game The name of the game, used for generating links.
  * @param guid The GUID of the blueprint being displayed, for unique localStorage key.
  * @param cb An object containing callback functions, like handleLinkClick.
  * @returns An HTMLDivElement containing the complete, interactive blueprint view.
  */
-export function createBlueprintView(flatElements: DisplayableElement[], game: string, guid: string, cb: ViewCallbacks): HTMLDivElement {
+export function createBlueprintView(flatElements: DisplayableElement[], apiPrefix: string, guid: string, cb: ViewCallbacks): HTMLDivElement {
     const rootContainer = document.createElement('div');
     rootContainer.className = "bp-root";
     const parentContainerStack: HTMLElement[] = [rootContainer];
@@ -157,10 +156,10 @@ export function createBlueprintView(flatElements: DisplayableElement[], game: st
                     linkEl.textContent = `${element.value} -> stale`;
                     linkEl.className = 'bp-link-dead';
                 } else {
-                    linkEl.href = `/${game}/${element.link}`;
+                    linkEl.href = `${apiPrefix}/${element.link}`;
                     linkEl.textContent = `${element.value} -> ${element.target}`;
                 }
-                linkEl.onclick = evt => cb.handleLinkClick(evt, game, element.link!);
+                linkEl.onclick = evt => cb.handleLinkClick(evt, element.link!);
                 valEl = linkEl;
             } else {
                 const valSpan = document.createElement('span');
