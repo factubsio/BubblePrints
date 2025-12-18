@@ -344,6 +344,12 @@ public static class BinzImportExport
             Type = type.FullName ?? type.Name,
             Raw = JsonSerializer.Serialize(json.GetProperty("Data"), writeOptions),
         };
+
+        if (json.TryGetProperty("Meta", out var meta) && meta.TryGetProperty("ShadowDeleted", out var isDeleted) && isDeleted.GetBoolean())
+        {
+            handle.Name += " (deleted)";
+        }
+
         var components = handle.Type.Split('.');
         if (components.Length <= 1)
         {
@@ -355,6 +361,7 @@ public static class BinzImportExport
             handle.Namespace = string.Join('.', components.Take(components.Length - 1));
         }
 
+        handle.db = db;
         handle.EnsureParsed();
         foreach (var _ in handle.GetDirectReferences()) { }
 
@@ -421,6 +428,7 @@ public static class BinzImportExport
                     handle.Namespace = string.Join('.', components.Take(components.Length - 1));
                 }
 
+                handle.db = db;
                 handle.EnsureParsed();
                 foreach (var _ in handle.GetDirectReferences()) { }
 

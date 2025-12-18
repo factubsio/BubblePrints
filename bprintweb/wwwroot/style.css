@@ -67,7 +67,7 @@ tbody tr {
         background-color: var(--hover-bg-color);
     }
 
-/*    tbody tr.cursor-active > td:first-child::before {
+    /*    tbody tr.cursor-active > td:first-child::before {
         content: '>>> ';
     }
 */
@@ -127,9 +127,9 @@ tbody td {
     overflow-x: hidden;
 }
 
-#bp-references > a{
-    display: block;
-}
+    #bp-references > a {
+        display: block;
+    }
 
 .json-view,
 #blueprintView,
@@ -139,8 +139,8 @@ tbody td {
 
 /*.bp-row {
     display: grid;*/
-    /*font-family: Consolas, monospace;*/
-    /*line-height: 1.4;
+/*font-family: Consolas, monospace;*/
+/*line-height: 1.4;
     padding: 2px 5px;
     border-bottom: 1px solid var(--bp-row-border);
     grid-template-columns: 32px 200px 1fr;
@@ -148,18 +148,16 @@ tbody td {
 
 .bp-node:last-child > .bp-row {
     border-bottom: initial;
-
 }
 
-    .bp-row:hover {
-        background-color: var(--bp-row-hover-bg);
-    }
+.bp-row:hover {
+    background-color: var(--bp-row-hover-bg);
+}
 
 
-    .bp-type {
-        font-weight: bold;
-
-    }
+.bp-type {
+    font-weight: bold;
+}
 
 .bp-key {
     font-weight: bold;
@@ -179,40 +177,47 @@ tbody td {
 .bp-row {
     --indent-per-level: 30px; /* Or your preferred indent */
     --key-column-width: 350px; /* A fixed width for all keys */
-    
+}
+
+@media (max-width: 768px) {
+    .bp-row {
+        --key-column-width: 260px;
+    }
+}
+
+.bp-row {
     display: flex;
     align-items: baseline; /* Aligns text across different spans */
     line-height: 1.4;
     padding: 2px 5px;
     border-bottom: 1px solid var(--bp-row-border);
-
     /* The magic: Calculate indentation based on depth */
 }
 
-/* Give toggle and key fixed widths so they don't shrink */
-.bp-row > .bp-toggle,
-.bp-row > .bp-toggle-placeholder {
-    flex-shrink: 0;
-    width: 20px;
-}
+    /* Give toggle and key fixed widths so they don't shrink */
+    .bp-row > .bp-toggle,
+    .bp-row > .bp-toggle-placeholder {
+        flex-shrink: 0;
+        width: 20px;
+    }
 
-.bp-row > .bp-key {
-    flex-shrink: 0;
-    width: var(--key-column-width);
-    /* Optional: for long keys */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+    .bp-row > .bp-key {
+        flex-shrink: 0;
+        width: var(--key-column-width);
+        /* Optional: for long keys */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
-/* The value and type will now naturally fall into place */
-.bp-row > .bp-val,
-.bp-row > .bp-type,
-.bp-row > .bp-link {
-    /* No special styling needed */
-    margin-left: calc(-1 * var(--depth, 0) * var(--indent-per-level));
-    /*calc(1 * var(--depth, 0) * var(--indent-per-level));*/
-}
+    /* The value and type will now naturally fall into place */
+    .bp-row > .bp-val,
+    .bp-row > .bp-type,
+    .bp-row > .bp-link {
+        /* No special styling needed */
+        margin-left: calc(-1 * var(--depth, 0) * var(--indent-per-level));
+        /*calc(1 * var(--depth, 0) * var(--indent-per-level));*/
+    }
 
 .bp-link {
     color: var(--bp-link-color);
@@ -273,11 +278,11 @@ tbody td {
         background-color: var(--btn-primary-hover-bg);
     }
 
-.toggle-active > .btn{
+.toggle-active > .btn {
     box-shadow: inset 0px 0px 4px 4px var(--toggle-highlight);
 }
-.toggle-inactive > .btn{
 
+.toggle-inactive > .btn {
 }
 
 
@@ -297,7 +302,7 @@ tbody td {
     display: inline-block;
     transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, transform 0.07s;
     transition-property: background-color, transform;
-    }
+}
 
     .bp-toggle:hover {
         background-color: var(--btn-hover-bg);
@@ -308,10 +313,10 @@ tbody td {
         transform: rotate(-90deg);
     }
 
-.bp-toggle.disabled {
-    opacity: 0.4;
-    pointer-events: none;
-}
+    .bp-toggle.disabled {
+        opacity: 0.4;
+        pointer-events: none;
+    }
 
 .bp-toggle-placeholder {
     display: inline-block;
@@ -335,27 +340,48 @@ a {
     color: inherit;
 }
 
-    #theme-toggle-label::after {
-        content: "Dark/Light";
-    }
-    #show-help-label::after {
-        content: "Help";
-    }
+#theme-toggle-label::after {
+    content: "Dark/Light";
+}
 
-    .title-bar {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-    }
+#show-help-label::after {
+    content: "Help";
+}
+
+.title-bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
     .title-bar > button {
         max-height: 40px;
-
     }
+
+#currentTitle {
+    flex-grow: 1;
+}
 
 .json-view {
     white-space: pre;
     font-family: Consolas, monospace;
     line-height: 1.4;
+}
+
+#back-button-label::after {
+    content: '← Back to Search'
+}
+
+#copy-raw-label::after {
+    content: 'Copy Raw'
+}
+
+#show-raw-label::after {
+    content: 'Raw'
+}
+
+#toggle-references-label::after {
+    content: 'References'
 }
 
 .hide {
@@ -367,53 +393,108 @@ a {
     .col-priority-3 {
         display: none;
     }
+
+    #back-button-label::after {
+        content: '←'
+    }
+
+    #copy-raw-label::after {
+        content: 'c'
+    }
+
+    #show-raw-label::after {
+        content: 'j'
+    }
+
+    #toggle-references-label::after {
+        content: 'r'
+    }
 }
 
 /* === ADDITION 3: Responsive Styles for Mobile & Tablets === */
-    /* These rules apply only when the screen width is 768px or less. */
-    @media (max-width: 768px) {
+/* These rules apply only when the screen width is 768px or less. */
+@media (max-width: 768px) {
 
-        /* 1. Reduce overall padding to give content more room */
-        .sticky-header,
-        #searchView,
-        #blueprintView {
-            padding-left: 1rem;
-            padding-right: 1rem;
-        }
+    /* 1. Reduce overall padding to give content more room */
+    .sticky-header,
+    #searchView,
+    #blueprintView {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
 
-            /* 2. Hide the main title because it gets squished */
-            .sticky-header > h1 {
-                display: none;
-            }
+    #blueprintView {
+        padding-top: 0.2rem;
+        margin-top: 0.2rem;
+    }
 
-        #theme-toggle-label::after {
-            content: "d/l";
-        }
+    .sticky-header {
+        padding-bottom: 0.2rem;
+        margin-bottom: 0.2rem;
+    }
 
-        #show-help-label::after {
-            content: "?";
-        }
+    #bp-content {
+        font-size: 0.7rem;
+        overflow-x: auto;
+    }
 
-        /* 3. Make the search box take up the full width */
-        #searchBox {
-            max-width: initial;
-            flex-grow: 1;
-            margin-bottom: 0;
-        }
-
-        /* 4. Slightly smaller font for main headings on mobile */
-        h1 {
-            font-size: 1.5rem;
-        }
-
-        /* 5. Reduce padding in table cells for more space */
-        thead th,
-        tbody td {
-            padding: 0.6rem 0.75rem;
-        }
-
-        .col-priority-1 {
+        /* 2. Hide the main title because it gets squished */
+        .sticky-header > h1 {
             display: none;
         }
+
+    #theme-toggle-label::after {
+        content: "d/l";
     }
+
+    #show-help-label::after {
+        content: "?";
+    }
+
+    /* 3. Make the search box take up the full width */
+    #searchBox {
+        max-width: initial;
+        flex-grow: 1;
+        margin-bottom: 0;
+    }
+
+    /* 4. Slightly smaller font for main headings on mobile */
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    /* 5. Reduce padding in table cells for more space */
+    thead th,
+    tbody td {
+        padding: 0.6rem 0.75rem;
+    }
+
+    .col-priority-1 {
+        display: none;
+    }
+
+    .title-bar {
+        /* Allow flex items to wrap to the next line */
+        flex-wrap: wrap;
+        row-gap: 4px;
+        justify-content: center;
+    }
+
+    .title-bar button {
+        max-height: 30px;
+        min-width: 30px;
+        padding: 5px;
+    }
+
+    #currentTitle {
+        /* Force the title to take up the full width, pushing buttons to the next line */
+        flex-basis: 100%;
+        /* Optional: center the title text when it's on its own line */
+        text-align: center;
+        font-size: 1.1rem;
+
+        margin-top: 0px;
+        margin-bottom: 0px;
+    }
+}
 
