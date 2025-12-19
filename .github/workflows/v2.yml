@@ -65,14 +65,9 @@ jobs:
           filename: 'bprintweb-release.zip'
           exclusions: '*.git* /*node_modules/* .editorconfig'
           path: bprintweb/bin/Release/net8.0/linux-arm64/publish\
-      - name: Upload Web (Full)
+      - name: Upload Web
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "bprintweb-release.zip"
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload Web (Partial)
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "bprintweb/bprints_partial.tgz"
+          artifacts: "bprintweb-release.zip,bprintweb/bprints_partial.tgz"
           token: ${{ secrets.GITHUB_TOKEN }}
 
