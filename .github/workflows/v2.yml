@@ -1,0 +1,80 @@
+name: v2
+
+# on: [push]
+on:
+  push:
+    branches:
+      - importrework
+    tags:
+      - "w*"
+
+jobs:
+  build-app:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        dotnet-version: ['8.0.x' ]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup .NET Core SDK ${{ matrix.dotnet-version }}
+        uses: actions/setup-dotnet@v1.7.2
+        with:
+          dotnet-version: ${{ matrix.dotnet-version }}
+      - name: Install dependencies
+        run: dotnet restore
+      - name: Build
+        run: |
+          $appversion = "${{ github.ref_name }}".substring(1)
+          echo $appversion
+          dotnet build --configuration Release --no-restore /p:Version=$appversion
+      - name: Zip Release
+        uses: TheDoctor0/zip-release@0.6.0
+        with:
+          type: 'zip'
+          filename: 'bubbleprints-release.zip'
+          exclusions: '*.git* /*node_modules/* .editorconfig'
+          path: BlueprintExplorer/bin/Release
+      - name: Upload Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "bubbleprints-release.zip"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  build-web:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dotnet-version: ['8.0.x' ]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup .NET Core SDK ${{ matrix.dotnet-version }}
+        uses: actions/setup-dotnet@v1.7.2
+        with:
+          dotnet-version: ${{ matrix.dotnet-version }}
+      - name: Install dependencies
+        run: dotnet restore
+      - name: Build
+        run: |
+          $appversion = "${{ github.ref_name }}".substring(1)
+          echo $appversion
+          dotnet publish --configuration Release --no-restore /p:Version=$appversion -r linux-arm64 --self-contained bprintweb
+      - name: Zip Release
+        uses: TheDoctor0/zip-release@0.6.0
+        with:
+          type: 'zip'
+          filename: 'bprintweb-release.zip'
+          exclusions: '*.git* /*node_modules/* .editorconfig'
+          path: bprintweb/bin/Release/net8.0/linux-arm64/publish\
+      - name: Upload Web (Full)
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "bprintweb-release.zip"
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Web (Partial)
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "bprintweb/bprints_partial.tgz"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
