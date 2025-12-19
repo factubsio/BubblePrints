@@ -40,7 +40,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   build-web:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     strategy:
       matrix:
         dotnet-version: ['8.0.x' ]
@@ -55,10 +55,9 @@ jobs:
         run: dotnet restore bprintweb -r linux-arm64
       - name: Build
         run: |
-           ref_name="${{ github.ref_name }}"
-            appversion="${ref_name:1}"
-            echo "$appversion"
-            dotnet publish --configuration Release --no-restore /p:Version="$appversion" -r linux-arm64 --self-contained bprintweb
+          $appversion = "${{ github.ref_name }}".substring(1)
+          echo $appversion
+          dotnet publish --configuration Release --no-restore /p:Version="$appversion" -r linux-arm64 --self-contained bprintweb
       - name: Zip Release
         uses: TheDoctor0/zip-release@0.6.0
         with:
