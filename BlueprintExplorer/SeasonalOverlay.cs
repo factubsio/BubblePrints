@@ -269,6 +269,8 @@ public class SeasonalForm : Form
 
     private void DoUpdate(object sender, EventArgs e)
     {
+        if (Width <= 0 || Height <= 0)
+            return;
 
         lastT = GlobalTime.ElapsedMilliseconds / 1e3f;
         float dt = UpdateTimer.Interval / 1e3f;

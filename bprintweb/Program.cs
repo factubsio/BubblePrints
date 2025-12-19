@@ -3,11 +3,13 @@ using BlueprintExplorer;
 using bprintweb.Controllers;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.ObjectPool;
 using System.Data.Common;
 using System.Diagnostics;
 using System.IO.MemoryMappedFiles;
+using System.Net.Mime;
 using System.Text;
 using System.Text.Json;
 
@@ -23,8 +25,10 @@ public static class Program
     public static readonly Dictionary<string, GameData> games = new()
     {
         ["rt"] = new(new()),
+#if !DEBUG
         ["wrath"] = new(new()),
         ["km"] = new(new()),
+#endif
     };
 
     public async static Task Main(string[] args)
@@ -77,11 +81,22 @@ public static class Program
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
 
+        builder.Services.AddLogging(options =>
+        {
+            options.AddSimpleConsole(c =>
+            {
+                c.TimestampFormat = "[yyyy-MM-ddTHH:mm:ss] ";
+                c.UseUtcTimestamp = true;
+                c.SingleLine = true;
+            });
+        });
+
 
         builder.Services.AddHttpLogging(logging =>
         {
-            logging.LoggingFields = HttpLoggingFields.RequestPropertiesAndHeaders;
+            logging.LoggingFields = HttpLoggingFields.RequestProperties | HttpLoggingFields.ResponseStatusCode;
             logging.RequestHeaders.Add("User-Agent");
+            logging.CombineLogs = true;
         });
 
         var app = builder.Build();
@@ -97,19 +112,22 @@ public static class Program
 
         HashSet<string> Passthru = [
             "/",
-            "/dialog.html",
-            "/index.html",
-            "/help.html",
-            "/theme.css",
-            "/style.css",
-            "/help.css",
-            "/js/app.js",
-            "/js/theme.js",
+        ];
+        List<string> PassthruExtensions = [
+            ".webp",
+            ".css",
+            ".js",
+            ".html",
         ];
 
+        app.UseHttpLogging();
+
+        // Extract the desired game from the path OR subdomain.
         app.Use(async (context, next) =>
         {
-            if (Passthru.Contains(context.Request.Path.Value!))
+
+            // Don't both if the path is a static asset
+            if (Passthru.Contains(context.Request.Path.Value!) || PassthruExtensions.Any(ext => context.Request.Path.Value?.EndsWith(ext) == true))
             {
                 await next(context);
                 return;
@@ -162,11 +180,14 @@ public static class Program
                 context.Response.StatusCode = StatusCodes.Status404NotFound;
                 return;
             }
+
+            // Stash the gamedata in the context so subsequent handlers can access it
             context.Items["game"] = gameData;
 
             await next(context);
         });
 
+        // Handle discordbot early to return the og tags and no page content
         app.Use(async (context, next) =>
         {
             if (context.Request.Headers.UserAgent.Any(x => x?.Contains("Discordbot/2.0") == true))
@@ -182,19 +203,34 @@ public static class Program
             await next(context);
         });
 
+        // Rewrite anything targetting the base domain with no path to the
+        // landing page
+        app.Use((ctx, next) =>
+        {
+            if (IsBaseDomain(ctx.Request.Host.Value) && IsRootPath(ctx.Request.Path.Value))
+            {
+                ctx.Request.Path = "/landing.html";
+                return next();
+            }
+
+            return next();
+        });
+
         app.UseStaticFiles();
 
         app.UseRouting();
 
         app.UseAuthorization();
 
-        //app.UseHttpLogging();
-
         app.MapControllers();
+
         app.MapFallbackToFile("index.html");
 
         app.Run();
     }
+
+    private static bool IsRootPath(string? path) => path == null || path.Length == 0 || (path.Length == 1 && path[0] == '/');
+    private static bool IsBaseDomain(string? domain) => domain == "bubbleprints.dev" || domain == "www.bubbleprints.dev" || domain == "localhost:7003";
 
     private static async Task<MemoryMappedFile> FlushAllRaw(BlueprintDB db)
     {
