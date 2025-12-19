@@ -27,7 +27,7 @@
 
 	<ItemGroup>
 		<BundleFiles Include="wwwroot" />
-		<BundleFiles Include="appsettings.Development.json" />
+		<!--<BundleFiles Include="appsettings.Development.json" />
 		<BundleFiles Include="appsettings.json" />
 		<BundleFiles Include="appsettings.Production.json" />
 		<BundleFiles Include="bprintweb" />
@@ -38,7 +38,7 @@
 		<BundleFiles Include="bprintweb.staticwebassets.endpoints.json" />
 		<BundleFiles Include="BubbleprintEngine.dll" />
 		<BundleFiles Include="BubbleprintEngine.pdb" />
-		<BundleFiles Include="K4os.Compression.LZ4.dll" />
+		<BundleFiles Include="K4os.Compression.LZ4.dll" />-->
 	</ItemGroup>
 
 	<Target Name="CreateTgz" AfterTargets="Publish">
