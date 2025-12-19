@@ -43,7 +43,7 @@
 
 	<Target Name="CreateTgz" AfterTargets="Publish">
 		<Message Text="Creating partial tarball..." Importance="high" />
-		<Exec Command="tar -czf bprints_partial.tgz -C &quot;$(PublishDir.TrimEnd('\'))&quot; @(BundleFiles, ' ')" />
+		<Exec Command="tar -czf $(ProjectDir)/bprints_partial.tgz -C $(PublishDir) @(BundleFiles, ' ')" />
 	</Target>
 
 </Project>
