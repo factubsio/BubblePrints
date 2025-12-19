@@ -112,6 +112,7 @@ public static class Program
 
         HashSet<string> Passthru = [
             "/",
+            "/favicon.ico",
         ];
         List<string> PassthruExtensions = [
             ".webp",
