@@ -54,7 +54,7 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
       - name: Install dependencies
-        run: dotnet restore
+        run: dotnet restore bprintweb
       - name: Build
         run: |
           $appversion = "${{ github.ref_name }}".substring(1)
