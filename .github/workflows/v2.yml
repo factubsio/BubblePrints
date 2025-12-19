@@ -3,8 +3,6 @@ name: v2
 # on: [push]
 on:
   push:
-    branches:
-      - importrework
     tags:
       - "w*"
 
