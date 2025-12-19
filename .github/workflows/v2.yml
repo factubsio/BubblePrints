@@ -57,9 +57,10 @@ jobs:
         run: dotnet restore bprintweb
       - name: Build
         run: |
-          $appversion = "${{ github.ref_name }}".substring(1)
-          echo $appversion
-          dotnet publish --configuration Release --no-restore /p:Version=$appversion -r linux-arm64 --self-contained bprintweb
+           ref_name="${{ github.ref_name }}"
+            appversion="${ref_name:1}"
+            echo "$appversion"
+            dotnet publish --configuration Release --no-restore /p:Version="$appversion" -r linux-arm64 --self-contained bprintweb
       - name: Zip Release
         uses: TheDoctor0/zip-release@0.6.0
         with:
