@@ -54,7 +54,7 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
       - name: Install dependencies
-        run: dotnet restore bprintweb
+        run: dotnet restore bprintweb -r linux-arm64
       - name: Build
         run: |
            ref_name="${{ github.ref_name }}"
