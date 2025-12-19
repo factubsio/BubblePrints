@@ -5,6 +5,7 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<LangVersion>preview</LangVersion>
+		<RuntimeIdentifiers>win-x64;linux-arm64</RuntimeIdentifiers>
 	</PropertyGroup>
 
 	<ItemGroup>
