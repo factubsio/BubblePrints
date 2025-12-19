@@ -31,11 +31,11 @@
 		<BundleFiles Include="appsettings.json" />
 		<BundleFiles Include="appsettings.Production.json" />
 		<BundleFiles Include="bprintweb" />
-		<!--<BundleFiles Include="bprintweb.deps.json" />-->
+		<BundleFiles Include="bprintweb.deps.json" />
 		<BundleFiles Include="bprintweb.dll" />
 		<BundleFiles Include="bprintweb.pdb" />
-		<!--<BundleFiles Include="bprintweb.runtimeconfig.json" />
-		<BundleFiles Include="bprintweb.staticwebassets.endpoints.json" />-->
+		<BundleFiles Include="bprintweb.runtimeconfig.json" />
+		<BundleFiles Include="bprintweb.staticwebassets.endpoints.json" />
 		<BundleFiles Include="BubbleprintEngine.dll" />
 		<BundleFiles Include="BubbleprintEngine.pdb" />
 		<BundleFiles Include="K4os.Compression.LZ4.dll" />
