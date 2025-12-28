@@ -9,25 +9,43 @@ using Microsoft.Extensions.ObjectPool;
 using System.Data.Common;
 using System.Diagnostics;
 using System.IO.MemoryMappedFiles;
+using System.Net;
 using System.Net.Mime;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Text.Json;
 
 namespace bprintweb;
 
-public record class GameData(BlueprintDB DB)
+public record class GameData
 {
     public MemoryMappedViewAccessor Data { get; set; } = null!;
+
+    public readonly Dictionary<Guid, Guid> NodeToDialog;
+
+    public readonly BlueprintDB DB;
+    public readonly string Name;
+    public readonly string BaseDialogPath;
+
+    public GameData(string name)
+    {
+        Name = name;
+        DB = new();
+
+        BaseDialogPath = Path.Combine(Environment.GetEnvironmentVariable("BUBBLEPRINTS_DIALOG_ROOT") ?? throw new NotSupportedException(), name);
+        NodeToDialog = JsonSerializer.Deserialize<Dictionary<Guid, Guid>>(File.ReadAllText(Path.Combine(BaseDialogPath, "index.json"))) ?? [];
+    }
 }
 
 public static class Program
 {
     public static readonly Dictionary<string, GameData> games = new()
     {
-        ["rt"] = new(new()),
+        ["dh"] = new("dh"),
 #if !DEBUG
-        ["wrath"] = new(new()),
-        ["km"] = new(new()),
+        ["wrath"] = new("wrath"),
+        ["km"] = new("km"),
+        ["rt"] = new("rt"),
 #endif
     };
 
@@ -110,6 +128,39 @@ public static class Program
 
         app.UseHttpsRedirection();
 
+        var earlyBlockLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("EarlyBlock");
+        var logEarlyBlockPath = LoggerMessage.Define<string, IPAddress?>(
+            LogLevel.Information,
+            new EventId(1, "RejectedPath"),
+            "Rejected path {Path} from {IP ?? '?'}"
+        );
+
+        List<string> allowedPrefixes = [
+            ..games.Select(x => $"/{x.Key}"),
+            "/bs",
+            "/js",
+            "/bp",
+            "/dlg",
+            "/dialog",
+            "/favicon.ico",
+        ];
+
+        // Reject any paths not on the explicit allow list as early as possible
+        app.Use(async (context, next) =>
+        {
+            var path = context.Request.Path.Value!;
+
+            if ((path.Length == 1 && path[0] == '/') || allowedPrefixes.Any(prefix => path.StartsWith(prefix)))
+            {
+                await next(context);
+            }
+            else
+            {
+                logEarlyBlockPath(earlyBlockLogger, path, context.Connection.RemoteIpAddress, null);
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+            }
+        });
+
         HashSet<string> Passthru = [
             "/",
             "/favicon.ico",
@@ -126,7 +177,6 @@ public static class Program
         // Extract the desired game from the path OR subdomain.
         app.Use(async (context, next) =>
         {
-
             // Don't both if the path is a static asset
             if (Passthru.Contains(context.Request.Path.Value!) || PassthruExtensions.Any(ext => context.Request.Path.Value?.EndsWith(ext) == true))
             {
@@ -204,15 +254,23 @@ public static class Program
             await next(context);
         });
 
-        // Rewrite anything targetting the base domain with no path to the
-        // landing page
+        // Some hardcoded rewrite rules:
         app.Use((ctx, next) =>
         {
-            if (IsBaseDomain(ctx.Request.Host.Value) && IsRootPath(ctx.Request.Path.Value))
+            // Anything targeting the base path of the default domain goes to the landing page
+            if (IsBaseDomain(ctx.Request.Host.Value) && !ctx.Request.PathBase.HasValue && IsRootPath(ctx.Request.Path.Value))
             {
-                ctx.Request.Path = "/landing.html";
-                return next();
+                ctx.Request.Path = "/bs/landing.html";
             }
+
+            // dialog requests are handled by dialog.html
+            if (ctx.Request.Path.StartsWithSegments("/dialog"))
+            {
+                ctx.Request.Path = "/bs/dialog.html";
+            }
+
+            // everything else will get handled by `index.html` for blueprint
+            // search/view
 
             return next();
         });
@@ -225,7 +283,7 @@ public static class Program
 
         app.MapControllers();
 
-        app.MapFallbackToFile("index.html");
+        app.MapFallbackToFile("/bs/index.html");
 
         app.Run();
     }
@@ -246,6 +304,8 @@ public static class Program
                 long offset = fs.Position;
                 await fs.WriteAsync(encoded);
 
+                bp.Name = TryIntern(bp.Name);
+                bp.NameLower = TryIntern(bp.NameLower);
                 bp.Type = TryIntern(bp.Type);
                 bp.TypeName = TryIntern(bp.TypeName);
                 bp.TypeNameLower = TryIntern(bp.TypeNameLower);
@@ -258,8 +318,15 @@ public static class Program
                 bp.Parsed = false;
             }
 
+            foreach (var (k, v) in db.Strings)
+            {
+                db.Strings[k] = TryIntern(v);
+            }
+
             Console.WriteLine($"raw cache size: {fs.Position}");
         }
+
+
 
         FileStream closer = new(tempFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
         closeOnDelete.Add(closer);
@@ -274,32 +341,5 @@ public static class Program
     private static readonly List<FileStream> closeOnDelete = [];
 }
 
-//public class GameDbBinder : IModelBinder
-//{
-//    public Task BindModelAsync(ModelBindingContext context)
-//    {
-//        var game = context.ActionContext.RouteData.Values["game"]?.ToString();
-
-//        // Your existing switch logic
-//        var db = game switch
-//        {
-//            "rt" => Program.DbRt,
-//            _ => null
-//        };
-
-//        context.Result = ModelBindingResult.Success(db);
-//        return Task.CompletedTask;
-//    }
-//}
-
-//public class GameDbProvider : IModelBinderProvider
-//{
-//    public IModelBinder? GetBinder(ModelBinderProviderContext context)
-//    {
-//        return context.Metadata.ModelType == typeof(BlueprintDB)
-//            ? new GameDbBinder()
-//            : null;
-//    }
-//}
 public record class StringMetadata(long Offset, int Length);
 

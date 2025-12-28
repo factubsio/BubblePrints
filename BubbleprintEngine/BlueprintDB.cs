@@ -1,15 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using BubbleprintEngine;
 using System.Diagnostics;
-using System.Formats.Tar;
-using System.IO;
-using System.IO.Compression;
-using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace BlueprintExplorer;
 
@@ -313,7 +305,7 @@ public partial class BlueprintDB
                 {
                     string key = searchIndex.ReadString();
                     int refCount = searchIndex.ReadInt32();
-                    List<int> references = new();
+                    List<int> references = new(refCount);
                     for (int r = 0; r < refCount; r++)
                     {
                         references.Add(searchIndex.Read7BitEncodedInt());
@@ -432,7 +424,27 @@ public partial class BlueprintDB
             return results;
         }
 
-        List<string> passThrough = searchText.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+        string treeQuery = "";
+        int treeQueryStart = searchText.IndexOf('^');
+        if (treeQueryStart >= 0)
+        {
+            int treeQueryEnd = searchText.IndexOf('^', treeQueryStart + 1);
+            if (treeQueryEnd < 0)
+                return results;
+
+            treeQuery = searchText[(treeQueryStart + 1)..treeQueryEnd];
+
+            treeQueryEnd++;
+
+            var head = searchText[..treeQueryStart];
+            var tail = searchText[treeQueryEnd..];
+            var newSearchText = head + ' ' + tail;
+            Console.WriteLine($"rewriting '{searchText}' -> '{newSearchText}'");
+
+            searchText = newSearchText;
+        }
+
+        List<string> passThrough = [.. searchText.Split(' ', StringSplitOptions.RemoveEmptyEntries)];
 
         for (int i = 0; i < passThrough.Count; i++)
         {
@@ -558,6 +570,38 @@ public partial class BlueprintDB
             cancellationToken.ThrowIfCancellationRequested();
         }
         results.Sort((x, y) => scoreBuffer.Score(y.Guid).CompareTo(scoreBuffer.Score(x.Guid)));
+
+        if (treeQuery.Length > 0)
+        {
+            Console.WriteLine("runnig tree query:" + treeQuery);
+            var tokens = Lexer.Tokenize(treeQuery);
+            var parser = new Parser();
+            parser.Reset(tokens);
+            var queryMatcher = parser.Parse();
+            //Console.WriteLine(TreeQueryPrinter.DumpAst(queryMatcher));
+
+            List<BlueprintHandle> ret = [];
+
+            int queried = 0;
+            bool brokeEarly = false;
+            Stopwatch w = Stopwatch.StartNew();
+
+            foreach (var res in results)
+            {
+                queried++;
+                if (TreeQueryEngine.CheckMatch(queryMatcher, res.EnsureObj))
+                    ret.Add(res);
+                if (w.ElapsedMilliseconds > 50)
+                {
+                    brokeEarly = true;
+                    break;
+                }
+            }
+            var el = w.ElapsedMilliseconds;
+            Console.WriteLine($"Executed {queried} queries in {el}ms, early break: {brokeEarly}");
+            return ret;
+        }
+
         return results;
     }
 

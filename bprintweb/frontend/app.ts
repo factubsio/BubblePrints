@@ -4,6 +4,16 @@ const classToggleInactive = 'toggle-inactive';
 const classToggleActive = 'toggle-active';
 
 let apiPrefix = '';
+let apiParts = 0;
+
+export function makeUrl(path: string) {
+    return `${apiPrefix}/${path}`;
+}
+
+export function getActualPath() {
+    return window.location.pathname.split('/').filter(p => p).slice(apiParts);
+}
+
 function getGameIdentifier(url: Location, baseDomain: string): string | null {
     const host = url.hostname;
     const subdomainSuffix = `.${baseDomain}`;
@@ -19,6 +29,7 @@ function getGameIdentifier(url: Location, baseDomain: string): string | null {
     const segments = url.pathname.split('/').filter(Boolean);
     if (segments.length > 0) {
         apiPrefix = '/' + segments[0];
+        apiParts = 1;
         return segments[0];
     }
 
@@ -44,18 +55,8 @@ const knownGames = new Map<string, GameLogo>([
     }],
 ]);
 
-function makeGameLinks() {
-    let response = '';
-    for (const [link, logo] of knownGames) {
-        response += `<a href="https://${link}.bubbleprints.dev"> <h1 style="white-space: nowrap;">${logo.name}</h1></a>`;
-    }
-    return response;
-}
 
-if (game == null) {
-    document.body.style.margin = '0';
-    document.body.innerHTML = `<div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh;"> ${makeGameLinks()}</div>`;
-} else if (!knownGames.has(game)) {
+if (game == null || !knownGames.has(game)) {
     document.body.style.margin = '0';
     document.body.innerHTML = `<div style="display: flex; justify-content: center; align-items: center; height: 100vh;"> <h1 style="font-size: 8vw; white-space: nowrap;">Unknown game: ${game}</h1></div>`;
 }
@@ -101,11 +102,15 @@ export class MainPage {
 
     searchView = document.getElementById('searchView') as HTMLDivElement;
     blueprintView = document.getElementById('blueprintView') as HTMLDivElement;
+    hideSearch = document.getElementById('hide-search') as HTMLSpanElement;
 
     titleSpan = document.getElementById('currentTitle') as HTMLSpanElement;
     titleBar = document.getElementById('title-bar') as HTMLDivElement;
 
     backBtn = document.getElementById('backBtn') as HTMLButtonElement;
+
+    openDialog = document.getElementById('openDialog') as HTMLAnchorElement;
+    openDialogButton = this.openDialog?.firstElementChild as HTMLButtonElement;
 
     showRaw = document.getElementById('show-raw-link') as HTMLAnchorElement;
     copyRaw = document.getElementById('copy-raw') as HTMLButtonElement;
@@ -139,6 +144,11 @@ export class MainPage {
                 this.moveResultCursor(-1);
                 e.preventDefault();
             }
+            if (e.key == 'Escape') {
+                e.preventDefault();
+                this.searchBar.blur();
+                this.handleRouting();
+            }
             if (e.key == 'Enter') {
                 const tbody = this.resultsTable.querySelector("tbody");
                 if (!tbody) return;
@@ -147,7 +157,7 @@ export class MainPage {
                 e.preventDefault();
                 this.searchBar.blur();
                 if (guid && guid !== '') {
-                    this.navigateTo(guid);
+                    this.navigateTo(makeBlueprintLink(guid));
                 }
             }
         });
@@ -164,8 +174,14 @@ export class MainPage {
                 const { game, guid } = this.parseRawLink();
 
                 const showRaw = !this.isShowingRaw;
-                this.navigateTo(guid, { raw: showRaw });
+                this.navigateTo(makeBlueprintLink(guid), { raw: showRaw });
                 e.preventDefault();
+            }
+        });
+
+        this.hideSearch.addEventListener('click', _ => {
+            if (this.blueprintView.classList.contains('hide')) {
+                this.handleRouting();
             }
         });
 
@@ -214,17 +230,14 @@ export class MainPage {
     }
 
     handleRouting() {
-        const path = window.location.pathname;
-        const parts = path.split('/').filter(p => p);
+        const path = getActualPath();
 
-        const apiParts = apiPrefix.length == 0 ? 0 : 1;
-
-        if (parts.length === apiParts) {
+        if (path.length === 0) {
             this.showSearch();
         } else {
             const query = new URLSearchParams(window.location.search);
             // Assume first part is game, second is guid
-            this.loadAndShowBlueprint(parts[apiParts], {
+            this.loadAndShowBlueprint(path[0], {
                 raw: query.get('raw') === 'true',
             });
         }
@@ -232,19 +245,29 @@ export class MainPage {
 
     showSearch() {
         this.moveResultCursor(0);
-        this.blueprintView.classList.add('hide');
-        this.titleBar.classList.add('hide');
-        this.searchView.classList.remove('hide');
+
+        setVisible(this.blueprintView, false);
+        setVisible(this.titleBar, false);
+        setVisible(this.searchView, true);
+        this.hideSearch.classList.remove('disabled');
+    }
+
+    showBlueprintView() {
+
+        setVisible(this.blueprintView, true);
+        setVisible(this.titleBar, true);
+        setVisible(this.searchView, false);
+        this.hideSearch.classList.add('disabled');
     }
 
     // Helper to change URL without reloading
-    navigateTo(guid: string, opts?: ViewOpts) {
-        let url = `${apiPrefix}/${guid}`;
+    navigateTo(link: string, opts?: ViewOpts) {
+        let url = link;
         if (opts?.raw === true) {
             url += '?raw=true';
         }
         history.pushState(null, "", url);
-        this.loadAndShowBlueprint(guid, opts);
+        this.handleRouting();
     }
 
     runQuery(query: string) {
@@ -290,9 +313,10 @@ export class MainPage {
             const tr = document.createElement("tr");
 
             const active = index == this.resultCursor;
+            const href = makeBlueprintLink(row.guidText);
 
             tr.innerHTML = `
-            <td><a href="${apiPrefix}/${row.guidText}">${row.name}</a></td>
+            <td><a href="${href}">${row.name}</a></td>
             <td class="col-priority-1">${row.typeName}</td>
             <td class="col-priority-2">${row.namespace}</td>
             <td class="col-priority-3">${row.guidText}</td>
@@ -303,10 +327,8 @@ export class MainPage {
                 tr.classList.add('cursor-active');
             }
 
-            const link = tr.firstElementChild as HTMLLinkElement;
-            link.addEventListener('click', async e => {
-                this.handleLinkClick(e, row.guidText);
-            });
+            const link = tr.firstElementChild as HTMLAnchorElement;
+            link.addEventListener('click', e => this.handleLinkClick(e, href));
 
             tbody.appendChild(tr);
             index++;
@@ -327,14 +349,14 @@ export class MainPage {
     };
 
     async loadAndShowBlueprint(guid: string, opts?: ViewOpts) {
+        guid = normalizeGuid(guid);
         this.showRaw.href = `${apiPrefix}/bp/get/${guid}`;
         this.resultCursor = 0;
         this.activeRow?.classList?.remove('cursor-active');
         this.activeRow = null;
 
-        this.searchView.classList.add('hide');
-        this.titleBar.classList.remove('hide');
-        this.blueprintView.classList.remove('hide');
+        this.showBlueprintView();
+
         const container = document.getElementById('bp-content') as HTMLDivElement;
         container.innerHTML = "Loading...";
 
@@ -345,7 +367,7 @@ export class MainPage {
             console.log('disabling');
             this.backBtn.disabled = true;
         }
-
+        let dialogGuid = '';
 
         try {
             if (opts?.raw === true) {
@@ -353,11 +375,13 @@ export class MainPage {
                 this.showRaw.classList.replace('toggle-inactive', 'toggle-active');
                 const { name, bp } = await getRawBlueprint(guid);
                 this.titleSpan.innerText = name || 'Blueprint';
-                container.innerHTML = `<div class="json-view">${JSON.stringify(await bp.json(), null, 2)}</div>`;
+                const json = await bp.json();
+                container.innerHTML = `<div class="json-view">${JSON.stringify(json, null, 2)}</div>`;
+                const type = json['$type'];
             } else {
                 this.isShowingRaw = false;
                 this.showRaw.classList.replace('toggle-active', 'toggle-inactive');
-                const response = await fetch(`${apiPrefix}/bp/view/${guid}`);
+                const response = await viewBlueprint(guid);
                 const obj = await response.json();
                 const elements: DisplayableElement[] = obj.blueprint;
 
@@ -372,12 +396,14 @@ export class MainPage {
 
                 const refs: { id: string, name: string }[] = obj.references;
 
+                dialogGuid = obj.dialog;
+
                 this.referencePanel.innerHTML = '<h4>References</h4>';
                 for (const ref of refs) {
                     const a = document.createElement('a');
                     a.className = 'bp-link';
-                    a.href = `${apiPrefix}/${ref.id}`;
-                    a.addEventListener('click', e => this.handleLinkClick(e, ref.id));
+                    a.href = makeBlueprintLink(ref.id);
+                    a.addEventListener('click', e => this.handleLinkClick(e, a.href));
                     a.textContent = ref.name;
                     this.referencePanel.appendChild(a);
                 }
@@ -385,6 +411,15 @@ export class MainPage {
                 // Append the result to the page
                 container.appendChild(blueprintDom);
             }
+
+            if (dialogGuid?.length > 0) {
+                this.openDialogButton.disabled = false;
+                this.openDialog.href = makeUrl(`dialog/${dialogGuid}`);
+            } else {
+                this.openDialogButton.disabled = true;
+            }
+
+
         } catch (err) {
             container.textContent = "Error: " + (err instanceof Error ? err.message : String(err));
         }
@@ -399,21 +434,27 @@ export interface BlueprintResult {
     guidText: string;
     typeName: string;
 }
-export interface Blueprint {
 
+export function makeBlueprintLink(guid: string) {
+    return `${apiPrefix}/bp_${guid}`;
 }
-
 
 async function getRawBlueprint(guid: string) {
     const rawResponse = await fetch(`${apiPrefix}/bp/get/${guid}`);
     const name = rawResponse.headers.get('BP-Name');
     return { name, bp: rawResponse };
 }
-
+export async function viewBlueprint(guid: string) {
+    return await fetch(`${apiPrefix}/bp/view/${guid}`);
+}
 export async function getBlueprint(guid: string, withStrings = false): Promise<any> {
     const stringQuery = `?strings=${withStrings}`;
     const response = await fetch(`${apiPrefix}/bp/get/${guid}${stringQuery}`);
     return await response.json();
+}
+
+export function normalizeGuid(guid: string) {
+    return guid.replace('bp_', '');
 }
 interface ViewOpts {
     raw: boolean;

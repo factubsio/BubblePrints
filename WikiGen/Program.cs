@@ -149,7 +149,7 @@ namespace WikiGen
             var classList = new List<String>();
 
 
-            List<BlueprintHandle> classes = bpRoot.EnsureObj.Find("Progression", "m_CharacterClasses").EnumerateArray().Select(x => x.DeRef()).ToList();
+            List<BlueprintHandle> classes = bpRoot.EnsureObj.Find("Progression", "m_CharacterClasses").EnumerateArray().Select(x => x.DeRef(DB)).ToList();
             classes.Add(DB.Blueprints[Guid.Parse("a406d6ebea5c46bba3160246be03e96f")]);
 
             foreach (var clazzBp in classes)
@@ -189,7 +189,7 @@ namespace WikiGen
                                 int level = levelEntry.Int("Level");
                                 foreach (var feature in levelEntry.Find("m_Features").EnumerateArray())
                                 {
-                                    var featureBp = feature.DeRef();
+                                    var featureBp = feature.DeRef(DB);
                                     if (featureBp.EnsureObj.True("HideInUI")) continue;
                                     var reference = AddFeature(featureBp, bp);
                                     reference.ProgressionGroup = locName;
@@ -208,7 +208,7 @@ namespace WikiGen
                             //    Debugger.Break();
                             //}
 
-                            if (bp.EnsureObj.Find("m_AllFeatures").EnumerateArray().All(fRaw => fRaw.DeRef().TypeName == "BlueprintProgression"))
+                            if (bp.EnsureObj.Find("m_AllFeatures").EnumerateArray().All(fRaw => fRaw.DeRef(DB).TypeName == "BlueprintProgression"))
                             {
                                 localRef.ProgressionGroup = locName;
                             }
@@ -249,21 +249,21 @@ namespace WikiGen
                 using var outStream = File.Create($"{target}/class.{clazzBp.Name}.json");
                 var obj = clazzBp.EnsureObj;
 
-                if (!obj.TryDeRef(out var progression, "m_Progression"))
+                if (!obj.TryDeRef(DB, out var progression, "m_Progression"))
                 {
                     throw new Exception();
                 }
 
                 var prog = new ClassProgression();
 
-                ExtractStatProgression(ref prog.Flags.bab, ref prog.Flags.babSpeed, obj.Find("m_BaseAttackBonus").DeRef());
-                ExtractStatProgression(ref prog.Flags.fort, ref prog.Flags.fortSpeed, obj.Find("m_FortitudeSave").DeRef());
-                ExtractStatProgression(ref prog.Flags.reflex, ref prog.Flags.reflexSpeed, obj.Find("m_ReflexSave").DeRef());
-                ExtractStatProgression(ref prog.Flags.will, ref prog.Flags.willSpeed, obj.Find("m_WillSave").DeRef());
+                ExtractStatProgression(ref prog.Flags.bab, ref prog.Flags.babSpeed, obj.Find("m_BaseAttackBonus").DeRef(DB));
+                ExtractStatProgression(ref prog.Flags.fort, ref prog.Flags.fortSpeed, obj.Find("m_FortitudeSave").DeRef(DB));
+                ExtractStatProgression(ref prog.Flags.reflex, ref prog.Flags.reflexSpeed, obj.Find("m_ReflexSave").DeRef(DB));
+                ExtractStatProgression(ref prog.Flags.will, ref prog.Flags.willSpeed, obj.Find("m_WillSave").DeRef(DB));
 
                 prog.HitDie = int.Parse(obj.Str("HitDie")[1..]);
 
-                if (obj.TryDeRef(out var spellsBp, "m_Spellbook"))
+                if (obj.TryDeRef(DB, out var spellsBp, "m_Spellbook"))
                 {
                     ExtractSpellProgression(spellsBp,
                         ref prog.SpellsByLeveL, ref prog.CasterLevelModifier, ref prog.NewSpellsByLevel, ref prog.CasterAbility, ref prog.Spontaneous);
@@ -277,7 +277,7 @@ namespace WikiGen
                     int level = levelEntry.Int("Level");
                     foreach (var feature in levelEntry.Find("m_Features").EnumerateArray())
                     {
-                        var featureBp = feature.DeRef();
+                        var featureBp = feature.DeRef(DB);
 
                         if (featureBp.EnsureObj.True("HideInUI")) continue;
                         var reference = AddFeature(featureBp);
@@ -300,8 +300,7 @@ namespace WikiGen
                     var set = new UIGroup();
                     foreach (var f in uiGroupJson.Find("m_Features").EnumerateArray())
                     {
-                        var featureBp = f.DeRef();
-
+                        var featureBp = f.DeRef(DB);
 
                         if (featureBp.EnsureObj.True("HideInUI")) continue;
 
@@ -317,7 +316,7 @@ namespace WikiGen
 
 
                 // Determinators go in the special left-column and ignore most row layout rules
-                foreach (var determinatorFeature in progression.obj.Find("m_UIDeterminatorsGroup").EnumerateArray().Select(x => x.DeRef()))
+                foreach (var determinatorFeature in progression.obj.Find("m_UIDeterminatorsGroup").EnumerateArray().Select(x => x.DeRef(DB)))
                 {
                     if (determinatorFeature.EnsureObj.True("HideInUI")) continue;
 
@@ -328,7 +327,7 @@ namespace WikiGen
 
                 foreach (var archRef in obj.Find("m_Archetypes").EnumerateArray())
                 {
-                    var archBp = archRef.DeRef();
+                    var archBp = archRef.DeRef(DB);
 
                     ArchetypeProgression arch = new();
 
@@ -339,7 +338,7 @@ namespace WikiGen
                     arch.Id = archBp.GuidText;
                     arch.bp = archBp;
 
-                    if (archObj.TryDeRef(out var archSpellsBp, "m_ReplaceSpellbook"))
+                    if (archObj.TryDeRef(DB, out var archSpellsBp, "m_ReplaceSpellbook"))
                     {
                         ExtractSpellProgression(archSpellsBp,
                             ref arch.SpellsByLeveL, ref arch.CasterLevelModifier, ref arch.NewSpellsByLevel, ref arch.CasterAbility, ref arch.Spontaneous);
@@ -352,13 +351,13 @@ namespace WikiGen
 
 
                     if (!archObj.Find("m_BaseAttackBonus").Nullish())
-                        ExtractStatProgression(ref arch.Flags.bab, ref arch.Flags.babSpeed, archObj.Find("m_BaseAttackBonus").DeRef());
+                        ExtractStatProgression(ref arch.Flags.bab, ref arch.Flags.babSpeed, archObj.Find("m_BaseAttackBonus").DeRef(DB));
                     if (!archObj.Find("m_FortitudeSave").Nullish())
-                        ExtractStatProgression(ref arch.Flags.fort, ref arch.Flags.fortSpeed, archObj.Find("m_FortitudeSave").DeRef());
+                        ExtractStatProgression(ref arch.Flags.fort, ref arch.Flags.fortSpeed, archObj.Find("m_FortitudeSave").DeRef(DB));
                     if (!archObj.Find("m_ReflexSave").Nullish())
-                        ExtractStatProgression(ref arch.Flags.reflex, ref arch.Flags.reflexSpeed, archObj.Find("m_ReflexSave").DeRef());
+                        ExtractStatProgression(ref arch.Flags.reflex, ref arch.Flags.reflexSpeed, archObj.Find("m_ReflexSave").DeRef(DB));
                     if (!archObj.Find("m_WillSave").Nullish())
-                        ExtractStatProgression(ref arch.Flags.will, ref arch.Flags.willSpeed, archObj.Find("m_WillSave").DeRef());
+                        ExtractStatProgression(ref arch.Flags.will, ref arch.Flags.willSpeed, archObj.Find("m_WillSave").DeRef(DB));
 
                     foreach (var levelEntry in archBp.EnsureObj.Find("RemoveFeatures").EnumerateArray())
                     {
@@ -372,7 +371,7 @@ namespace WikiGen
 
                         foreach (var f in levelEntry.Find("m_Features").EnumerateArray())
                         {
-                            remove.Add(LookupFeature(f.DeRef()));
+                            remove.Add(LookupFeature(f.DeRef(DB)));
                         }
                     }
 
@@ -388,7 +387,7 @@ namespace WikiGen
 
                         foreach (var f in levelEntry.Find("m_Features").EnumerateArray())
                         {
-                            var featureBp = f.DeRef();
+                            var featureBp = f.DeRef(DB);
                             if (featureBp.EnsureObj.True("HideInUI")) continue;
 
                             var reference = AddFeature(featureBp);
@@ -666,8 +665,8 @@ namespace WikiGen
 
         private static void ExtractSpellProgression(BlueprintHandle spellsBp, ref int[][] spellsByLeveL, ref int casterLevelModifier, ref string[][] newSpellsByLevel, ref string casterAbility, ref bool spontaneous)
         {
-            var spellsPerDay = spellsBp.EnsureObj.Find("m_SpellsPerDay").DeRef();
-            var spellList = spellsBp.EnsureObj.Find("m_SpellList").DeRef();
+            var spellsPerDay = spellsBp.EnsureObj.Find("m_SpellsPerDay").DeRef(DB);
+            var spellList = spellsBp.EnsureObj.Find("m_SpellList").DeRef(DB);
 
             spontaneous = spellsBp.obj.True("Spontaneous");
 
@@ -690,7 +689,7 @@ namespace WikiGen
                 int cl = byLevel.Int("SpellLevel");
                 if (cl == 0) continue;
 
-                newSpellsByLevel[cl] = byLevel.Find("m_Spells").EnumerateArray().Select(x => x.DeRef().EnsureObj.Find("m_DisplayName").ParseAsString(DB)).ToArray();
+                newSpellsByLevel[cl] = byLevel.Find("m_Spells").EnumerateArray().Select(x => x.DeRef(DB).EnsureObj.Find("m_DisplayName").ParseAsString(DB)).ToArray();
             }
 
             casterLevelModifier = spellsBp.obj.Int("CasterLevelModifier");

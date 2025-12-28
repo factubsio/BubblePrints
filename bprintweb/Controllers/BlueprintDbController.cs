@@ -179,7 +179,8 @@ public class BlueprintDbController : ControllerBase
                 {
                     Id = x,
                     Name = db.Blueprints.GetValueOrDefault(x)?.Name ?? "-"
-                })
+                }),
+                Dialog = gameData.NodeToDialog.TryGetValue(guidObj, out var dialogGuid) ? dialogGuid.ToString("N") : "",
             });
     }
 
@@ -276,13 +277,10 @@ public class BlueprintDbController : ControllerBase
         if (path.IsEmpty) return null;
         if (path[0] == '/') path = path[1..];
 
-        int slashIndex = path.IndexOf('/');
-        if (slashIndex == -1) return null;
+        if (!path.StartsWith("bp_")) return null;
+        path = path[3..];
 
-        ReadOnlySpan<char> gameName = path[..slashIndex];
-        ReadOnlySpan<char> guidSpan = path[(slashIndex + 1)..];
-
-        if (db != null && Guid.TryParse(guidSpan, out Guid guid) && db.Blueprints.TryGetValue(guid, out var blueprint))
+        if (db != null && Guid.TryParse(path, out Guid guid) && db.Blueprints.TryGetValue(guid, out var blueprint))
         {
             return blueprint;
         }
@@ -292,8 +290,6 @@ public class BlueprintDbController : ControllerBase
 
     internal static async ValueTask<bool> SendEmbedTags(HttpContext context)
     {
-        return false;
-
         if (context.Request.Path.Value == null) return false;
         var blueprint = GetBlueprint(context);
         if (blueprint == null) return false;

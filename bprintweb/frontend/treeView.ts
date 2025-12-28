@@ -1,4 +1,6 @@
-﻿/**
+﻿import { makeBlueprintLink } from "./app";
+
+/**
  * Represents the raw data for a single row as received from the server.
  * This is the TypeScript equivalent of C#'s IDisplayableElement.
  */
@@ -156,10 +158,10 @@ export function createBlueprintView(flatElements: DisplayableElement[], apiPrefi
                     linkEl.textContent = `${element.value} -> stale`;
                     linkEl.className = 'bp-link-dead';
                 } else {
-                    linkEl.href = `${apiPrefix}/${element.link}`;
+                    linkEl.href = makeBlueprintLink(element.link);
                     linkEl.textContent = `${element.value} -> ${element.target}`;
                 }
-                linkEl.onclick = evt => cb.handleLinkClick(evt, element.link!);
+                linkEl.onclick = evt => cb.handleLinkClick(evt, linkEl.href);
                 valEl = linkEl;
             } else {
                 const valSpan = document.createElement('span');

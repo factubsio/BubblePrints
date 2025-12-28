@@ -9,8 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\bprintweb\frontend\MainPage.ts" Link="MainPage.ts" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\BinzFactory\BinzFactory.csproj" />
     <ProjectReference Include="..\BubbleprintEngine\BubbleprintEngine.csproj" />
+	<PackageReference Include="System.Reflection.Metadata " Version="10.*-*" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,228 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dialogue Cue Viewer</title>
+    <link rel="stylesheet" href="/bs/theme.css">
+    <link rel="stylesheet" href="/bs/style.css">
+    <script src="/js/theme.js"></script>
+    <style>
+
+        :root {
+            --node-bg-default: #c5c9ff;
+            --node-bg-answer: #b2c5b4;
+            --node-bg-check: #faa3a3;
+            --node-bg-answerlist: #8d8d8d;
+            --edge-hi-out: #ff16faff;
+            --controls-border-shadow-color: #aaa;
+            --local-clicky-color: #d35f00;
+        }
+        [data-theme="dark"] {
+            --node-bg-default: #228;
+            --node-bg-answer: #237242;
+            --node-bg-check: #9d0000;
+            --node-bg-answerlist: #23725f;
+            --edge-hi-out: yellow;
+            --controls-border-shadow-color: black;
+            --local-clicky-color: orange;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-color);
+            /*font-family: "trebuchet ms", verdana, arial, sans-serif;*/
+            box-sizing: border-box;
+        }
+
+        a {
+            text-decoration: none;
+        }
+
+        a.local-clicky {
+            color: var(--local-clicky-color);
+        }
+
+        #dialog-graph {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #dialog-graph > svg {
+            min-height: 0;
+            flex: 1;
+            padding: 20px 0px 20px 20px;
+        }
+
+        .graph-node-bg {
+            fill: var(--node-bg-default);
+            stroke: var(--border-color);
+            stroke-width: 2px;
+        }
+
+        g.graph-node-cond .graph-node-cond-bg {
+            stroke: var(--text-color);
+            stroke-width: 12px;
+            stroke-dasharray: 2, 8;
+        }
+
+        g.highlight .graph-node-bg {
+            stroke-width: 8px;
+            stroke: #ff16faff;
+        }
+        g.highlight.graph-node-cond .graph-node-cond-bg {
+            stroke-width: 12px;
+        }
+
+        g.selected .graph-node-bg {
+            stroke: orange;
+            stroke-width: 8px;
+        }
+
+        g.selected.graph-node-cond .graph-node-cond-bg {
+            stroke-width: 12px;
+        }
+
+        .graph-node-T-Answer .graph-node-bg {
+            fill: var(--node-bg-answer);
+        }
+        .graph-node-T-Check .graph-node-bg {
+            fill: var(--node-bg-check);
+        }
+        .graph-node-T-AnswerList .graph-node-bg {
+            fill: var(--node-bg-answerlist);
+        }
+        .graph-node-T-CueSequence > .graph-node-bg {
+            fill: #30272e68;
+        }
+
+        .port-label {
+            stroke: var(--text-color);
+        }
+
+        .port-label > rect {
+            fill: var(--bg-color);
+        }
+        .port-label > foreignObject > div {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+        }
+        .port-label > foreignObject > div > div {
+            flex-basis: 100%;
+            text-align: center;
+        }
+
+        .graph-edge {
+            fill: none;
+            stroke: var(--text-color);
+            stroke-width: 1px;
+        }
+        .graph-edge.hi-in {
+            stroke: #ff0000;
+            stroke-width: 12px;
+        }
+        .graph-edge.hi-out {
+            stroke: var(--edge-hi-out);
+            stroke-width: 12px;
+        }
+
+        #arrowhead {
+            fill: var(--text-color);
+        }
+
+        .graph-node-text {
+            color: var(--text-color);
+            width: --var(node-width);
+            padding: 8px;
+            padding-right: 4px;
+        }
+
+        .graph-node-T-CueSequence .graph-node-text,
+        .graph-node-T-CueSequenceExit .graph-node-text,
+        .graph-node-T-AnswerList .graph-node-text {
+            text-align: center;
+            padding: 8px 8px 8px 8px;
+        }
+
+        .graph-ret-gp-icon {
+            filter: invert();
+        }
+
+        #dialog-container-root {
+            height: 100vh;
+            display: flex;
+        }
+
+        #controls {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            row-gap: 8px;
+            padding: 8px;
+            box-sizing: border-box;
+            box-shadow: var(--controls-border-shadow-color) 0px 0px 5px 8px;
+            z-index: 4;
+        }
+
+        .graph-root.animating {
+            transition: transform 0.2s ease-in-out;
+        }
+
+        #props {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            column-gap: 10px;
+            min-width: 520px;
+            max-width: 520px;
+            font-size: 1.35rem;
+        }
+
+        .prop-key {
+            text-align: right;
+        }
+        .prop-val a {
+            text-decoration: underline;
+            text-decoration-thickness: 3px;
+            text-decoration-color: rgba(200, 200, 255, 0.8);
+        }
+
+
+    </style>
+</head>
+<body>
+    <div id="dialog-container-root">
+        <div id="dialog-graph"></div>
+        <div id="controls">
+            <button class="btn" id="do-goto-selected">GoTo</button>
+            <button class="btn">Bob</button>
+            <div id="props">
+
+            </div>
+        </div>
+    </div>
+
+    <svg width="0" height="0" style="position: absolute;">
+        <defs>
+            <linearGradient id="cond-border">
+                <stop offset="0%" stop-color="red" />
+                <stop offset="100%" stop-color="blue" />
+            </linearGradient>
+
+            <marker id="arrowhead" markerUnits="userSpaceOnUse" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="18" markerHeight="18" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z"/>;
+            </marker>
+
+
+        </defs>
+    </svg>
+
+
+    <script type="module">
+        import { DialogPage } from "/js/app.js";
+        const page = new DialogPage()
+    </script>
+
+</body>
+</html>

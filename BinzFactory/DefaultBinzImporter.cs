@@ -168,7 +168,7 @@ public class RtGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, d
     }
 
 }
-public class WrathGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, ".dll", "Kingmaker.Blueprints.JsonSystem.TypeIdAttribute")
+public class WrathGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Assembly-CSharp.dll", "Kingmaker.Blueprints.JsonSystem.TypeIdAttribute")
 {
     protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(db).Guid;
 
@@ -298,10 +298,27 @@ public static class BinzImportExport
 
         if (game.HasTypeSupport)
         {
+            List<string> lines = [];
+            var simpleBlueprint = game.Types.FirstOrDefault(t => t.FullName == "Kingmaker.Blueprints.SimpleBlueprint") ?? throw new NotSupportedException();
             foreach (var type in game.Types)
             {
                 game.AddComponentType(type, db);
+
+                try
+                {
+                    if (type?.IsAssignableTo(simpleBlueprint) == true)
+                    {
+                        lines.Add($"{type.FullName} : {type.BaseType?.FullName ?? "<no-base-type>"}");
+                    }
+                }
+                catch (FileNotFoundException)
+                {
+
+                }
             }
+
+            File.WriteAllLines(@"C:\users\worce\source\types.txt", lines);
+
 
             db.TypeGuidsInOrder.Sort();
             db.FlatIndexToTypeName = new string[db.TypeGuidsInOrder.Count];
