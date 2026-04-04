@@ -41,8 +41,8 @@ public partial class BlueprintDB
 
     public IReadOnlyDictionary<string, List<int>> IndexByWord => _IndexByWord;
 
-    private static BlueprintDB _Instance;
-    public static BlueprintDB Instance => _Instance ??= new();
+    //private static BlueprintDB _Instance;
+    //public static BlueprintDB Instance => _Instance ??= new();
     public readonly Dictionary<string, string> Strings = new();
 
     public readonly Dictionary<string, string> GuidToFullTypeName = new();
@@ -363,12 +363,11 @@ public partial class BlueprintDB
         bp.TypeNameLower = bp.TypeName.ToLower();
         bp.NamespaceLower = bp.Namespace?.ToLower() ?? "";
         bp.Guid = guid;
+        bp.db = this;
         var end = bp.Type.LastIndexOf('.');
         types.Add(bp.Type.Substring(end + 1));
         cache.Add(bp);
         Blueprints[guid] = bp;
-        // preheat this
-        bp.PrimeMatches(2);
     }
 
     public class IndexSearchState
@@ -376,7 +375,7 @@ public partial class BlueprintDB
         public Dictionary<int, Dictionary<string, float>> results = new();
     };
 
-    public List<BlueprintHandle> SearchBlueprints(string searchText, MatchResultBuffer resultBuffer, CancellationToken cancellationToken)
+    public List<BlueprintHandle> SearchBlueprints(string searchText, ScoreBuffer scoreBuffer, CancellationToken cancellationToken)
     {
         if (searchText?.Length == 0)
             return cache;
@@ -543,15 +542,22 @@ public partial class BlueprintDB
 
         searchText = string.Join(" ", passThrough.Where(c => c.Length > 0)).ToLower();
 
+        scoreBuffer.Clear();
         MatchQuery query = new(searchText, BlueprintHandle.MatchProvider);
+        MatchResult[] matches = [.. BlueprintHandle.MatchKeys.Select(key => new MatchResult(key))];
+
         foreach (var handle in toSearch)
         {
-            query.Evaluate(handle, resultBuffer);
-            if (handle.HasMatches(resultBuffer))
+            matches.Clear();
+            query.Evaluate(handle, matches);
+            if (matches.HasAny())
+            {
+                scoreBuffer.Add(handle.Guid, matches);
                 results.Add(handle);
+            }
             cancellationToken.ThrowIfCancellationRequested();
         }
-        results.Sort((x, y) => resultBuffer.Score(y).CompareTo(resultBuffer.Score(x)));
+        results.Sort((x, y) => scoreBuffer.Score(y.Guid).CompareTo(scoreBuffer.Score(x.Guid)));
         return results;
     }
 
@@ -622,7 +628,7 @@ public partial class BlueprintDB
 #endif
     }
 
-    public Task<List<BlueprintHandle>> SearchBlueprintsAsync(string searchText, CancellationToken cancellationToken, MatchResultBuffer resultBuffer)
+    public Task<List<BlueprintHandle>> SearchBlueprintsAsync(string searchText, CancellationToken cancellationToken, ScoreBuffer resultBuffer)
     {
         //Console.WriteLine($"Locking: {matchBuffer}");
         return Task.Run(() =>
@@ -657,10 +663,10 @@ public partial class BlueprintDB
             _IndexByWord[keyWord] = [handleIndex];
     }
 
-    public static void SetInstance(BlueprintDB db)
-    {
-        _Instance = db;
-    }
+    //public static void SetInstance(BlueprintDB db)
+    //{
+    //    _Instance = db;
+    //}
 }
 
 internal struct NameGuid

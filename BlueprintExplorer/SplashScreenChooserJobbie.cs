@@ -125,7 +125,7 @@ public partial class SplashScreenChooserJobbie : Form
         loadAnim.Caption = "Loading";
 
         var loadProgress = new ConnectionProgress();
-        var initialize = Task.Run(() => BlueprintDB.Instance.TryConnect(loadProgress, toLoad.Path));
+        var initialize = Task.Run(() => Form1.DB.TryConnect(loadProgress, toLoad.Path));
         var idle = Task.Run(() =>
         {
             while (!initialize.IsCompleted)
@@ -206,7 +206,9 @@ public partial class SplashScreenChooserJobbie : Form
                     }
                 }
             });
-            BlueprintDB.SetInstance(await extract);
+
+            Form1.DB = await extract;
+
             await idle;
             Binz binz = new()
             {

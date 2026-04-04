@@ -1,14 +1,35 @@
 
 using BlueprintExplorer;
 using bprintweb.Controllers;
+using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.ObjectPool;
+using System.Data.Common;
+using System.Diagnostics;
+using System.IO.MemoryMappedFiles;
+using System.Net.Mime;
+using System.Text;
+using System.Text.Json;
 
 namespace bprintweb;
 
+public record class GameData(BlueprintDB DB)
+{
+    public MemoryMappedViewAccessor Data { get; set; } = null!;
+}
+
 public static class Program
 {
-    public static BlueprintDB DbRt { get; private set; } = null!;
+    public static readonly Dictionary<string, GameData> games = new()
+    {
+        ["rt"] = new(new()),
+#if !DEBUG
+        ["wrath"] = new(new()),
+        ["km"] = new(new()),
+#endif
+    };
 
     public async static Task Main(string[] args)
     {
@@ -16,53 +37,67 @@ public static class Program
 
         var bins = new BinzManager();
 
-        var binz = bins.Available.First(b => b.Local && b.Version.Game == "RT") ?? throw new Exception("no rt binz available");
-
-        var loadProgress = new ConnectionProgress();
-        var initialize = Task.Run(() => BlueprintDB.Instance.TryConnect(loadProgress, binz.Path));
-        var idle = Task.Run(() =>
+        foreach (var (gameName, gameData) in games)
         {
-            while (!initialize.IsCompleted)
+            Console.WriteLine($"Loading DB: ${gameName}");
+            var binz = bins.Local.First(b => b.Version.Game.Equals(gameName, StringComparison.InvariantCultureIgnoreCase)) ?? throw new Exception("no rt binz available");
+
+            var loadProgress = new ConnectionProgress();
+
+            var initialize = Task.Run(() => gameData.DB.TryConnect(loadProgress, binz.Path));
+            var idle = Task.Run(() =>
             {
-                Thread.Sleep(200);
-                Console.Write(".");
-            }
-        });
-        await initialize;
-        await idle;
-        Console.WriteLine();
+                while (!initialize.IsCompleted)
+                {
+                    Thread.Sleep(200);
+                    Console.Write(".");
+                }
+            });
+            await initialize;
+            await idle;
+            Console.WriteLine();
 
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, true, true);
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, true, true);
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, true, true);
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, true, true);
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, true, true);
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, true, true);
 
-        DbRt = BlueprintDB.Instance;
+            Console.WriteLine("Caching raw json to disk");
+            var tmr = Stopwatch.StartNew();
+            var handle = await FlushAllRaw(gameData.DB);
 
-        MatchResultsPool.Init();
+            Console.WriteLine($"Caching complete (in {tmr.Elapsed.TotalSeconds:F1}s)");
+            gameData.Data = handle.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
 
-        //Console.WriteLine($"searching for {args[0]}");
-        //var matches = db.SearchBlueprints(args[0], 0, CancellationToken.None);
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, true, true);
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, true, true);
+        }
 
-        //Console.WriteLine("Showing top 10 (max) results");
-        //foreach (var match in matches.Take(10))
-        //{
-        //    Console.WriteLine(match.Name);
-        //}
-
+        Console.WriteLine("About to launch");
 
         var builder = WebApplication.CreateBuilder(args);
 
-        // Add services to the container.
+        builder.Services.AddControllers();
 
-        builder.Services.AddControllers(options =>
-        {
-            options.ModelBinderProviders.Insert(0, new GameDbProvider());
-        });
 
-        // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
+
+        builder.Services.AddLogging(options =>
+        {
+            options.AddSimpleConsole(c =>
+            {
+                c.TimestampFormat = "[yyyy-MM-ddTHH:mm:ss] ";
+                c.UseUtcTimestamp = true;
+                c.SingleLine = true;
+            });
+        });
+
+
+        builder.Services.AddHttpLogging(logging =>
+        {
+            logging.LoggingFields = HttpLoggingFields.RequestProperties | HttpLoggingFields.ResponseStatusCode;
+            logging.RequestHeaders.Add("User-Agent");
+            logging.CombineLogs = true;
+        });
 
         var app = builder.Build();
 
@@ -75,42 +110,196 @@ public static class Program
 
         app.UseHttpsRedirection();
 
+        HashSet<string> Passthru = [
+            "/",
+            "/favicon.ico",
+        ];
+        List<string> PassthruExtensions = [
+            ".webp",
+            ".css",
+            ".js",
+            ".html",
+        ];
+
+        app.UseHttpLogging();
+
+        // Extract the desired game from the path OR subdomain.
+        app.Use(async (context, next) =>
+        {
+
+            // Don't both if the path is a static asset
+            if (Passthru.Contains(context.Request.Path.Value!) || PassthruExtensions.Any(ext => context.Request.Path.Value?.EndsWith(ext) == true))
+            {
+                await next(context);
+                return;
+            }
+
+            string? game = null;
+            const string baseDomain = "bubbleprints.dev";
+            var request = context.Request;
+
+            var host = request.Host.Host;
+
+            // Check for subdomain
+            if (host.Length > baseDomain.Length + 1 &&
+                host[host.Length - baseDomain.Length - 1] == '.' &&
+                host.EndsWith(baseDomain, StringComparison.OrdinalIgnoreCase))
+            {
+                var gamePart = host.AsSpan(0, host.Length - (baseDomain.Length + 1));
+                if (!gamePart.IsEmpty && gamePart.IndexOf('.') == -1)
+                {
+                    game = gamePart.ToString();
+                }
+            }
+
+            // If not found, check path
+            if (game == null && request.Path.HasValue && request.Path.Value.Length > 1)
+            {
+                var pathSpan = request.Path.Value.AsSpan(1); // Skip leading '/'
+                var slashIndex = pathSpan.IndexOf('/');
+
+                var gamePart = slashIndex == -1 ? pathSpan : pathSpan[..slashIndex];
+                context.Request.PathBase = new($"/{gamePart}");
+
+                if (!gamePart.IsEmpty)
+                {
+                    game = gamePart.ToString();
+                }
+
+                if (slashIndex == -1)
+                {
+                    context.Request.Path = new("/");
+                }
+                else
+                {
+                    context.Request.Path = new($"{pathSpan[slashIndex..]}");
+                }
+            }
+
+            if (game == null || !games.TryGetValue(game, out var gameData))
+            {
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+                return;
+            }
+
+            // Stash the gamedata in the context so subsequent handlers can access it
+            context.Items["game"] = gameData;
+
+            await next(context);
+        });
+
+        // Handle discordbot early to return the og tags and no page content
+        app.Use(async (context, next) =>
+        {
+            if (context.Request.Headers.UserAgent.Any(x => x?.Contains("Discordbot/2.0") == true))
+            {
+                var ok = await BlueprintDbController.SendEmbedTags(context);
+                if (!ok)
+                {
+                    context.Response.StatusCode = StatusCodes.Status404NotFound;
+                }
+                return;
+            }
+
+            await next(context);
+        });
+
+        // Rewrite anything targetting the base domain with no path to the
+        // landing page
+        app.Use((ctx, next) =>
+        {
+            if (IsBaseDomain(ctx.Request.Host.Value) && IsRootPath(ctx.Request.Path.Value))
+            {
+                ctx.Request.Path = "/landing.html";
+                return next();
+            }
+
+            return next();
+        });
+
         app.UseStaticFiles();
+
+        app.UseRouting();
 
         app.UseAuthorization();
 
-
         app.MapControllers();
+
         app.MapFallbackToFile("index.html");
 
         app.Run();
     }
-}
 
-public class GameDbBinder : IModelBinder
-{
-    public Task BindModelAsync(ModelBindingContext context)
+    private static bool IsRootPath(string? path) => path == null || path.Length == 0 || (path.Length == 1 && path[0] == '/');
+    private static bool IsBaseDomain(string? domain) => domain == "bubbleprints.dev" || domain == "www.bubbleprints.dev" || domain == "localhost:7003";
+
+    private static async Task<MemoryMappedFile> FlushAllRaw(BlueprintDB db)
     {
-        var game = context.ActionContext.RouteData.Values["game"]?.ToString();
-
-        // Your existing switch logic
-        var db = game switch
+        string tempFilePath = Path.GetTempFileName();
+        await using (FileStream fs = new(tempFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
         {
-            "rt" => Program.DbRt,
-            _ => null
-        };
+            foreach (var bp in db.BlueprintsInOrder)
+            {
+                if (bp.Raw == null) continue;
 
-        context.Result = ModelBindingResult.Success(db);
-        return Task.CompletedTask;
+                byte[] encoded = Encoding.UTF8.GetBytes(bp.Raw);
+                long offset = fs.Position;
+                await fs.WriteAsync(encoded);
+
+                bp.Type = TryIntern(bp.Type);
+                bp.TypeName = TryIntern(bp.TypeName);
+                bp.TypeNameLower = TryIntern(bp.TypeNameLower);
+                bp.Namespace = TryIntern(bp.Namespace);
+                bp.NamespaceLower = TryIntern(bp.NamespaceLower);
+
+                bp.UserData = new StringMetadata(offset, encoded.Length);
+                bp.Raw = null;
+                bp.obj = default;
+                bp.Parsed = false;
+            }
+
+            Console.WriteLine($"raw cache size: {fs.Position}");
+        }
+
+        FileStream closer = new(tempFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
+        closeOnDelete.Add(closer);
+        return MemoryMappedFile.CreateFromFile(closer, null, 0, MemoryMappedFileAccess.Read, HandleInheritability.None, false);
     }
-}
 
-public class GameDbProvider : IModelBinderProvider
-{
-    public IModelBinder? GetBinder(ModelBinderProviderContext context)
+    private static string? TryIntern(string? str)
     {
-        return context.Metadata.ModelType == typeof(BlueprintDB)
-            ? new GameDbBinder()
-            : null;
+        return str == null ? null : string.Intern(str);
     }
+
+    private static readonly List<FileStream> closeOnDelete = [];
 }
+
+//public class GameDbBinder : IModelBinder
+//{
+//    public Task BindModelAsync(ModelBindingContext context)
+//    {
+//        var game = context.ActionContext.RouteData.Values["game"]?.ToString();
+
+//        // Your existing switch logic
+//        var db = game switch
+//        {
+//            "rt" => Program.DbRt,
+//            _ => null
+//        };
+
+//        context.Result = ModelBindingResult.Success(db);
+//        return Task.CompletedTask;
+//    }
+//}
+
+//public class GameDbProvider : IModelBinderProvider
+//{
+//    public IModelBinder? GetBinder(ModelBinderProviderContext context)
+//    {
+//        return context.Metadata.ModelType == typeof(BlueprintDB)
+//            ? new GameDbBinder()
+//            : null;
+//    }
+//}
+public record class StringMetadata(long Offset, int Length);
+

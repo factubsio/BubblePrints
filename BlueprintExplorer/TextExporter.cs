@@ -88,7 +88,7 @@ namespace BlueprintExplorer
 
                 if (link != null)
                 {
-                    if (BlueprintDB.Instance.Blueprints.TryGetValue(Guid.Parse(link), out var target))
+                    if (Form1.DB.Blueprints.TryGetValue(Guid.Parse(link), out var target))
                         value = "link: " + link + " (" + target.Name + " :" + target.TypeName + ")";
                     else
                         value = "link: " + link + " (dead)";
@@ -166,7 +166,7 @@ namespace BlueprintExplorer
                     stack.Push(new() { IsObj = elem.isObj });
                     level++;
 
-                    var renderedString = JsonExtensions.ParseAsString(elem.Node);
+                    var renderedString = elem.Node.ParseAsString(Form1.DB);
                     if (renderedString != null)
                     {
                         stack.Peek().Children++;

@@ -121,7 +121,7 @@ namespace BlueprintExplorer
             Form1.InstallReadline(filter);
             view.OnLinkClicked += (link, newTab) =>
             {
-                if (BlueprintDB.Instance.Blueprints.TryGetValue(Guid.Parse(link), out var bp))
+                if (Form1.DB.Blueprints.TryGetValue(Guid.Parse(link), out var bp))
                 {
                     if (newTab)
                         OnLinkOpenNewTab?.Invoke(bp);
@@ -227,7 +227,7 @@ namespace BlueprintExplorer
             var me = Guid.Parse(handle.GuidText);
             foreach (var reference in handle.BackReferences)
             {
-                var bp = BlueprintDB.Instance.Blueprints[reference];
+                var bp = Form1.DB.Blueprints[reference];
                 references.Rows.Add(bp.Name, bp.TypeName, bp.GuidText);
             }
             if (references.SortedColumn is not null) {
@@ -308,7 +308,7 @@ namespace BlueprintExplorer
                 bool tabbed = ModifierKeys.HasFlag(Keys.Control) || button == MouseButtons.Middle;
                 if (guid != handle.GuidText)
                 {
-                    BlueprintHandle bp = BlueprintDB.Instance.Blueprints[Guid.Parse(guid)];
+                    BlueprintHandle bp = Form1.DB.Blueprints[Guid.Parse(guid)];
                     if (tabbed)
                     {
                         OnLinkOpenNewTab?.Invoke(bp);

@@ -7,42 +7,35 @@ namespace BlueprintExplorer
         public Guid Guid { get; }
     }
 
-    public class MatchResultBuffer()
+    public class ScoreBuffer()
     {
-        public readonly Dictionary<Guid, MatchResult[]> Results = [];
+        public readonly Dictionary<Guid, float> Results = [];
 
-        public void Init(IEnumerable<ISearchable> items, string[] keys)
+        //public void Init(IEnumerable<ISearchable> items, string[] keys)
+        //{
+        //    foreach (var item in items)
+        //    {
+        //        Results[item.Guid] = [.. keys.Select(key => new MatchResult(key, item))];
+        //    }
+        //}
+
+        //internal MatchResult[] Create(ISearchable item)
+        //{
+        //    var resultsForSearchable = Results[item.Guid];
+        //    foreach (var r in resultsForSearchable)
+        //        r.Clean();
+        //    return resultsForSearchable;
+        //}
+
+        //internal MatchResult[] Query(ISearchable item) => Results[item.Guid];
+
+        public void Add(Guid key, MatchResult[] matches)
         {
-            foreach (var item in items)
-            {
-                Results[item.Guid] = [.. keys.Select(key => new MatchResult(key, item))];
-            }
+            Results[key] = matches.Sum(x => x.Score);
         }
 
-        internal MatchResult[] Create(ISearchable item)
-        {
-            var resultsForSearchable = Results[item.Guid];
-            foreach (var r in resultsForSearchable)
-                r.Clean();
-            return resultsForSearchable;
-        }
-
-        internal MatchResult[] Query(ISearchable item) => Results[item.Guid];
-
-        public float Score(ISearchable item)
-        {
-            var matches = Query(item);
-            if (matches == null)
-                return float.PositiveInfinity;
-            var score = 0f;
-            foreach (var match in matches) {
-                score += match.Score;
-            //    if (match.Score > 50) {
-            //        System.Console.WriteLine($"{match}");
-            //    }
-            }
-            return score;
-        }
+        public float Score(Guid guid) => Results.GetValueOrDefault(guid, float.PositiveInfinity);
+        internal void Clear() => Results.Clear();
     }
 
     public class MatchResult {
@@ -59,7 +52,6 @@ namespace BlueprintExplorer
         }
 
         public string Key;
-        public ISearchable Target;
         public string Text;
         public MatchQuery Context;
         public bool IsFuzzy;
@@ -88,9 +80,8 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
             return result;
         }
 
-        public MatchResult(string key, ISearchable target) {
+        public MatchResult(string key) {
             Key = key;
-            Target = target;
             Clean();
         }
         public void Clean() {
@@ -224,13 +215,16 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
             }
         }
 
-        public MatchQuery(string queryText, MatchProvider provider) {
+        public MatchQuery(string queryText, MatchProvider provider)
+        {
             this.Provider = provider;
             var unrestricted = new List<string>();
             StrictSearchTexts = new();
             var terms = queryText.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            foreach (var term in terms) {
-                if (term.Contains(':')) {
+            foreach (var term in terms)
+            {
+                if (term.Contains(':'))
+                {
                     var pair = term.Split(':');
                     if (pair[1].Length == 0) continue;
                     if (pair[1][0] == '!')
@@ -244,49 +238,59 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
                     StrictSearchTexts[pair[0]] = pair[1];
                 }
                 else
+                {
                     unrestricted.Add(term);
+                }
             }
             SearchText = string.Join(' ', unrestricted);
         }
 
         private MatchProvider Provider;
 
-        public void Evaluate(ISearchable searchable, MatchResultBuffer resultsBuffer) {
-            var matches = resultsBuffer.Create(searchable);
-            if (SearchText?.Length > 0 || StrictSearchTexts.Count > 0) {
+        public void Evaluate(ISearchable searchable, MatchResult[] matches)
+        {
+            if (SearchText?.Length > 0 || StrictSearchTexts.Count > 0)
+            {
                 bool foundRestricted = false;
-                for (int i = 0; i < matches.Length; i++) {
+                for (int i = 0; i < matches.Length; i++)
+                {
                     MatchResult match = matches[i];
                     var key = match.Key;
                     var text = Provider.Terms[i](searchable);
-                    foreach (var entry in StrictSearchTexts) {
-                        if (key.StartsWith(entry.Key)) {
+                    foreach (var entry in StrictSearchTexts)
+                    {
+                        if (key.StartsWith(entry.Key))
+                        {
                             Match(entry.Value, text, match);
                             foundRestricted = key == "name";
                             break;
                         }
                     }
                 }
-                if (!foundRestricted && SearchText?.Length > 0) {
+                if (!foundRestricted && SearchText?.Length > 0)
+                {
                     FuzzyMatch(Provider.Terms[0](searchable), matches[0]);
                 }
             }
         }
     }
     public static class MatchHelpers {
-        public static bool HasMatches(this ISearchable searchable, MatchResultBuffer resultsBuffer) {
-            var matches = resultsBuffer.Query(searchable);
+        public static bool HasAny(this MatchResult[] matches)
+        {
             if (matches == null)
                 return true;
             var fuzzyCount = 0;
             var strictFailures = 0;
             var strictMatches = 0;
-            foreach (var match in matches) {
-                if (match.IsFuzzy) {
+            foreach (var match in matches)
+            {
+                if (match.IsFuzzy)
+                {
                     if (match.Score >= 10)
                         fuzzyCount++;
                 }
-                else {
+                else
+                {
                     if (match.TotalMatched > 0)
                         strictMatches++;
                     else if (!match.IsClean)
@@ -294,6 +298,14 @@ var result = base.GetType().Name + $" - {Context.SearchText} vs {Text} --> {scor
                 }
             }
             return (fuzzyCount >= 1 || strictMatches > 0) && strictFailures == 0;
+        }
+
+        public static void Clear(this MatchResult[] matches)
+        {
+            foreach (var m in matches)
+            {
+                m.Clean();
+            }
         }
     }
 }

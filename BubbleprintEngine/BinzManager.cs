@@ -230,6 +230,7 @@ public class BinzManager
     private static readonly Regex extractVersionRT = new(@"blueprints_raw_RT_(\d+).(\d+)\.(\d+)(\.\d+|.*)_(\d).binz");
     private static readonly Regex extractVersionDH = new(@"blueprints_raw_DH_(\d+).(\d+)\.(\d+)(\.\d+|.*)_(\d).binz");
 
+    public IEnumerable<Binz> Local => Available.Where(x => x.Local);
 }
 public class BinzVersion : IEquatable<BinzVersion>
 {

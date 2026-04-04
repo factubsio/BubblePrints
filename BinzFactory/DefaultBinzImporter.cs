@@ -192,7 +192,7 @@ public static class BinzImportExport
         var reader = new StreamReader(stream);
         var contents = reader.ReadToEnd();
         var json = JsonSerializer.Deserialize<JsonElement>(contents);
-        var type = json.GetProperty("Data").NewTypeStr(false, db);
+        var type = json.GetProperty("Data").NewTypeStr(db);
 
         var handle = new BlueprintHandle
         {
@@ -201,6 +201,12 @@ public static class BinzImportExport
             Type = type.FullName ?? type.Name,
             Raw = JsonSerializer.Serialize(json.GetProperty("Data"), writeOptions),
         };
+
+        if (json.TryGetProperty("Meta", out var meta) && meta.TryGetProperty("ShadowDeleted", out var isDeleted) && isDeleted.GetBoolean())
+        {
+            handle.Name += " (deleted)";
+        }
+
         var components = handle.Type.Split('.');
         if (components.Length <= 1)
         {
@@ -212,6 +218,7 @@ public static class BinzImportExport
             handle.Namespace = string.Join('.', components.Take(components.Length - 1));
         }
 
+        handle.db = db;
         handle.EnsureParsed();
         foreach (var _ in handle.GetDirectReferences()) { }
 
@@ -278,6 +285,7 @@ public static class BinzImportExport
                     handle.Namespace = string.Join('.', components.Take(components.Length - 1));
                 }
 
+                handle.db = db;
                 handle.EnsureParsed();
                 foreach (var _ in handle.GetDirectReferences()) { }
 
@@ -422,7 +430,7 @@ public static class BinzImportExport
 
                     BlueprintDB.ExtractKeyWords(keyWords, word, element.key);
 
-                    string localisedStr = element.Node.ParseAsString(element.key, db);
+                    string localisedStr = element.Node.ParseAsString(db, element.key);
                     if (localisedStr is not null)
                     {
                         if (localisedStr is not "<string-not-present>" and not "<null-string>")

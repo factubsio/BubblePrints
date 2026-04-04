@@ -1,7 +1,6 @@
-﻿import { getBlueprint } from './app'
-export class DialogPage {
-    game = 'rt';
+﻿import { getBlueprint, game } from './app'
 
+export class DialogPage {
     speakerEl = document.getElementById('cue-speaker-name')!;
     textEl = document.getElementById('cue-text')!;
     proceedTitleEl = document.getElementById('answers-title')!;
@@ -19,7 +18,7 @@ export class DialogPage {
     async getCue(id: string) {
         let cue = this.cueCache.get(id);
         if (!cue) {
-            const raw = await getBlueprint(this.game, id, true) as BlueprintWithStrings;
+            const raw = await getBlueprint(id, true) as BlueprintWithStrings;
             const { root, strs } = raw;
 
             const text = getText(root.Text, strs) ?? "<unknown>";
@@ -130,7 +129,7 @@ export class DialogPage {
             return;
         }
 
-        const raw = await getBlueprint(this.game, guid, true);
+        const raw = await getBlueprint(guid, true);
         const { root, strs } = raw;
 
         if (root.$type.endsWith('BlueprintAnswersList')) {
