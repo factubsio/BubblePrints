@@ -168,7 +168,7 @@ public class RtGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, d
     }
 
 }
-public class WrathGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, ".dll", "Kingmaker.Blueprints.JsonSystem.TypeIdAttribute")
+public class WrathGame(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Assembly-CSharp.dll", "Kingmaker.Blueprints.JsonSystem.TypeIdAttribute")
 {
     protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(false, db).Guid;
 
