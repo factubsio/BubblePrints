@@ -11,7 +11,7 @@ namespace BinzFactory.Importer;
 
 public class KmImporter(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Assembly-CSharp.dll", "Kingmaker.Blueprints.DirectSerialization.TypeIdAttribute")
 {
-    protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(false, db).FullName;
+    protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(db).FullName;
 
     public override void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress)
     {
@@ -27,7 +27,7 @@ public class KmImporter(string gamePath, string dataFolder) : OwlcatGame(gamePat
         if (!m_InheritsCache.ContainsKey(type.FullName))
         {
             var baseType = type;
-            while (baseType != null) 
+            while (baseType != null)
             {
                 if (baseType.FullName is "Kingmaker.Blueprints.BlueprintComponent" or "Kingmaker.Blueprints.BlueprintScriptableObject")
                 {
@@ -38,8 +38,8 @@ public class KmImporter(string gamePath, string dataFolder) : OwlcatGame(gamePat
                 try
                 {
                     baseType = baseType.BaseType;
-                } 
-                catch 
+                }
+                catch
                 {
                     // This is one of those i18n types
                     break;
