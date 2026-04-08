@@ -1,4 +1,5 @@
-﻿using BlueprintExplorer;
+﻿using BinzFactory.Importer;
+using BlueprintExplorer;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -9,10 +10,10 @@ public static partial class BinzImporter
 {
     private static readonly List<GameIdentification> KnownGames =
     [
-        new("WH40KRT_Data", "RT", typeof(RtGame)),
-        new("WH40KDH_Data", "DH", typeof(DhGame)),
-        new("Wrath_Data", "Wrath", typeof(WrathGame)),
-        new("Kingmaker_Data", "KM", typeof(KmGame)),
+        new("WH40KRT_Data", "RT", typeof(RtImporter)),
+        new("WH40KDH_Data", "DH", typeof(DhImporter)),
+        new("Wrath_Data", "Wrath", typeof(WrathImporter)),
+        new("Kingmaker_Data", "KM", typeof(KmImporter)),
     ];
 
     private static GameIdentification? GameForPath(string gamePath) => KnownGames.FirstOrDefault(x => x.Matches(gamePath));
