@@ -16,7 +16,10 @@ public class DhImporter(string gamePath, string dataFolder) : OwlcatGame(gamePat
 
     public override void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress)
     {
-        using var bpDump = ZipFile.OpenRead(GetGamePath("blueprints.zip"));
+        var zipPath = GetGamePath("blueprints.zip");
+        if (!File.Exists(zipPath))
+            throw new NotSupportedException($"Dark Heresy does not currently support automatic import without manually creating a blueprint dump and placing it at: {zipPath}");
+        using var bpDump = ZipFile.OpenRead(zipPath);
 
         progress.EstimatedTotal = bpDump.Entries.Count(e => e.Name.EndsWith(".jbp"));
         foreach (var entry in bpDump.Entries)
