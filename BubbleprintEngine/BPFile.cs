@@ -56,7 +56,7 @@ namespace BlueprintExplorer
     {
         private readonly Dictionary<UInt16, List<CompositeChunk>> Contents = new();
 
-        public const int BUFFER_SIZE = 128_000_000;
+        public const int BUFFER_SIZE = 256_000_000;
 
         private void Add(Chunk chunk)
         {
