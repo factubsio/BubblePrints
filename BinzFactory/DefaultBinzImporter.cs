@@ -192,12 +192,18 @@ public static class BinzImportExport
         var reader = new StreamReader(stream);
         var contents = reader.ReadToEnd();
         var json = JsonSerializer.Deserialize<JsonElement>(contents);
+        ReadDumpFromJson(db, json, writeOptions, name, referencedTypes, progress, game, finalizeImport);
+    }
+
+    internal static void ReadDumpFromJson(BlueprintDB db, JsonElement json, JsonSerializerOptions writeOptions, string name, HashSet<string> referencedTypes, ConnectionProgress progress, IGameDefinitions game, Action<BlueprintHandle>? finalizeImport = null)
+    {
         var type = json.GetProperty("Data").NewTypeStr(db);
+        var handleName = name.EndsWith(".jbp", StringComparison.OrdinalIgnoreCase) ? name[0..^4] : name;
 
         var handle = new BlueprintHandle
         {
             GuidText = json.Str("AssetId"),
-            Name = name[0..^4],
+            Name = handleName,
             Type = type.FullName ?? type.Name,
             Raw = JsonSerializer.Serialize(json.GetProperty("Data"), writeOptions),
         };
