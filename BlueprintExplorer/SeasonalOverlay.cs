@@ -75,10 +75,10 @@ public static class SeasonalOverlay
             target.Move += (_, _) => overlay.UpdatePosAndSize();
 
             overlay.ShowNoActivate();
-        }
 
-        // I hate every fibre of my being
-        System.Threading.Tasks.Task.Delay(20).ContinueWith(_ => activeOverlay.BeginInvoke(() => target.Activate()));
+            // I hate every fibre of my being
+            System.Threading.Tasks.Task.Delay(20).ContinueWith(_ => activeOverlay.BeginInvoke(() => target.Activate()));
+        }
     }
 
     internal static void Disable() => activeOverlay?.Close();
