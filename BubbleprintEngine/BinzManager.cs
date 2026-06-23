@@ -29,6 +29,7 @@ public class BinzManager
             ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions.json", "Wrath");
             ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions_RT.json", "RT");
             ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions_KM.json", "KM");
+            ParseWebJson(web, "https://raw.githubusercontent.com/factubsio/BubblePrintsData/main/versions_DH.json", "DH");
         }
         catch (Exception ex)
         {

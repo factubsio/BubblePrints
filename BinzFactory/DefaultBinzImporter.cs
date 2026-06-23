@@ -3,7 +3,6 @@ using System.ComponentModel;
 using System.Formats.Tar;
 using System.IO.Compression;
 using System.Reflection;
-using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Text.Json;
 
@@ -13,6 +12,7 @@ public interface IGameDefinitions
 {
     public string Name { get; }
     public Assembly Wrath { get; }
+    public Assembly MainAssembly { get; }
     public IEnumerable<Assembly> Assemblies { get; }
     public IEnumerable<Type?> Types { get; }
     bool HasTypeSupport { get; }
@@ -39,10 +39,10 @@ public abstract class OwlcatGame : IGameDefinitions
         var resolver = new PathAssemblyResolver(Directory.EnumerateFiles(managedPath, "*.dll"));
         _mlc = new MetadataLoadContext(resolver);
 
-        Wrath = _mlc.LoadFromAssemblyPath(Path.Combine(managedPath, assemblyName));
+        MainAssembly = _mlc.LoadFromAssemblyPath(Path.Combine(managedPath, assemblyName));
 
         Assemblies = Directory
-            .EnumerateFiles(Path.GetDirectoryName(Wrath.Location) ?? throw new NotSupportedException(), "*.dll")
+            .EnumerateFiles(Path.GetDirectoryName(MainAssembly.Location) ?? throw new NotSupportedException(), "*.dll")
             .SelectMany(assFile =>
             {
                 try
@@ -87,7 +87,7 @@ public abstract class OwlcatGame : IGameDefinitions
 
     private readonly MetadataLoadContext _mlc;
 
-    public Assembly Wrath { get; }
+    public Assembly MainAssembly { get; }
 
     protected string GetGamePath(params string[] path)
     {
