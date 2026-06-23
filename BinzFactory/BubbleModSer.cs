@@ -6,6 +6,8 @@ using System.Text.Json.Serialization;
 
 namespace BinzFactory;
 
+
+#if false
 internal static class BubbleModSer
 {
     private static readonly HashSet<Type> objTypes = [];
@@ -559,3 +561,4 @@ public static class Bob
 {
 
 }
+#endif

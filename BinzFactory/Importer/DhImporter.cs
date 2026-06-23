@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace BinzFactory.Importer;
 
-public class DhImporter(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Code.dll", "Owlcat.Runtime.Core.Utility.TypeIdAttribute") 
+public class DhImporter(string gamePath, string dataFolder) : OwlcatGame("DH", gamePath, dataFolder, "Code.dll", "Owlcat.Runtime.Core.Utility.TypeIdAttribute") 
 {
     protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(db).Guid;
 

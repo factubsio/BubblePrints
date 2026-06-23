@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace BinzFactory.Importer;
 
-public class KmImporter(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Assembly-CSharp.dll", "Kingmaker.Blueprints.DirectSerialization.TypeIdAttribute")
+public class KmImporter(string gamePath, string dataFolder) : OwlcatGame("KM", gamePath, dataFolder, "Assembly-CSharp.dll", "Kingmaker.Blueprints.DirectSerialization.TypeIdAttribute")
 {
     protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(db).FullName;
 

@@ -11,7 +11,6 @@ namespace BinzFactory;
 public interface IGameDefinitions
 {
     public string Name { get; }
-    public Assembly Wrath { get; }
     public Assembly MainAssembly { get; }
     public IEnumerable<Assembly> Assemblies { get; }
     public IEnumerable<Type?> Types { get; }
@@ -316,7 +315,7 @@ public static class BinzImportExport
         if (game.HasTypeSupport)
         {
             List<string> lines = [];
-            BubbleModSer.Bubbble(game, [.. game.Types]);
+            //BubbleModSer.Bubbble(game, [.. game.Types]);
             foreach (var type in game.Types)
             {
                 game.AddComponentType(type, db);

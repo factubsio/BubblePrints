@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace BinzFactory.Importer;
 
-public class RtImporter(string gamePath, string dataFolder) : OwlcatGame(gamePath, dataFolder, "Code.dll", "Kingmaker.Blueprints.JsonSystem.Helpers.TypeIdAttribute")
+public class RtImporter(string gamePath, string dataFolder) : OwlcatGame("RT", gamePath, dataFolder, "Code.dll", "Kingmaker.Blueprints.JsonSystem.Helpers.TypeIdAttribute")
 {
     protected override string ParseJsonType(BlueprintDB db, JsonElement raw) => raw.NewTypeStr(db).Guid;
 
