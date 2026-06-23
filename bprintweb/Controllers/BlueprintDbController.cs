@@ -65,88 +65,6 @@ public class BlueprintDbController : ControllerBase
         }
     }
 
-    private static readonly ConcurrentQueue<BlueprintHandle> _lruQueue = new();
-    private const int MaxResidentBlueprints = 1000;
-    private const int MaxEvictionAttempts = 10;
-    private static int _residentCount = 0;
-
-    /// <summary>
-    /// Atomically makes a blueprint resident, returning the raw json value and
-    /// the root of the parsed tree
-    /// </summary>
-    /// <param name="bp"></param>
-    /// <returns></returns>
-    private static (string Raw, JsonElement root) MakeBlueprintResident(GameData gameData, BlueprintHandle bp)
-    {
-        string raw;
-        JsonElement root;
-
-        lock (bp.UserData)
-        {
-            if (bp.Raw == null)
-            {
-                var meta = (bp.UserData as StringMetadata)!;
-                byte[] tmp = ArrayPool<byte>.Shared.Rent(meta.Length);
-                try
-                {
-                    gameData.Data.ReadArray<byte>(meta.Offset, tmp, 0, meta.Length);
-                    bp.Raw = Encoding.UTF8.GetString(tmp, 0, meta.Length);
-                    bp.EnsureParsed();
-
-                    _lruQueue.Enqueue(bp);
-                    Interlocked.Increment(ref _residentCount);
-                }
-                finally
-                {
-                    ArrayPool<byte>.Shared.Return(tmp);
-                }
-            }
-            raw = bp.Raw;
-            root = bp.obj;
-        }
-
-        int evictionAttempt = 0;
-
-        // Eviction logic
-        while (_residentCount > MaxResidentBlueprints && evictionAttempt++ < MaxEvictionAttempts)
-        {
-            if (_lruQueue.TryDequeue(out var toEvict))
-            {
-                // Use TryEnter to avoid deadlock if another thread is currently making this specific BP resident
-                if (Monitor.TryEnter(toEvict.UserData))
-                {
-                    try
-                    {
-                        if (toEvict.Raw != null)
-                        {
-                            toEvict.Raw = null;
-                            toEvict.obj = default;
-                            toEvict.Parsed = false;
-                            Interlocked.Decrement(ref _residentCount);
-                        }
-                    }
-                    finally
-                    {
-                        Monitor.Exit(toEvict.UserData);
-                    }
-                }
-                else
-                {
-                    // If we couldn't get the lock, put it back to try later or let another call handle it
-                    _lruQueue.Enqueue(toEvict);
-                    break;
-                }
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        return (raw, root);
-
-    }
-
     [HttpGet("view/{guid}", Name = "ViewBlueprint")]
     [ResponseCache(Duration = 86400, Location = ResponseCacheLocation.Client)]
 
@@ -159,7 +77,7 @@ public class BlueprintDbController : ControllerBase
             return NotFound();
         }
 
-        var (_, root) = MakeBlueprintResident(gameData, blueprint);
+        var root = blueprint.EnsureObj;
 
         return Ok(
             new
@@ -195,7 +113,7 @@ public class BlueprintDbController : ControllerBase
             return NotFound();
         }
 
-        var (raw, root) = MakeBlueprintResident(gameData, blueprint);
+        var (raw, root) = blueprint.Data;
 
         if (strings != true)
         {
@@ -343,4 +261,85 @@ public class MatchResultBufferPolicy() : IPooledObjectPolicy<ScoreBuffer>
     public bool Return(ScoreBuffer obj) { return true; }
 }
 
+public class MaxResidentBlueprintDataProvider(ILogger<MaxResidentBlueprintDataProvider> logger) : IBlueprintDataProvider
+{
+    private readonly ConcurrentQueue<BlueprintHandle> _lruQueue = new();
+    private const int MaxResidentBlueprints = 4000;
+    private const int MaxEvictionAttempts = 10;
+    private int _residentCount = 0;
+    private uint _accessCount = 0;
 
+    public (string Raw, JsonElement Root) GetDataFor(BlueprintHandle bp)
+    {
+        string raw;
+        JsonElement root;
+
+        if ((Interlocked.Increment(ref _accessCount) % 1000000) == 0)
+        {
+            logger.LogWarning("BPDP: resident: {}, accesses: {}", _residentCount, _accessCount);
+        }
+
+        lock (bp.UserData)
+        {
+            if (bp._Raw == null)
+            {
+                var gameData = (bp.db.UserData as GameData)!;
+                var meta = (bp.UserData as StringMetadata)!;
+                byte[] tmp = ArrayPool<byte>.Shared.Rent(meta.Length);
+                try
+                {
+                    gameData.Data.ReadArray<byte>(meta.Offset, tmp, 0, meta.Length);
+                    bp._Raw = Encoding.UTF8.GetString(tmp, 0, meta.Length);
+                    bp._obj = BlueprintHandle.Parse(bp._Raw);
+
+                    _lruQueue.Enqueue(bp);
+                    Interlocked.Increment(ref _residentCount);
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(tmp);
+                }
+            }
+            raw = bp._Raw;
+            root = bp._obj;
+        }
+
+        int evictionAttempt = 0;
+
+        // Eviction logic
+        while (_residentCount > MaxResidentBlueprints && evictionAttempt++ < MaxEvictionAttempts)
+        {
+            if (_lruQueue.TryDequeue(out var toEvict))
+            {
+                // Use TryEnter to avoid deadlock if another thread is currently making this specific BP resident
+                if (Monitor.TryEnter(toEvict.UserData))
+                {
+                    try
+                    {
+                        if (toEvict._Raw != null)
+                        {
+                            toEvict.PurgeData();
+                            Interlocked.Decrement(ref _residentCount);
+                        }
+                    }
+                    finally
+                    {
+                        Monitor.Exit(toEvict.UserData);
+                    }
+                }
+                else
+                {
+                    // If we couldn't get the lock, put it back to try later or let another call handle it
+                    _lruQueue.Enqueue(toEvict);
+                    break;
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return (raw, root);
+    }
+}

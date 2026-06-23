@@ -21,7 +21,7 @@ namespace BlueprintExplorer
     public partial class Form1 : BubbleprintsForm
     {
 
-        public static BlueprintDB DB { get; set; } = new();
+        public static BlueprintDB DB { get; set; } = new("_");
 
         private static bool dark;
         public Form Splash;

@@ -118,7 +118,7 @@ namespace BlueprintExplorer
                     HistoryCache[DisplayedObject.GuidText] = (VerticalScroll.Value, _Filter, _SoftRowSelection);
                 }
                 DisplayedObject = value;
-                DisplayedObject.EnsureParsed();
+                //DisplayedObject.EnsureParsed();
                 ValidateBlueprint(true);
             }
         }

@@ -7,6 +7,14 @@ namespace BlueprintExplorer;
 
 public partial class BlueprintDB
 {
+    public object UserData;
+
+    public string GameName;
+    public BlueprintDB(string gameName)
+    {
+        GameName = gameName;
+    }
+
     public static void ExtractKeyWords(HashSet<string> result, StringBuilder buffer, string input)
     {
         buffer.Clear();
@@ -202,7 +210,7 @@ public partial class BlueprintDB
                         GuidText = main.ReadString(),
                         Name = main.ReadString(),
                         Type = main.ReadString(),
-                        Raw = main.ReadString()
+                        _Raw = main.ReadString()
                     };
 
                     bp.ParseType();
@@ -322,7 +330,6 @@ public partial class BlueprintDB
         loadMeta.Wait();
         Console.WriteLine($"Loaded {cache.Count} blueprints in {watch.ElapsedMilliseconds}ms");
 
-
         BubblePrints.Settings.LastLoaded = Path.GetFileName(fileToOpen);
         BubblePrints.SaveSettings();
         ctx.Dispose();
@@ -366,6 +373,8 @@ public partial class BlueprintDB
     {
         public Dictionary<int, Dictionary<string, float>> results = new();
     };
+
+    public static int MAX_TREE_QUERY_RUNTIME_MS = 100;
 
     public List<BlueprintHandle> SearchBlueprints(string searchText, ScoreBuffer scoreBuffer, CancellationToken cancellationToken)
     {
@@ -439,7 +448,6 @@ public partial class BlueprintDB
             var head = searchText[..treeQueryStart];
             var tail = searchText[treeQueryEnd..];
             var newSearchText = head + ' ' + tail;
-            Console.WriteLine($"rewriting '{searchText}' -> '{newSearchText}'");
 
             searchText = newSearchText;
         }
@@ -573,17 +581,20 @@ public partial class BlueprintDB
 
         if (treeQuery.Length > 0)
         {
-            Console.WriteLine("runnig tree query:" + treeQuery);
+            //Console.WriteLine("runnig tree query:" + treeQuery);
+            Matcher queryMatcher = null;
             var tokens = Lexer.Tokenize(treeQuery);
             var parser = new Parser();
             parser.Reset(tokens);
-            var queryMatcher = parser.Parse();
+            queryMatcher = parser.Parse();
+            if (parser.Error) return [];
+
             //Console.WriteLine(TreeQueryPrinter.DumpAst(queryMatcher));
 
             List<BlueprintHandle> ret = [];
 
             int queried = 0;
-            bool brokeEarly = false;
+            //bool brokeEarly = false;
             Stopwatch w = Stopwatch.StartNew();
 
             foreach (var res in results)
@@ -591,14 +602,14 @@ public partial class BlueprintDB
                 queried++;
                 if (TreeQueryEngine.CheckMatch(queryMatcher, res.EnsureObj))
                     ret.Add(res);
-                if (w.ElapsedMilliseconds > 50)
+                if (w.ElapsedMilliseconds > MAX_TREE_QUERY_RUNTIME_MS)
                 {
-                    brokeEarly = true;
+                    //brokeEarly = true;
                     break;
                 }
             }
             var el = w.ElapsedMilliseconds;
-            Console.WriteLine($"Executed {queried} queries in {el}ms, early break: {brokeEarly}");
+            //Console.WriteLine($"Executed {queried} queries in {el}ms, early break: {brokeEarly}");
             return ret;
         }
 

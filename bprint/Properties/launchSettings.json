@@ -1,8 +1,22 @@
 {
   "profiles": {
-    "bprint": {
+    "repl": {
+      "commandName": "Project",
+      "commandLineArgs": "repl",
+      "workingDirectory": "C:\\Users\\worce\\source\\repos\\BlueprintExplorer\\bprint"
+    },
+    "WSL": {
+      "commandName": "WSL2",
+      "distributionName": ""
+    },
+    "import wrath": {
       "commandName": "Project",
       "commandLineArgs": "import \"D:\\steamlib\\steamapps\\common\\Pathfinder Second Adventure\"  overwrite",
+      "workingDirectory": "C:\\Users\\worce\\source\\repos\\BlueprintExplorer\\bprint"
+    },
+    "gen db wrath": {
+      "commandName": "Project",
+      "commandLineArgs": "bubblemod.gen-db wrath",
       "workingDirectory": "C:\\Users\\worce\\source\\repos\\BlueprintExplorer\\bprint"
     }
   }

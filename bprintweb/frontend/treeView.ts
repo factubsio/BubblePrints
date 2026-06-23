@@ -91,31 +91,44 @@ export function createBlueprintView(flatElements: DisplayableElement[], apiPrefi
             toggle.textContent = '▼';
 
             if (childrenPresent) {
-                toggle.onclick = () => {
-                    const isHidden = childrenContainer.classList.toggle('hide');
-                    if (isHidden) {
-                        toggle.classList.add('collapsed');
-                    } else {
-                        toggle.classList.remove('collapsed');
-                    }
-                    //toggle.textContent = isHidden ? '►' : '▼';
+                toggle.onclick = e => {
+                    if (e.shiftKey) {
+                        const childToggles = childrenContainer.querySelectorAll('.bp-toggle:not(.disabled');
+                        if (childToggles.length == 0) return;
 
-                    // --- THE OPTIMIZATION IS HERE ---
-                    if (isHidden) {
-                        // It's collapsed (non-default state), so we ADD it to our state object.
-                        savedState[currentPath] = true;
-                    } else {
-                        // It's expanded (the default state), so we REMOVE it to save space.
-                        delete savedState[currentPath];
+                        const first = childToggles[0];
+                        if (first.classList.contains('collapsed')) {
+                            childToggles.forEach(b => {
+                                if (b.classList.contains('collapsed')) (b as HTMLButtonElement).click();
+                            });
+                        } else {
+                            childToggles.forEach(b => {
+                                if (!b.classList.contains('collapsed')) (b as HTMLButtonElement).click();
+                            });
+                        }
+                        e.preventDefault();
+                        return;
                     }
+                    else {
+                        const isHidden = childrenContainer.classList.toggle('hide');
+                        if (isHidden) {
+                            toggle.classList.add('collapsed');
+                        } else {
+                            toggle.classList.remove('collapsed');
+                        }
 
-                    // If the state object is now empty, we can remove the entire key.
-                    if (Object.keys(savedState).length === 0) {
-                        localStorage.removeItem(localStorageKey);
-                    } else {
-                        localStorage.setItem(localStorageKey, JSON.stringify(savedState));
+                        if (isHidden) {
+                            savedState[currentPath] = true;
+                        } else {
+                            delete savedState[currentPath];
+                        }
+
+                        if (Object.keys(savedState).length === 0) {
+                            localStorage.removeItem(localStorageKey);
+                        } else {
+                            localStorage.setItem(localStorageKey, JSON.stringify(savedState));
+                        }
                     }
-                    // --- END OF OPTIMIZATION ---
                 };
                 row.addEventListener('mousedown', e => {
                     if (e.detail > 1) {

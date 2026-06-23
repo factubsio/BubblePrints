@@ -1,9 +1,4 @@
 ﻿using BlueprintExplorer;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace bprint;
 
@@ -12,8 +7,6 @@ internal static class Repler
     [Cmdlet("repl")]
     public static async Task Repl(string[] args)
     {
-        string game = args[1];
-
         Dictionary<string, BlueprintDB> dbs = [];
         BlueprintDB? db = default;
 
@@ -29,16 +22,34 @@ internal static class Repler
 
         ScoreBuffer resultsBuffer = new();
         List<BlueprintHandle> matches = [];
+        ReadLine.HistoryEnabled = true;
+
+        string historyPath = BubblePrints.MakeDataPath("history.txt");
+
+        if (File.Exists(historyPath))
+        {
+            ReadLine.AddHistory([.. File.ReadLines(historyPath)]);
+        }
+
+        await using var historyStream = new FileStream(historyPath, FileMode.Append);
+        await using var historyWr = new StreamWriter(historyStream);
+        Task? flushTask = default;
+        
 
         while (true)
         {
-            Console.Write("> ");
-            var line = Console.ReadLine()?.Trim();
+            var line = ReadLine.Read($"{db?.GameName ?? "_"}> ");
             if (line == null)
                 break;
 
+            line = line.Trim();
+
             if (line.Length == 0)
                 continue;
+
+            historyWr.WriteLine(line);
+            if (flushTask != null) await flushTask;
+            flushTask = historyWr.FlushAsync();
 
             if (line.StartsWith(".db "))
             {
@@ -56,6 +67,17 @@ internal static class Repler
                     {
                         matches = db.SearchBlueprints(line[1..], resultsBuffer, CancellationToken.None);
 
+                        Console.WriteLine("Showing top 10 (max) results");
+                        BlueprintHandle[] tableRes = [.. matches.Take(10)];
+                        int maxNameLen = tableRes.MaxBy(x => x.Name.Length)?.Name.Length ?? 0;
+                        foreach (var match in matches.Take(10))
+                        {
+                            Console.WriteLine($"{match.Name.PadRight(maxNameLen + 4)}{match.GuidText}");
+                        }
+                    }
+                    else if (line.StartsWith('='))
+                    {
+                        matches = [.. db.BlueprintsInOrder.AsParallel().Where(bp => bp.Raw.Contains(line[1..], StringComparison.InvariantCultureIgnoreCase)).Take(10)];
                         Console.WriteLine("Showing top 10 (max) results");
                         BlueprintHandle[] tableRes = [.. matches.Take(10)];
                         int maxNameLen = tableRes.MaxBy(x => x.Name.Length)?.Name.Length ?? 0;

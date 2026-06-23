@@ -30,7 +30,7 @@ public record class GameData
     public GameData(string name)
     {
         Name = name;
-        DB = new();
+        DB = new(name);
 
         BaseDialogPath = Path.Combine(Environment.GetEnvironmentVariable("BUBBLEPRINTS_DIALOG_ROOT") ?? throw new NotSupportedException(), name);
         NodeToDialog = JsonSerializer.Deserialize<Dictionary<Guid, Guid>>(File.ReadAllText(Path.Combine(BaseDialogPath, "index.json"))) ?? [];
@@ -77,6 +77,7 @@ public static class Program
 
             GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, true, true);
             GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, true, true);
+            gameData.DB.UserData = gameData;
 
             Console.WriteLine("Caching raw json to disk");
             var tmr = Stopwatch.StartNew();
@@ -285,6 +286,10 @@ public static class Program
 
         app.MapFallbackToFile("/bs/index.html");
 
+        var logger = app.Services.GetRequiredService<ILogger<MaxResidentBlueprintDataProvider>>();
+        BlueprintHandle.DataProvider = new MaxResidentBlueprintDataProvider(logger);
+        BlueprintDB.MAX_TREE_QUERY_RUNTIME_MS = 30;
+
         app.Run();
     }
 
@@ -313,9 +318,7 @@ public static class Program
                 bp.NamespaceLower = TryIntern(bp.NamespaceLower);
 
                 bp.UserData = new StringMetadata(offset, encoded.Length);
-                bp.Raw = null;
-                bp.obj = default;
-                bp.Parsed = false;
+                bp.PurgeData();
             }
 
             foreach (var (k, v) in db.Strings)
@@ -325,8 +328,6 @@ public static class Program
 
             Console.WriteLine($"raw cache size: {fs.Position}");
         }
-
-
 
         FileStream closer = new(tempFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
         closeOnDelete.Add(closer);

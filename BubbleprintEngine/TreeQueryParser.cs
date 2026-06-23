@@ -86,10 +86,12 @@ public class Parser()
 {
     private readonly Func<string, string, bool, Func<JsonElement, bool>> makeCheckKV = TreeQueryGenerator.CheckKV;
 
+    public bool Error = false;
     private int position = 0;
     private List<Token> tokens = [];
     public void Reset(List<Token> tokens)
     {
+        Error = false;
         position = 0;
         this.tokens = tokens;
     }
@@ -97,23 +99,32 @@ public class Parser()
 
     public Matcher Parse()
     {
-        var matcher = ParseExpression();
+        if (!TryParseExpression(out var matcher))
+        {
+            Error = true;
+            return NullMatcher.Instance;
+        }
+
         if (Current.Type != TokenType.EOF)
         {
-            throw new Exception($"Unexpected token '{Current.Value}' at end of query.");
+            Error = true;
+            return NullMatcher.Instance;
         }
+
         return matcher;
     }
 
     // Expression -> Term { '&' Term }
-    private Matcher ParseExpression()
+    private bool TryParseExpression(out Matcher expr)
     {
-        var left = ParseTerm();
+        expr = NullMatcher.Instance;
+
+        if (!TryParseTerm(out var left)) return false;
 
         while (Current.Type == TokenType.And)
         {
             Advance(); // Consume '&'
-            var right = ParseTerm();
+            if (!TryParseTerm(out var right)) return false;
 
             if (left is AndMatcher and)
             {
@@ -124,25 +135,28 @@ public class Parser()
                 left = new AndMatcher([left, right]);
             }
         }
-        return left;
+        expr = left;
+        return true;
     }
 
     // Term -> '(' Expression ')' | IDENTIFIER [ ('>'|'['|'.') Term | ('='|'~=') IDENTIFIER ]
-    private Matcher ParseTerm()
+    private bool TryParseTerm(out Matcher matcher)
     {
+        matcher = NullMatcher.Instance;
+
         if (Current.Type == TokenType.LeftParen)
         {
             Advance(); // Consume '('
-            var expression = ParseExpression();
-            if (Current.Type != TokenType.RightParen)
-            {
-                throw new Exception("Expected ')'");
-            }
+            if (!TryParseExpression(out var expression)) return false;
+
+            if (Current.Type != TokenType.RightParen) return false;
+
             Advance(); // Consume ')'
-            return expression;
+            matcher = expression;
+            return true;
         }
 
-        var key = Consume(TokenType.Identifier);
+        if (!TryConsume(TokenType.Identifier, out var key)) return false;
 
         // Lookahead to decide if it's a Path or a Predicate
         switch (Current.Type)
@@ -151,17 +165,18 @@ public class Parser()
                 // It's a predicate: key=val
                 var op = Current;
                 Advance();
-                var val = Consume(TokenType.Identifier);
+                if (!TryConsume(TokenType.Identifier, out var val)) return false;
 
                 var desc = $"{key.Value} {op.Value} {val.Value}";
 
-                return new PredicateMatcher(makeCheckKV(key.Value, val.Value, op.Type == TokenType.FuzzyEquals), desc);
+                matcher = new PredicateMatcher(makeCheckKV(key.Value, val.Value, op.Type == TokenType.FuzzyEquals), desc);
+                return true;
 
             case TokenType.Child or TokenType.ArrayItem or TokenType.Dot:
                 // It's a path: key > Term, key [ Term, key . Term
                 var combinatorToken = Current;
                 Advance();
-                var nextRequirement = ParseTerm();
+                if (!TryParseTerm(out var nextRequirement)) return false;
 
                 var combinator = combinatorToken.Type switch
                 {
@@ -169,25 +184,29 @@ public class Parser()
                     _ => NfaCombinator.Child // Treat '>' and '.' as the same
                 };
 
-                return new PathMatcher(key.Value, combinator, nextRequirement);
+                matcher = new PathMatcher(key.Value, combinator, nextRequirement);
+                return true;
 
             default:
                 // It's a key existence check (e.g., just 'Components' followed by & or EOF)
-                return new PredicateMatcher(e => e.TryGetProperty(key.Value, out _));
+                matcher = new PredicateMatcher(e => e.TryGetProperty(key.Value, out _));
+                return true;
         }
     }
 
     private Token Current => tokens[position];
     private void Advance() { if (position < tokens.Count - 1) position++; }
-    private Token Consume(TokenType type)
+    private bool TryConsume(TokenType type, out Token token)
     {
         if (Current.Type == type)
         {
-            var token = Current;
+            token = Current;
             Advance();
-            return token;
+            return true;
         }
-        throw new Exception($"Expected token {type} but got {Current.Type}");
+
+        token = new(TokenType.Unknown, "");
+        return false;
     }
 }
 

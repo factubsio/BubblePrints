@@ -43,22 +43,39 @@ function createBlueprintView(flatElements, apiPrefix2, guid, cb) {
       }
       toggle.textContent = "\u25BC";
       if (childrenPresent) {
-        toggle.onclick = () => {
-          const isHidden = childrenContainer.classList.toggle("hide");
-          if (isHidden) {
-            toggle.classList.add("collapsed");
+        toggle.onclick = (e) => {
+          if (e.shiftKey) {
+            const childToggles = childrenContainer.querySelectorAll(".bp-toggle:not(.disabled");
+            if (childToggles.length == 0) return;
+            const first = childToggles[0];
+            if (first.classList.contains("collapsed")) {
+              childToggles.forEach((b) => {
+                if (b.classList.contains("collapsed")) b.click();
+              });
+            } else {
+              childToggles.forEach((b) => {
+                if (!b.classList.contains("collapsed")) b.click();
+              });
+            }
+            e.preventDefault();
+            return;
           } else {
-            toggle.classList.remove("collapsed");
-          }
-          if (isHidden) {
-            savedState[currentPath] = true;
-          } else {
-            delete savedState[currentPath];
-          }
-          if (Object.keys(savedState).length === 0) {
-            localStorage.removeItem(localStorageKey);
-          } else {
-            localStorage.setItem(localStorageKey, JSON.stringify(savedState));
+            const isHidden = childrenContainer.classList.toggle("hide");
+            if (isHidden) {
+              toggle.classList.add("collapsed");
+            } else {
+              toggle.classList.remove("collapsed");
+            }
+            if (isHidden) {
+              savedState[currentPath] = true;
+            } else {
+              delete savedState[currentPath];
+            }
+            if (Object.keys(savedState).length === 0) {
+              localStorage.removeItem(localStorageKey);
+            } else {
+              localStorage.setItem(localStorageKey, JSON.stringify(savedState));
+            }
           }
         };
         row.addEventListener("mousedown", (e) => {

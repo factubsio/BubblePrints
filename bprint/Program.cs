@@ -20,7 +20,7 @@ namespace bprint;
 
 public static class Program
 {
-    public static async Task Main(string[] args)
+    public static void Main(string[] args)
     {
         BubblePrints.Install();
 
@@ -50,29 +50,6 @@ public static class Program
         }
 
         cmdlet(args);
-
-        Environment.Exit(0);
-
-        //switch (args[0])
-        //{
-        //    case "import":
-        //        await Importer.Import(args);
-        //        break;
-        //    case "dialog":
-        //        await DialogTreeCmdlet.GenerateDialogTrees(args);
-        //        break;
-        //    case "search":
-        //        await Searcher.Search(args);
-        //        break;
-        //    case "repl":
-        //        await Repler.Repl(args);
-        //        break;
-        //    default:
-        //        Console.Error.WriteLine("Command not found");
-        //        Console.Error.WriteLine("     import gamePath [overwrite|increment]");
-        //        Console.Error.WriteLine("     search game term");
-        //        break;
-        //}
     }
 
     public static async Task<BlueprintDB> LoadDB(string game)
@@ -80,7 +57,7 @@ public static class Program
         var bins = new BinzManager();
         var binz = bins.Available.First(b => b.Local && b.Version.Game.Equals(game, StringComparison.InvariantCultureIgnoreCase)) ?? throw new Exception($"no {game} binz available");
 
-        BlueprintDB db = new();
+        BlueprintDB db = new(game);
 
         var loadProgress = new ConnectionProgress();
         var initialize = Task.Run(() => db.TryConnect(loadProgress, binz.Path));
@@ -88,8 +65,8 @@ public static class Program
         {
             while (!initialize.IsCompleted)
             {
-                Thread.Sleep(200);
                 Console.Write(".");
+                Thread.Sleep(200);
             }
         });
         await initialize;

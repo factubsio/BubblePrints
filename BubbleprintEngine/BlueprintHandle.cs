@@ -31,12 +31,21 @@ public interface IDisplayableElement
 
 }
 
-public interface BlueprintDataProvider
+public interface IBlueprintDataProvider
 {
     public (string Raw, JsonElement Root) GetDataFor(BlueprintHandle bp);
 }
 
+public class DefaultBlueprintDataProvider : IBlueprintDataProvider
+{
+    public (string Raw, JsonElement Root) GetDataFor(BlueprintHandle bp)
+    {
+        if (bp._obj.ValueKind == JsonValueKind.Undefined)
+            bp._obj = BlueprintHandle.Parse(bp._Raw);
 
+        return (bp._Raw, bp._obj);
+    }
+}
 
 public static class JsonExtensions
 {
@@ -313,7 +322,7 @@ public static class JsonExtensions
 
 public interface IDisplayableElementCollection
 {
-    public void EnsureParsed();
+    //public void EnsureParsed();
     public IEnumerable<IDisplayableElement> DisplayableElements { get; }
     string GuidText { get; }
     string Name { get; }
@@ -325,6 +334,8 @@ public class BlueprintHandle : ISearchable, IDisplayableElementCollection
 {
     public static bool ShortType = false;
     //public byte[] guid;
+
+    public static IBlueprintDataProvider DataProvider = new DefaultBlueprintDataProvider();
 
     public BlueprintDB db;
 
@@ -342,9 +353,19 @@ public class BlueprintHandle : ISearchable, IDisplayableElementCollection
     }
     public string TypeName { get; set; }
     public string Namespace;
-    public string Raw { get; set; }
-    public JsonElement obj;
-    public bool Parsed;
+
+    public string _Raw;
+    public JsonElement _obj;
+
+    public void PurgeData()
+    {
+        _Raw = null;
+        _obj = default;
+    }
+    public JsonElement obj => DataProvider.GetDataFor(this).Root;
+    public string Raw => DataProvider.GetDataFor(this).Raw;
+
+    public static JsonElement Parse(string raw) => JsonSerializer.Deserialize<JsonElement>(raw, deserOpts);
 
     public List<Guid> BackReferences = new();
 
@@ -377,26 +398,9 @@ public class BlueprintHandle : ISearchable, IDisplayableElementCollection
         obj => (obj as BlueprintHandle).GuidText);
 
     public static string[] MatchKeys => ["name", "type", "space", "guid"];
+    public JsonElement EnsureObj => DataProvider.GetDataFor(this).Root;
 
-    public JsonElement EnsureObj
-    {
-        get
-        {
-            EnsureParsed();
-            return obj;
-        }
-    }
-
-    public void EnsureParsed()
-    {
-        if (!Parsed)
-        {
-            obj = JsonSerializer.Deserialize<JsonElement>(Raw, deserOpts);
-            Parsed = true;
-        }
-    }
-
-    private static readonly JsonSerializerOptions deserOpts = new()
+    public static readonly JsonSerializerOptions deserOpts = new()
     {
         MaxDepth = 128,
     };
@@ -443,19 +447,12 @@ public class BlueprintHandle : ISearchable, IDisplayableElementCollection
 
     }
 
-    public IEnumerable<VisitedElement> Elements
-    {
-        get
-        {
-            EnsureParsed();
-            return Visit(db, obj, Name);
-        }
-    }
+    public IEnumerable<VisitedElement> Elements => Visit(db, EnsureObj, Name);
 
     public IEnumerable<IDisplayableElement> DisplayableElements => Elements;
 
     public Guid Guid { get; internal set; }
-
+    public (string Raw, JsonElement Root) Data => DataProvider.GetDataFor(this);
 
     public static IEnumerable<VisitedElement> Visit(BlueprintDB db, JsonElement node, string name)
     {

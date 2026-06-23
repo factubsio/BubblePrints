@@ -27,7 +27,7 @@ namespace WikiGen
 
     public static class Program
     {
-        public static readonly BlueprintDB DB = new();
+        public static readonly BlueprintDB DB = new("_");
         public static string GetAbilityAcronym(string name)
         {
             StringBuilder stringBuilder = new StringBuilder();

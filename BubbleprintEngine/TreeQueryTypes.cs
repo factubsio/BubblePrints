@@ -10,6 +10,11 @@ public enum NfaCombinator
 }
 public abstract record Matcher;
 
+public record class NullMatcher : Matcher
+{
+    public static readonly NullMatcher Instance = new();
+}
+
 public record PathMatcher(string KeyRequirement, NfaCombinator Combinator, Matcher NextRequirement) : Matcher
 {
     public override string ToString()
