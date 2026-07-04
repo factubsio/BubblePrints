@@ -193,6 +193,7 @@ public class BinzManager
         if (toLoad.Version.Game == "Wrath") latestVersionUrl = new Uri($"{host}/{toLoad.Version.Version}/{filename}");
         else if (toLoad.Version.Game == "RT") latestVersionUrl = new Uri($"{host}/RT_{toLoad.Version.Version}/{filename}");
         else if (toLoad.Version.Game == "KM") latestVersionUrl = new Uri($"{host}/KM_{toLoad.Version.Version}/{filename}");
+        else latestVersionUrl = new Uri($"{host}/{toLoad.Version.Game}_{toLoad.Version.Version}/{filename}");
         using var client = new HttpClient();
         string tmp = Path.Combine(CacheDir, "binz_download.tmp");
         if (File.Exists(tmp)) File.Delete(tmp);

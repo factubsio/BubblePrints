@@ -107,9 +107,9 @@ public partial class SplashScreenChooserJobbie : Form
 
         if (!toLoad.Local)
         {
-            if (toLoad.Version.Game != "KM" && toLoad.Version.Game != "Wrath" && toLoad.Version.Game != "RT")
+            if (toLoad.Version.Game != "KM" && toLoad.Version.Game != "Wrath" && toLoad.Version.Game != "RT" && toLoad.Version.Game != "DH")
             {
-                throw new Exception("Can only auto-download km, wrath and rt binz");
+                throw new Exception("Can only auto-download km, wrath, rt and dh binz");
             }
 
             loadAnim.Image = Resources.downloading;

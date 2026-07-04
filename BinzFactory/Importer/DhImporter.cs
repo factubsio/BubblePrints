@@ -16,6 +16,30 @@ public class DhImporter(string gamePath, string dataFolder) : OwlcatGame("DH", g
 
     public override void Import(BlueprintDB db, JsonSerializerOptions writeOptions, HashSet<string> referencedTypes, ConnectionProgress progress)
     {
+        var jsonPath = GetGamePath("blueprints_DH.json");
+        if (File.Exists(jsonPath))
+        {
+            using var stream = new FileStream(jsonPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var json = JsonSerializer.Deserialize<JsonElement>(stream);
+            if (!json.TryGetProperty("blueprints", out var blueprints) || blueprints.ValueKind != JsonValueKind.Array)
+                throw new NotSupportedException($"Invalid blueprints_DH.json format at: {jsonPath}");
+
+            progress.EstimatedTotal = blueprints.GetArrayLength();
+            foreach (var blueprint in blueprints.EnumerateArray())
+            {
+                try
+                {
+                    BinzImportExport.ReadDumpFromJson(db, blueprint, writeOptions, blueprint.Str("Name"), referencedTypes, progress, this);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.ToString());
+                    throw;
+                }
+            }
+            return;
+        }
+
         var zipPath = GetGamePath("blueprints.zip");
         if (!File.Exists(zipPath))
             throw new NotSupportedException($"Dark Heresy does not currently support automatic import without manually creating a blueprint dump and placing it at: {zipPath}");
