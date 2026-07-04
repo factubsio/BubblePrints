@@ -78,7 +78,7 @@ public static class SeasonalOverlay
         }
 
         // I hate every fibre of my being
-        System.Threading.Tasks.Task.Delay(20).ContinueWith(_ => activeOverlay.BeginInvoke(() => target.Activate()));
+        System.Threading.Tasks.Task.Delay(20).ContinueWith(_ => activeOverlay?.BeginInvoke(() => target.Activate()));
     }
 
     internal static void Disable() => activeOverlay?.Close();

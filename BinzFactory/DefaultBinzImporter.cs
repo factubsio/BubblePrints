@@ -1,4 +1,5 @@
 ﻿using BlueprintExplorer;
+using dnlib.DotNet;
 using System.ComponentModel;
 using System.Formats.Tar;
 using System.IO.Compression;
@@ -536,25 +537,44 @@ public static class BinzImportExport
                 header.Stream.Write(cache.Count);
             }
 
-            const int batchSize = 16000;
+            const int MAX_BATCH_COUNT = 16000;
 
             BPFile.ChunkWriter? current = null;
+            int smallestBatch = int.MaxValue;
+            int biggestBatch = 0;
+            int currentBatchLength = 0;
+
+            current = file.Begin((ushort)ChunkTypes.Blueprints);
             for (int i = 0; i < cache.Count; i++)
             {
-                if (i % batchSize == 0)
+                var c = cache[i];
+
+                bool enoughRoom = true;
+                if (current != null)
                 {
+                    int remaining = (int)(BPFile.BUFFER_SIZE - current.Stream.BaseStream.Position - c.Raw.Length);
+                    if (remaining < 32000)
+                    enoughRoom = false;
+                }
+
+                if (currentBatchLength == MAX_BATCH_COUNT || !enoughRoom)
+                {
+                    if (currentBatchLength < smallestBatch) smallestBatch = currentBatchLength;
+                    if (currentBatchLength > biggestBatch) biggestBatch = currentBatchLength;
+                    currentBatchLength = 0;
                     current?.Dispose();
                     current = file.Begin((ushort)ChunkTypes.Blueprints);
                 }
 
                 if (current == null) throw new NotSupportedException();
 
-                var c = cache[i];
+                long before = current.Stream.BaseStream.Position;
 
                 current.Stream.Write(c.GuidText);
                 current.Stream.Write(c.Name);
                 current.Stream.Write(c.Type);
                 current.Stream.Write(c.Raw);
+
 
                 if (writePaths)
                 {
@@ -584,8 +604,17 @@ public static class BinzImportExport
                 foreach (var index in c.ComponentIndex)
                     comps.Write(index);
 
+                //debug fat bp
+                //long after = current.Stream.BaseStream.Position;
+                //if (after - before > 32000)
+                //{
+                //    Console.WriteLine($"size after: {c.Name} + {after - before} is {after}");
+                //}
+
+                currentBatchLength++;
                 progress.Current++;
             }
+            Console.WriteLine($"biggest batch: {biggestBatch}, smallest: {smallestBatch}");
 
             current?.Dispose();
 
