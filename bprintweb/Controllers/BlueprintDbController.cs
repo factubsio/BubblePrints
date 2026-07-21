@@ -113,15 +113,14 @@ public class BlueprintDbController : ControllerBase
             return NotFound();
         }
 
-        var (raw, root) = blueprint.Data;
-
         if (strings != true)
         {
             Response.Headers.Append("BP-Name", blueprint.Name);
-            return Content(raw, "application/json");
+            return File(blueprint.RawUtf8, "application/json");
         }
         else
         {
+            var root = blueprint.EnsureObj;
             Dictionary<string, string> strs = [];
 
             FindStrings(db, root, strs);
@@ -269,9 +268,13 @@ public class MaxResidentBlueprintDataProvider(ILogger<MaxResidentBlueprintDataPr
     private int _residentCount = 0;
     private uint _accessCount = 0;
 
-    public (string Raw, JsonElement Root) GetDataFor(BlueprintHandle bp)
+    public byte[] GetRawUtf8(BlueprintHandle bp) => GetDataFor(bp, parse: false).RawUtf8;
+
+    public JsonElement GetRoot(BlueprintHandle bp) => GetDataFor(bp, parse: true).Root;
+
+    private (byte[] RawUtf8, JsonElement Root) GetDataFor(BlueprintHandle bp, bool parse)
     {
-        string raw;
+        byte[] rawUtf8;
         JsonElement root;
 
         if ((Interlocked.Increment(ref _accessCount) % 1000000) == 0)
@@ -281,26 +284,21 @@ public class MaxResidentBlueprintDataProvider(ILogger<MaxResidentBlueprintDataPr
 
         lock (bp.UserData)
         {
-            if (bp._Raw == null)
+            if (bp._RawUtf8 == null)
             {
                 var gameData = (bp.db.UserData as GameData)!;
                 var meta = (bp.UserData as StringMetadata)!;
-                byte[] tmp = ArrayPool<byte>.Shared.Rent(meta.Length);
-                try
-                {
-                    gameData.Data.ReadArray<byte>(meta.Offset, tmp, 0, meta.Length);
-                    bp._Raw = Encoding.UTF8.GetString(tmp, 0, meta.Length);
-                    bp._obj = BlueprintHandle.Parse(bp._Raw);
+                bp._RawUtf8 = new byte[meta.Length];
+                gameData.Data.ReadArray<byte>(meta.Offset, bp._RawUtf8, 0, meta.Length);
 
-                    _lruQueue.Enqueue(bp);
-                    Interlocked.Increment(ref _residentCount);
-                }
-                finally
-                {
-                    ArrayPool<byte>.Shared.Return(tmp);
-                }
+                _lruQueue.Enqueue(bp);
+                Interlocked.Increment(ref _residentCount);
             }
-            raw = bp._Raw;
+
+            if (parse && bp._obj.ValueKind == JsonValueKind.Undefined)
+                bp._obj = BlueprintHandle.Parse(bp._RawUtf8);
+
+            rawUtf8 = bp._RawUtf8;
             root = bp._obj;
         }
 
@@ -316,7 +314,7 @@ public class MaxResidentBlueprintDataProvider(ILogger<MaxResidentBlueprintDataPr
                 {
                     try
                     {
-                        if (toEvict._Raw != null)
+                        if (toEvict._RawUtf8 != null)
                         {
                             toEvict.PurgeData();
                             Interlocked.Decrement(ref _residentCount);
@@ -340,6 +338,6 @@ public class MaxResidentBlueprintDataProvider(ILogger<MaxResidentBlueprintDataPr
             }
         }
 
-        return (raw, root);
+        return (rawUtf8, root);
     }
 }

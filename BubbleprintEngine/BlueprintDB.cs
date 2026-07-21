@@ -54,6 +54,9 @@ public partial class BlueprintDB
 
     public readonly Dictionary<Guid, BlueprintHandle> Blueprints = new();
     private readonly List<BlueprintHandle> cache = new();
+    private ushort[] rootTypeByBlueprint = [];
+    private readonly Dictionary<string, ushort> rootTypeIds = new(StringComparer.Ordinal);
+    private readonly List<string> rootTypeNames = [];
     public readonly HashSet<string> types = new();
 
     private const string filenameRoot = "blueprints_raw";
@@ -74,6 +77,8 @@ public partial class BlueprintDB
     public static string CacheDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BubblePrints");
 
     public IReadOnlyList<BlueprintHandle> BlueprintsInOrder => cache;
+    public int RootTypeCount => rootTypeNames.Count;
+    public int RootTypeIndexBytes => cache.Count * sizeof(ushort);
 
     private Dictionary<string, Dictionary<string, string>> defaults = new();
     private Dictionary<string, Dictionary<string, Type>> fieldTypes = new();
@@ -156,7 +161,7 @@ public partial class BlueprintDB
         return strings;
     }
 
-    public bool TryConnect(ConnectionProgress progress, string forceFileName = null)
+    public bool TryConnect(ConnectionProgress progress, string forceFileName = null, bool saveSettings = true)
     {
         List<Task<List<BlueprintHandle>>> tasks = new();
 
@@ -189,6 +194,7 @@ public partial class BlueprintDB
         }
         header.Bubble = 0;
         count = headerIn.ReadInt32();
+        PrepareRootTypeStorage(count);
 
         Console.WriteLine($"Reading {count} blueprints for Wrath: {header}");
 
@@ -205,12 +211,16 @@ public partial class BlueprintDB
 
                 while (main.BaseStream.Position < main.BaseStream.Length)
                 {
+                    var guid = main.ReadString();
+                    var name = main.ReadString();
+                    var type = main.ReadString();
+                    var rawUtf8 = ReadUtf8Bytes(main);
                     var bp = new BlueprintHandle
                     {
-                        GuidText = main.ReadString(),
-                        Name = main.ReadString(),
-                        Type = main.ReadString(),
-                        _Raw = main.ReadString()
+                        GuidText = guid,
+                        Name = name,
+                        Type = type,
+                        _RawUtf8 = rawUtf8,
                     };
 
                     bp.ParseType();
@@ -328,13 +338,29 @@ public partial class BlueprintDB
             AddBlueprint(bp);
         }
         loadMeta.Wait();
+        BuildPropertyKeyBloomIndex();
+        Console.WriteLine(
+            $"Built {PropertyKeyBloomBitsPerBlueprint}-bit property-key Bloom index " +
+            $"in {PropertyKeyBloomBuildElapsedMs:F0}ms");
         Console.WriteLine($"Loaded {cache.Count} blueprints in {watch.ElapsedMilliseconds}ms");
 
-        BubblePrints.Settings.LastLoaded = Path.GetFileName(fileToOpen);
-        BubblePrints.SaveSettings();
+        if (saveSettings)
+        {
+            BubblePrints.Settings.LastLoaded = Path.GetFileName(fileToOpen);
+            BubblePrints.SaveSettings();
+        }
         ctx.Dispose();
 
         return true;
+    }
+
+    private static byte[] ReadUtf8Bytes(BinaryReader reader)
+    {
+        int length = reader.Read7BitEncodedInt();
+        var bytes = reader.ReadBytes(length);
+        if (bytes.Length != length)
+            throw new EndOfStreamException($"Expected {length} UTF-8 bytes, read {bytes.Length}.");
+        return bytes;
     }
 
     public void SetStrings(Dictionary<string, string> dictionary)
@@ -365,8 +391,41 @@ public partial class BlueprintDB
         bp.db = this;
         var end = bp.Type.LastIndexOf('.');
         types.Add(bp.Type.Substring(end + 1));
+        InvalidatePropertyKeyBloomIndex();
+        bp.DatabaseIndex = cache.Count;
+        EnsureRootTypeCapacity(cache.Count + 1);
+        rootTypeByBlueprint[cache.Count] = GetOrAddRootTypeId(bp.Type);
         cache.Add(bp);
         Blueprints[guid] = bp;
+    }
+
+    private void PrepareRootTypeStorage(int blueprintCount)
+    {
+        if (cache.Count == 0 && rootTypeByBlueprint.Length < blueprintCount)
+            rootTypeByBlueprint = new ushort[blueprintCount];
+    }
+
+    private void EnsureRootTypeCapacity(int required)
+    {
+        if (rootTypeByBlueprint.Length >= required)
+            return;
+
+        var capacity = Math.Max(required, Math.Max(4, rootTypeByBlueprint.Length * 2));
+        Array.Resize(ref rootTypeByBlueprint, capacity);
+    }
+
+    private ushort GetOrAddRootTypeId(string type)
+    {
+        if (rootTypeIds.TryGetValue(type, out var id))
+            return id;
+
+        if (rootTypeNames.Count > ushort.MaxValue)
+            throw new InvalidOperationException("Root type count exceeds the ushort index capacity.");
+
+        id = (ushort)rootTypeNames.Count;
+        rootTypeNames.Add(type);
+        rootTypeIds.Add(type, id);
+        return id;
     }
 
     public class IndexSearchState
@@ -374,10 +433,48 @@ public partial class BlueprintDB
         public Dictionary<int, Dictionary<string, float>> results = new();
     };
 
+    public sealed class SearchDiagnostics
+    {
+        public int RootTypeCandidates { get; internal set; }
+        public double RootTypePrefilterElapsedMs { get; internal set; }
+        public int TypePresenceCandidates { get; internal set; }
+        public double TypePresencePrefilterElapsedMs { get; internal set; }
+        public int PropertyKeyCandidates { get; internal set; }
+        public double PropertyKeyPrefilterElapsedMs { get; internal set; }
+        public double MetadataPrefilterElapsedMs { get; internal set; }
+        public double TextFilterElapsedMs { get; internal set; }
+        public int TreeCandidates { get; internal set; }
+        public int TreeCandidatesEvaluated { get; internal set; }
+        public double TreeElapsedMs { get; internal set; }
+        public bool TreeTruncated { get; internal set; }
+
+        internal void Reset()
+        {
+            RootTypeCandidates = 0;
+            RootTypePrefilterElapsedMs = 0;
+            TypePresenceCandidates = 0;
+            TypePresencePrefilterElapsedMs = 0;
+            PropertyKeyCandidates = 0;
+            PropertyKeyPrefilterElapsedMs = 0;
+            MetadataPrefilterElapsedMs = 0;
+            TextFilterElapsedMs = 0;
+            TreeCandidates = 0;
+            TreeCandidatesEvaluated = 0;
+            TreeElapsedMs = 0;
+            TreeTruncated = false;
+        }
+    }
+
     public static int MAX_TREE_QUERY_RUNTIME_MS = 100;
 
-    public List<BlueprintHandle> SearchBlueprints(string searchText, ScoreBuffer scoreBuffer, CancellationToken cancellationToken)
+    public List<BlueprintHandle> SearchBlueprints(
+        string searchText,
+        ScoreBuffer scoreBuffer,
+        CancellationToken cancellationToken,
+        SearchDiagnostics diagnostics = null)
     {
+        diagnostics?.Reset();
+
         if (searchText?.Length == 0)
             return cache;
 
@@ -434,6 +531,7 @@ public partial class BlueprintDB
         }
 
         string treeQuery = "";
+        Matcher queryMatcher = null;
         int treeQueryStart = searchText.IndexOf('^');
         if (treeQueryStart >= 0)
         {
@@ -450,10 +548,45 @@ public partial class BlueprintDB
             var newSearchText = head + ' ' + tail;
 
             searchText = newSearchText;
+
+            var tokens = Lexer.Tokenize(treeQuery);
+            var parser = new Parser();
+            parser.Reset(tokens);
+            queryMatcher = parser.Parse();
+            if (parser.Error)
+                throw new ArgumentException($"Invalid tree query: {parser.ErrorMessage}", nameof(searchText));
+
+            var rootTypePrefilterWatch = Stopwatch.StartNew();
+            ApplyRootTypePrefilter(queryMatcher, ref toSearch);
+            if (diagnostics is not null)
+            {
+                diagnostics.RootTypeCandidates = toSearch.Count;
+                diagnostics.RootTypePrefilterElapsedMs =
+                    rootTypePrefilterWatch.Elapsed.TotalMilliseconds;
+            }
+
+            var typePresencePrefilterWatch = Stopwatch.StartNew();
+            ApplyTypePresencePrefilter(queryMatcher, ref toSearch);
+            if (diagnostics is not null)
+            {
+                diagnostics.TypePresenceCandidates = toSearch.Count;
+                diagnostics.TypePresencePrefilterElapsedMs =
+                    typePresencePrefilterWatch.Elapsed.TotalMilliseconds;
+            }
+
+            var propertyKeyPrefilterWatch = Stopwatch.StartNew();
+            ApplyPropertyKeyPrefilter(queryMatcher, ref toSearch);
+            if (diagnostics is not null)
+            {
+                diagnostics.PropertyKeyCandidates = toSearch.Count;
+                diagnostics.PropertyKeyPrefilterElapsedMs =
+                    propertyKeyPrefilterWatch.Elapsed.TotalMilliseconds;
+            }
         }
 
         List<string> passThrough = [.. searchText.Split(' ', StringSplitOptions.RemoveEmptyEntries)];
 
+        var metadataPrefilterWatch = Stopwatch.StartNew();
         for (int i = 0; i < passThrough.Count; i++)
         {
             var special = passThrough[i][1..];
@@ -556,39 +689,46 @@ public partial class BlueprintDB
                 cancellationToken.ThrowIfCancellationRequested();
             }
         }
+        if (diagnostics is not null)
+            diagnostics.MetadataPrefilterElapsedMs =
+                metadataPrefilterWatch.Elapsed.TotalMilliseconds;
 
-        if (passThrough.All(c => c.Length == 0))
+        bool hasTextQuery = passThrough.Any(c => c.Length > 0);
+        if (!hasTextQuery && treeQuery.Length == 0)
             return toSearch;
 
-        searchText = string.Join(" ", passThrough.Where(c => c.Length > 0)).ToLower();
-
-        scoreBuffer.Clear();
-        MatchQuery query = new(searchText, BlueprintHandle.MatchProvider);
-        MatchResult[] matches = [.. BlueprintHandle.MatchKeys.Select(key => new MatchResult(key))];
-
-        foreach (var handle in toSearch)
+        if (!hasTextQuery)
         {
-            matches.Clear();
-            query.Evaluate(handle, matches);
-            if (matches.HasAny())
-            {
-                scoreBuffer.Add(handle.Guid, matches);
-                results.Add(handle);
-            }
-            cancellationToken.ThrowIfCancellationRequested();
+            results.AddRange(toSearch);
         }
-        results.Sort((x, y) => scoreBuffer.Score(y.Guid).CompareTo(scoreBuffer.Score(x.Guid)));
+        else
+        {
+            var textFilterWatch = Stopwatch.StartNew();
+            searchText = string.Join(" ", passThrough.Where(c => c.Length > 0)).ToLower();
+
+            scoreBuffer.Clear();
+            MatchQuery query = new(searchText, BlueprintHandle.MatchProvider);
+            MatchResult[] matches = [.. BlueprintHandle.MatchKeys.Select(key => new MatchResult(key))];
+
+            foreach (var handle in toSearch)
+            {
+                matches.Clear();
+                query.Evaluate(handle, matches);
+                if (matches.HasAny())
+                {
+                    scoreBuffer.Add(handle.Guid, matches);
+                    results.Add(handle);
+                }
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            results.Sort((x, y) => scoreBuffer.Score(y.Guid).CompareTo(scoreBuffer.Score(x.Guid)));
+            if (diagnostics is not null)
+                diagnostics.TextFilterElapsedMs = textFilterWatch.Elapsed.TotalMilliseconds;
+        }
 
         if (treeQuery.Length > 0)
         {
             //Console.WriteLine("runnig tree query:" + treeQuery);
-            Matcher queryMatcher = null;
-            var tokens = Lexer.Tokenize(treeQuery);
-            var parser = new Parser();
-            parser.Reset(tokens);
-            queryMatcher = parser.Parse();
-            if (parser.Error) return [];
-
             //Console.WriteLine(TreeQueryPrinter.DumpAst(queryMatcher));
 
             List<BlueprintHandle> ret = [];
@@ -608,12 +748,170 @@ public partial class BlueprintDB
                     break;
                 }
             }
-            var el = w.ElapsedMilliseconds;
-            //Console.WriteLine($"Executed {queried} queries in {el}ms, early break: {brokeEarly}");
+
+            if (diagnostics is not null)
+            {
+                diagnostics.TreeCandidates = results.Count;
+                diagnostics.TreeCandidatesEvaluated = queried;
+                diagnostics.TreeElapsedMs = w.Elapsed.TotalMilliseconds;
+                diagnostics.TreeTruncated = queried < results.Count;
+            }
+
             return ret;
         }
 
         return results;
+    }
+
+    private void ApplyRootTypePrefilter(Matcher matcher, ref List<BlueprintHandle> toSearch)
+    {
+        var predicates = RequiredRootTypePredicates(matcher).ToArray();
+        if (predicates.Length == 0 || rootTypeNames.Count == 0)
+            return;
+
+        var matchingTypes = new bool[rootTypeNames.Count];
+        int matchingTypeCount = 0;
+        for (int i = 0; i < rootTypeNames.Count; i++)
+        {
+            var type = rootTypeNames[i];
+            var typeName = type[(type.LastIndexOf('.') + 1)..];
+            if (predicates.All(predicate => RootTypeMatches(predicate, type, typeName)))
+            {
+                matchingTypes[i] = true;
+                matchingTypeCount++;
+            }
+        }
+
+        // Metadata and raw $type values can differ in imported/test data. If no
+        // metadata type matches, retain the full candidate set for correctness.
+        if (matchingTypeCount == 0)
+            return;
+
+        var filtered = new List<BlueprintHandle>();
+        for (int i = 0; i < cache.Count; i++)
+        {
+            if (matchingTypes[rootTypeByBlueprint[i]])
+                filtered.Add(cache[i]);
+        }
+        toSearch = filtered;
+    }
+
+    private static IEnumerable<PredicateMatcher> RequiredRootTypePredicates(Matcher matcher)
+    {
+        switch (matcher)
+        {
+            case PredicateMatcher { Key: "$type", Value: not null } predicate:
+                yield return predicate;
+                break;
+            case AndMatcher and:
+                foreach (var predicate in and.Matchers.SelectMany(RequiredRootTypePredicates))
+                    yield return predicate;
+                break;
+            case RelationMatcher relation:
+                foreach (var predicate in RequiredRootTypePredicates(relation.Anchor))
+                    yield return predicate;
+                break;
+        }
+    }
+
+    private static bool RootTypeMatches(PredicateMatcher predicate, string type, string typeName)
+    {
+        var comparison = StringComparison.OrdinalIgnoreCase;
+        return predicate.Fuzzy
+            ? type.Contains(predicate.Value, comparison)
+                || typeName.Contains(predicate.Value, comparison)
+            : type.Equals(predicate.Value, comparison)
+                || typeName.Equals(predicate.Value, comparison);
+    }
+
+    private void ApplyTypePresencePrefilter(Matcher matcher, ref List<BlueprintHandle> toSearch)
+    {
+        if (FlatIndexToTypeName is null)
+            return;
+
+        var rootPredicates = RequiredRootTypePredicates(matcher).ToHashSet();
+        var predicates = RequiredTypePredicates(matcher)
+            .Where(predicate => !rootPredicates.Contains(predicate))
+            .ToArray();
+        if (predicates.Length == 0)
+            return;
+
+        var matchingTypeSets = new List<bool[]>();
+        foreach (var predicate in predicates)
+        {
+            // Raw type GUID fragments cannot be represented by the mapped type-name index.
+            if (predicate.Value.All(Uri.IsHexDigit))
+                continue;
+
+            var matchingTypes = new bool[FlatIndexToTypeName.Length];
+            bool hasMatch = false;
+            for (int i = 0; i < FlatIndexToTypeName.Length; i++)
+            {
+                var type = FlatIndexToTypeName[i];
+                var typeName = type[(type.LastIndexOf('.') + 1)..];
+                if (RootTypeMatches(predicate, type, typeName))
+                {
+                    matchingTypes[i] = true;
+                    hasMatch = true;
+                }
+            }
+
+            // Unknown metadata cannot safely exclude a blueprint.
+            if (hasMatch)
+                matchingTypeSets.Add(matchingTypes);
+        }
+
+        if (matchingTypeSets.Count == 0)
+            return;
+
+        var filtered = new List<BlueprintHandle>();
+        foreach (var blueprint in toSearch)
+        {
+            if (blueprint.ComponentIndex is null)
+            {
+                filtered.Add(blueprint);
+                continue;
+            }
+
+            bool matchesAll = true;
+            foreach (var matchingTypes in matchingTypeSets)
+            {
+                if (!blueprint.ComponentIndex.Any(typeId =>
+                        typeId < matchingTypes.Length && matchingTypes[typeId]))
+                {
+                    matchesAll = false;
+                    break;
+                }
+            }
+
+            if (matchesAll)
+                filtered.Add(blueprint);
+        }
+        toSearch = filtered;
+    }
+
+    private static IEnumerable<PredicateMatcher> RequiredTypePredicates(Matcher matcher)
+    {
+        switch (matcher)
+        {
+            case PredicateMatcher { Key: "$type", Value: not null } predicate:
+                yield return predicate;
+                break;
+            case AndMatcher and:
+                foreach (var predicate in and.Matchers.SelectMany(RequiredTypePredicates))
+                    yield return predicate;
+                break;
+            case PathMatcher path:
+                foreach (var predicate in RequiredTypePredicates(path.NextRequirement))
+                    yield return predicate;
+                break;
+            case RelationMatcher relation:
+                foreach (var predicate in RequiredTypePredicates(relation.Anchor))
+                    yield return predicate;
+                foreach (var predicate in RequiredTypePredicates(relation.Target))
+                    yield return predicate;
+                break;
+        }
     }
 
     private static bool EntryIsNotNull(BlueprintHandle b, string[] path)

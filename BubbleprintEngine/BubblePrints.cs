@@ -21,14 +21,17 @@ public static class BubblePrints
     public static void Install()
     {
 #if !NO_CONSOLE
-#if DEBUG
-        AllocConsole();
-#else
-        if (Environment.GetEnvironmentVariable("BUBBLEPRINTS_DEBUG") != null)
+        if (OperatingSystem.IsWindows())
         {
+#if DEBUG
             AllocConsole();
-        }
+#else
+            if (Environment.GetEnvironmentVariable("BUBBLEPRINTS_DEBUG") != null)
+            {
+                AllocConsole();
+            }
 #endif
+        }
 #endif
 
         if (!Directory.Exists(DataPath))

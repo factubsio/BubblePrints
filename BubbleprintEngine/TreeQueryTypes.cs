@@ -28,7 +28,27 @@ public record PathMatcher(string KeyRequirement, NfaCombinator Combinator, Match
         return $"{KeyRequirement} {combinatorString} {NextRequirement}";
     }
 }
-public record PredicateMatcher(Func<JsonElement, bool> Predicate, string Desc = "") : Matcher
+
+public record RelationMatcher(Matcher Anchor, NfaCombinator Combinator, Matcher Target) : Matcher
+{
+    public override string ToString()
+    {
+        var combinatorString = Combinator switch
+        {
+            NfaCombinator.Child => ">",
+            NfaCombinator.Descendant => "..",
+            _ => "?"
+        };
+        return $"({Anchor} {combinatorString} {Target})";
+    }
+}
+
+public record PredicateMatcher(
+    Func<JsonElement, bool> Predicate,
+    string Desc = "",
+    string Key = null,
+    string Value = null,
+    bool Fuzzy = false) : Matcher
 {
     public override string ToString() => Desc;
 }
@@ -60,6 +80,9 @@ public static class TreeQueryGenerator
         bool isBool = bool.TryParse(val.ToLower(), out var boolVal);
         return e =>
         {
+            if (e.ValueKind != JsonValueKind.Object)
+                return false;
+
             if (!e.TryGetProperty(key, out var prop))
                 return false;
 

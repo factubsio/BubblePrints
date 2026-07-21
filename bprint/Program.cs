@@ -42,6 +42,13 @@ public static class Program
             };
         }
 
+        if (args.Length == 0)
+        {
+            Console.Error.WriteLine("A command is required. Available commands:");
+            Console.Error.WriteLine(string.Join('\n', cmdlets.Keys));
+            return;
+        }
+
         if (!cmdlets.TryGetValue(args[0], out var cmdlet))
         {
             Console.Error.WriteLine($"No command '{args[0]}', available commands:");
@@ -55,7 +62,25 @@ public static class Program
     public static async Task<BlueprintDB> LoadDB(string game)
     {
         var bins = new BinzManager();
-        var binz = bins.Available.First(b => b.Local && b.Version.Game.Equals(game, StringComparison.InvariantCultureIgnoreCase)) ?? throw new Exception($"no {game} binz available");
+        var binz = bins.Available.FirstOrDefault(
+            b => b.Version.Game.Equals(game, StringComparison.InvariantCultureIgnoreCase))
+            ?? throw new Exception($"No {game} binz is available locally or remotely.");
+
+        if (!binz.Local)
+        {
+            Console.WriteLine($"Downloading {binz.Version}...");
+            int lastReported = -10;
+            await bins.Download(binz, progress =>
+            {
+                if (progress >= lastReported + 10)
+                {
+                    Console.WriteLine($"{progress}%");
+                    lastReported = progress;
+                }
+            });
+            binz.Local = true;
+            Console.WriteLine($"Downloaded to {binz.Path}");
+        }
 
         BlueprintDB db = new(game);
 

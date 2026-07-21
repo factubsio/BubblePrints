@@ -303,11 +303,11 @@ public static class Program
         {
             foreach (var bp in db.BlueprintsInOrder)
             {
-                if (bp.Raw == null) continue;
+                var rawUtf8 = bp.RawUtf8;
+                if (rawUtf8 is null) continue;
 
-                byte[] encoded = Encoding.UTF8.GetBytes(bp.Raw);
                 long offset = fs.Position;
-                await fs.WriteAsync(encoded);
+                await fs.WriteAsync(rawUtf8);
 
                 bp.Name = TryIntern(bp.Name);
                 bp.NameLower = TryIntern(bp.NameLower);
@@ -317,7 +317,7 @@ public static class Program
                 bp.Namespace = TryIntern(bp.Namespace);
                 bp.NamespaceLower = TryIntern(bp.NamespaceLower);
 
-                bp.UserData = new StringMetadata(offset, encoded.Length);
+                bp.UserData = new StringMetadata(offset, rawUtf8.Length);
                 bp.PurgeData();
             }
 
@@ -343,4 +343,3 @@ public static class Program
 }
 
 public record class StringMetadata(long Offset, int Length);
-

@@ -378,7 +378,7 @@ public static class BinzImportExport
             GuidText = json.Str("AssetId"),
             Name = handleName,
             Type = type.FullName ?? type.Name,
-            _Raw = JsonSerializer.Serialize(json.GetProperty("Data"), writeOptions),
+            _RawUtf8 = JsonSerializer.SerializeToUtf8Bytes(json.GetProperty("Data"), writeOptions),
         };
 
         if (json.TryGetProperty("Meta", out var meta) && meta.TryGetProperty("ShadowDeleted", out var isDeleted) && isDeleted.GetBoolean())
@@ -450,7 +450,7 @@ public static class BinzImportExport
                     GuidText = entry.Name[(secondLastDot + 1)..lastDot],
                     Name = entry.Name[0..secondLastDot],
                     Type = type,
-                    _Raw = JsonSerializer.Serialize(json, writeOptions),
+                    _RawUtf8 = JsonSerializer.SerializeToUtf8Bytes(json, writeOptions),
                 };
                 var components = handle.Type.Split('.');
                 if (components.Length <= 1)
@@ -552,7 +552,7 @@ public static class BinzImportExport
                 bool enoughRoom = true;
                 if (current != null)
                 {
-                    int remaining = (int)(BPFile.BUFFER_SIZE - current.Stream.BaseStream.Position - c.Raw.Length);
+                    int remaining = (int)(BPFile.BUFFER_SIZE - current.Stream.BaseStream.Position - c.RawByteLength);
                     if (remaining < 32000)
                     enoughRoom = false;
                 }
@@ -573,7 +573,8 @@ public static class BinzImportExport
                 current.Stream.Write(c.GuidText);
                 current.Stream.Write(c.Name);
                 current.Stream.Write(c.Type);
-                current.Stream.Write(c.Raw);
+                current.Stream.Write7BitEncodedInt(c.RawByteLength);
+                current.Stream.Write(c.RawUtf8);
 
 
                 if (writePaths)

@@ -14,13 +14,19 @@ internal static class Searcher
     [Cmdlet("search")]
     internal static async Task Search(string[] args)
     {
+        if (args.Length < 3)
+        {
+            Console.Error.WriteLine("Usage: bprint search <game> <query>");
+            return;
+        }
+
         string game = args[1];
 
         BlueprintDB db = await Program.LoadDB(game);
 
         ScoreBuffer resultsBuffer = new();
 
-        string query = args[2];
+        string query = string.Join(' ', args[2..]);
         Console.WriteLine($"searching for {game}:{query}");
         var matches = db.SearchBlueprints(query, resultsBuffer, CancellationToken.None);
 

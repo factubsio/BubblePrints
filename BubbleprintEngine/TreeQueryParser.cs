@@ -59,6 +59,7 @@ public static class Lexer
                 case '[': tokens.Add(new Token(TokenType.ArrayItem, c.ToString())); i++; break;
                 case '&': tokens.Add(new Token(TokenType.And, c.ToString())); i++; break;
                 case '=': tokens.Add(new Token(TokenType.Equals, c.ToString())); i++; break;
+                case '>': tokens.Add(new Token(TokenType.Child, c.ToString())); i++; break;
                 case '.': tokens.Add(TryComposite(c, '.', TokenType.Dot, TokenType.DoubleDot)); break;
                 case '~': tokens.Add(TryComposite(c, '=', TokenType.Unknown, TokenType.FuzzyEquals)); break;
                 default:
@@ -67,7 +68,15 @@ public static class Lexer
                     {
                         i++;
                     }
-                    tokens.Add(new Token(TokenType.Identifier, query.Substring(start, i - start)));
+                    if (i > start)
+                    {
+                        tokens.Add(new Token(TokenType.Identifier, query.Substring(start, i - start)));
+                    }
+                    else
+                    {
+                        tokens.Add(new Token(TokenType.Unknown, c.ToString()));
+                        i++;
+                    }
                     break;
             }
         }
@@ -87,11 +96,13 @@ public class Parser()
     private readonly Func<string, string, bool, Func<JsonElement, bool>> makeCheckKV = TreeQueryGenerator.CheckKV;
 
     public bool Error = false;
+    public string ErrorMessage { get; private set; } = "";
     private int position = 0;
     private List<Token> tokens = [];
     public void Reset(List<Token> tokens)
     {
         Error = false;
+        ErrorMessage = "";
         position = 0;
         this.tokens = tokens;
     }
@@ -102,29 +113,31 @@ public class Parser()
         if (!TryParseExpression(out var matcher))
         {
             Error = true;
+            SetError($"Unexpected token '{Current.Value}'.");
             return NullMatcher.Instance;
         }
 
         if (Current.Type != TokenType.EOF)
         {
             Error = true;
+            SetError($"Unexpected token '{Current.Value}'.");
             return NullMatcher.Instance;
         }
 
         return matcher;
     }
 
-    // Expression -> Term { '&' Term }
+    // Expression -> Relation { '&' Relation }
     private bool TryParseExpression(out Matcher expr)
     {
         expr = NullMatcher.Instance;
 
-        if (!TryParseTerm(out var left)) return false;
+        if (!TryParseRelation(out var left)) return false;
 
         while (Current.Type == TokenType.And)
         {
             Advance(); // Consume '&'
-            if (!TryParseTerm(out var right)) return false;
+            if (!TryParseRelation(out var right)) return false;
 
             if (left is AndMatcher and)
             {
@@ -139,8 +152,39 @@ public class Parser()
         return true;
     }
 
-    // Term -> '(' Expression ')' | IDENTIFIER [ ('>'|'['|'.') Term | ('='|'~=') IDENTIFIER ]
-    private bool TryParseTerm(out Matcher matcher)
+    // Relation -> Primary [ ('>'|'..') Relation ]
+    // Relations are right-associative so A..B..C means A..(B..C).
+    private bool TryParseRelation(out Matcher matcher)
+    {
+        if (!TryParsePrimary(out var anchor))
+        {
+            matcher = NullMatcher.Instance;
+            return false;
+        }
+
+        if (Current.Type is not (TokenType.Child or TokenType.DoubleDot))
+        {
+            matcher = anchor;
+            return true;
+        }
+
+        var combinator = Current.Type == TokenType.DoubleDot
+            ? NfaCombinator.Descendant
+            : NfaCombinator.Child;
+        Advance();
+
+        if (!TryParseRelation(out var target))
+        {
+            matcher = NullMatcher.Instance;
+            return false;
+        }
+
+        matcher = new RelationMatcher(anchor, combinator, target);
+        return true;
+    }
+
+    // Primary -> '(' Expression ')' | IDENTIFIER [ PathSuffix | Predicate ]
+    private bool TryParsePrimary(out Matcher matcher)
     {
         matcher = NullMatcher.Instance;
 
@@ -149,14 +193,22 @@ public class Parser()
             Advance(); // Consume '('
             if (!TryParseExpression(out var expression)) return false;
 
-            if (Current.Type != TokenType.RightParen) return false;
+            if (Current.Type != TokenType.RightParen)
+            {
+                SetError("Expected ')'.");
+                return false;
+            }
 
             Advance(); // Consume ')'
             matcher = expression;
             return true;
         }
 
-        if (!TryConsume(TokenType.Identifier, out var key)) return false;
+        if (!TryConsume(TokenType.Identifier, out var key))
+        {
+            SetError("Expected an identifier or '('.");
+            return false;
+        }
 
         // Lookahead to decide if it's a Path or a Predicate
         switch (Current.Type)
@@ -165,22 +217,32 @@ public class Parser()
                 // It's a predicate: key=val
                 var op = Current;
                 Advance();
-                if (!TryConsume(TokenType.Identifier, out var val)) return false;
+                if (!TryConsume(TokenType.Identifier, out var val))
+                {
+                    SetError($"Expected a value after '{op.Value}'.");
+                    return false;
+                }
 
                 var desc = $"{key.Value} {op.Value} {val.Value}";
 
-                matcher = new PredicateMatcher(makeCheckKV(key.Value, val.Value, op.Type == TokenType.FuzzyEquals), desc);
+                matcher = new PredicateMatcher(
+                    makeCheckKV(key.Value, val.Value, op.Type == TokenType.FuzzyEquals),
+                    desc,
+                    key.Value,
+                    val.Value,
+                    op.Type == TokenType.FuzzyEquals);
                 return true;
 
-            case TokenType.Child or TokenType.ArrayItem or TokenType.Dot:
-                // It's a path: key > Term, key [ Term, key . Term
+            case TokenType.Child or TokenType.ArrayItem or TokenType.Dot or TokenType.DoubleDot:
+                // A combinator immediately after a bare identifier is a property path.
                 var combinatorToken = Current;
                 Advance();
-                if (!TryParseTerm(out var nextRequirement)) return false;
+                if (!TryParseRelation(out var nextRequirement)) return false;
 
                 var combinator = combinatorToken.Type switch
                 {
                     TokenType.ArrayItem => NfaCombinator.ArrayItem,
+                    TokenType.DoubleDot => NfaCombinator.Descendant,
                     _ => NfaCombinator.Child // Treat '>' and '.' as the same
                 };
 
@@ -189,7 +251,10 @@ public class Parser()
 
             default:
                 // It's a key existence check (e.g., just 'Components' followed by & or EOF)
-                matcher = new PredicateMatcher(e => e.TryGetProperty(key.Value, out _));
+                matcher = new PredicateMatcher(
+                    e => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(key.Value, out _),
+                    key.Value,
+                    key.Value);
                 return true;
         }
     }
@@ -207,6 +272,12 @@ public class Parser()
 
         token = new(TokenType.Unknown, "");
         return false;
+    }
+
+    private void SetError(string message)
+    {
+        if (ErrorMessage.Length == 0)
+            ErrorMessage = message;
     }
 }
 
@@ -236,6 +307,12 @@ public static class TreeQueryPrinter
             case PathMatcher path:
                 sb.AppendLine($"{indent}PATH ({path.KeyRequirement} {path.Combinator})");
                 DumpAstRecursive(path.NextRequirement, indent + "  ", sb);
+                break;
+
+            case RelationMatcher relation:
+                sb.AppendLine($"{indent}RELATION ({relation.Combinator})");
+                DumpAstRecursive(relation.Anchor, indent + "  ", sb);
+                DumpAstRecursive(relation.Target, indent + "  ", sb);
                 break;
 
             case PredicateMatcher pred:
