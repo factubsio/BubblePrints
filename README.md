@@ -8,6 +8,11 @@ install:
 
 https://dotnet.microsoft.com/download/dotnet/thank-you/runtime-desktop-5.0.0-windows-x64-installer
 
+## MCP server
+
+BubblePrints includes a local MCP server for Codex, Claude, and other MCP
+clients. See [the MCP installation guide](BubbleprintsMcpServer/INSTALL.md).
+
 
 ## v0.23.x is EXPERIMENTAL
 

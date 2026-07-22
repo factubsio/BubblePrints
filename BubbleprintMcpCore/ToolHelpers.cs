@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using BlueprintExplorer;
 
-namespace BubbleprintMcpWorker;
+namespace BubbleprintMcpCore;
 
 internal static class ToolHelpers
 {

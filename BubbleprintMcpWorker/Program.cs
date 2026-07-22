@@ -1,4 +1,4 @@
-using BlueprintExplorer;
+using BubbleprintMcpCore;
 using BubbleprintMcpWorker;
 
 if (args.Length < 1)
@@ -12,16 +12,14 @@ Console.SetOut(Console.Error);
 
 try
 {
-    var path = Path.GetFullPath(args[0]);
-    var version = BinzManager.VersionFromFile(path);
-    var db = new BlueprintDB(version.Game);
-    db.TryConnect(new ConnectionProgress(), path, saveSettings: false);
-    db.PreferStreamingTreeQueries = true;
+    var session = new BinzSession();
+    session.Open(args[0]);
+    var path = session.Path!;
 
     Console.Error.WriteLine($"bubbleprint-worker: loaded {path}");
-    Console.Error.WriteLine($"bubbleprint-worker: {db.BlueprintsInOrder.Count} blueprints");
+    Console.Error.WriteLine($"bubbleprint-worker: {session.BlueprintCount} blueprints");
 
-    var worker = new JsonlWorker(db, path, protocolOut);
+    var worker = new JsonlWorker(session, path, protocolOut);
     worker.Run();
     return 0;
 }

@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using BlueprintExplorer;
 
-namespace BubbleprintMcpWorker.Tools;
+namespace BubbleprintMcpCore.Tools;
 
 public sealed class ReferencedByTool : IMcpTool
 {

@@ -5,10 +5,11 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BubbleprintEngine\BubbleprintEngine.csproj" />
+    <ProjectReference Include="..\BubbleprintMcpCore\BubbleprintMcpCore.csproj" />
   </ItemGroup>
 
 </Project>

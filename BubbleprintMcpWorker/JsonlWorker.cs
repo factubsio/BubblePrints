@@ -1,29 +1,25 @@
-using System.Reflection;
-using System.Text.Json;
 using System.Text.Json.Nodes;
-using BlueprintExplorer;
+using BubbleprintMcpCore;
 
 namespace BubbleprintMcpWorker;
 
 public sealed class JsonlWorker
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
         WriteIndented = false,
     };
 
-    private readonly BlueprintDB db;
+    private readonly BinzSession session;
     private readonly string path;
     private readonly TextWriter output;
-    private readonly Dictionary<string, IMcpTool> tools = new(StringComparer.OrdinalIgnoreCase);
 
-    public JsonlWorker(BlueprintDB db, string path, TextWriter output)
+    public JsonlWorker(BinzSession session, string path, TextWriter output)
     {
-        this.db = db;
+        this.session = session;
         this.path = path;
         this.output = output;
-        DiscoverTools();
     }
 
     public void Run()
@@ -51,8 +47,8 @@ public sealed class JsonlWorker
                         {
                             ["status"] = "ok",
                             ["path"] = path,
-                            ["game"] = db.GameName,
-                            ["blueprints"] = db.BlueprintsInOrder.Count,
+                            ["game"] = session.Game,
+                            ["blueprints"] = session.BlueprintCount,
                         });
                         break;
                     case "list":
@@ -76,25 +72,10 @@ public sealed class JsonlWorker
         }
     }
 
-    private void DiscoverTools()
-    {
-        foreach (var type in Assembly.GetExecutingAssembly().GetTypes())
-        {
-            if (type.IsAbstract || type.IsInterface || !typeof(IMcpTool).IsAssignableFrom(type))
-                continue;
-
-            var tool = (IMcpTool)Activator.CreateInstance(type)!;
-            tools[tool.Name] = tool;
-        }
-
-        Console.Error.WriteLine(
-            $"bubbleprint-worker: discovered {tools.Count} tools: {string.Join(", ", tools.Keys.Order())}");
-    }
-
     private JsonArray ListTools()
     {
         var result = new JsonArray();
-        foreach (var tool in tools.Values.OrderBy(tool => tool.Name))
+        foreach (var tool in session.ListTools())
         {
             result.Add(new JsonObject
             {
@@ -110,18 +91,14 @@ public sealed class JsonlWorker
         var toolName = parameters?["tool"]?.GetValue<string>() ?? "";
         var args = parameters?["args"] as JsonObject ?? new JsonObject();
 
-        if (!tools.TryGetValue(toolName, out var tool))
-            throw new ArgumentException($"Unknown tool '{toolName}'.");
-
-        var result = JsonSerializer.SerializeToNode(tool.Handle(db, args), JsonOptions);
-        var json = result?.ToJsonString(JsonOptions) ?? "null";
-        if (json.Length > tool.MaxResultBytes)
+        try
         {
-            Respond(id, error: $"Result is {json.Length} bytes; limit is {tool.MaxResultBytes}. Narrow the request.");
-            return;
+            Respond(id, session.Run(toolName, args));
         }
-
-        Respond(id, result);
+        catch (ToolResultTooLargeException ex)
+        {
+            Respond(id, error: ex.Message);
+        }
     }
 
     private void Respond(int id, JsonNode? result = null, string? error = null)

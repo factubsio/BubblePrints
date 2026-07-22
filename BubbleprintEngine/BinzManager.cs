@@ -203,36 +203,88 @@ public class BinzManager
         else if (toLoad.Version.Game == "KM") latestVersionUrl = new Uri($"{host}/KM_{toLoad.Version.Version}/{filename}");
         else latestVersionUrl = new Uri($"{host}/{toLoad.Version.Game}_{toLoad.Version.Version}/{filename}");
         using var client = new HttpClient();
-        string tmp = Path.Combine(CacheDir, "binz_download.tmp");
-        if (File.Exists(tmp)) File.Delete(tmp);
-
         toLoad.Path = Path.Combine(CacheDir, filename);
-        using var response = await client.GetAsync(latestVersionUrl, HttpCompletionOption.ResponseHeadersRead);
-        response.EnsureSuccessStatusCode();
+        string lockPath = toLoad.Path + ".download.lock";
+        string tmp = toLoad.Path + $".{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
 
-        await using var stream = await response.Content.ReadAsStreamAsync();
-        await using var file = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None);
-        var buffer = new byte[81920];
-        int read;
-        long totalRead = 0;
-        var total = response.Content.Headers.ContentLength ?? -1;
-        int lastPct = 0;
-        while ((read = await stream.ReadAsync(buffer)) > 0)
+        FileStream downloadLock;
+        try
         {
-            await file.WriteAsync(buffer.AsMemory(0, read));
-            totalRead += read;
-            int pct = (int)((totalRead * 100) / total);
-            if (pct > lastPct)
+            downloadLock = new FileStream(
+                lockPath,
+                FileMode.OpenOrCreate,
+                FileAccess.ReadWrite,
+                FileShare.None);
+        }
+        catch (IOException ex)
+        {
+            throw new IOException(
+                $"Another process is already downloading '{filename}'.",
+                ex);
+        }
+
+        try
+        {
+            await using (downloadLock)
             {
-                onProgress(pct);
-                lastPct = pct;
+                try
+                {
+                    using var response = await client.GetAsync(
+                        latestVersionUrl,
+                        HttpCompletionOption.ResponseHeadersRead);
+                    response.EnsureSuccessStatusCode();
+
+                    await using var stream = await response.Content.ReadAsStreamAsync();
+                    await using var file = new FileStream(
+                        tmp,
+                        FileMode.CreateNew,
+                        FileAccess.Write,
+                        FileShare.None);
+                    var buffer = new byte[81920];
+                    int read;
+                    long totalRead = 0;
+                    var total = response.Content.Headers.ContentLength;
+                    int lastPct = 0;
+                    while ((read = await stream.ReadAsync(buffer)) > 0)
+                    {
+                        await file.WriteAsync(buffer.AsMemory(0, read));
+                        totalRead += read;
+                        if (total is > 0)
+                        {
+                            int pct = (int)((totalRead * 100) / total.Value);
+                            if (pct > lastPct)
+                            {
+                                onProgress(pct);
+                                lastPct = pct;
+                            }
+                        }
+                    }
+                    file.Close();
+
+                    File.Move(tmp, toLoad.Path, overwrite: true);
+                }
+                finally
+                {
+                    if (File.Exists(tmp))
+                        File.Delete(tmp);
+                }
             }
         }
-        file.Close();
-
-        if (File.Exists(toLoad.Path)) File.Delete(toLoad.Path);
-        File.Move(tmp, toLoad.Path);
-
+        finally
+        {
+            try
+            {
+                File.Delete(lockPath);
+            }
+            catch (IOException)
+            {
+                // A stale empty lock file is harmless; the open handle is the lock.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // The transfer result is more important than deleting the marker.
+            }
+        }
     }
 
     private static readonly Regex extractVersion = new(@"blueprints_raw_(\d+).(\d+)\.(\d+)(.*)_(\d).binz");

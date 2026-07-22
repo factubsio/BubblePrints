@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
 using BlueprintExplorer;
 
-namespace BubbleprintMcpWorker.Tools;
+namespace BubbleprintMcpCore.Tools;
 
 public sealed class TypesTool : IMcpTool
 {
