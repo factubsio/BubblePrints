@@ -25,4 +25,10 @@ BUBBLEPRINT_WORKER = "/path/to/BubblePrints/BubbleprintMcpWorker/bin/Debug/net8.
 
 Bridge tools are `open_binz`, `close_binz`, `list_tools`, `run`, and `status`.
 Use `list_tools` after opening a database to discover worker operations,
-including `referenced_by` for incoming blueprint references.
+including `referenced_by` for incoming blueprint references. Pass
+`includeContext: true` to locate each reference in its enclosing JSON object
+at runtime without increasing the binz size.
+
+Use `json_query` to return bounded portions of one blueprint. It supports
+property paths, array indexes and wildcards, recursive filtering, and direct
+property projection.
