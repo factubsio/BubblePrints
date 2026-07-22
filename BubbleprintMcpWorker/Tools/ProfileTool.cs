@@ -38,6 +38,8 @@ public sealed class ProfileTool : IMcpTool
             var typePresencePrefilterElapsed = new double[iterations];
             var propertyKeyCandidates = new int[iterations];
             var propertyKeyPrefilterElapsed = new double[iterations];
+            var scalarValueCandidates = new int[iterations];
+            var scalarValuePrefilterElapsed = new double[iterations];
             var metadataPrefilterElapsed = new double[iterations];
             var textFilterElapsed = new double[iterations];
             var treeCandidates = new int[iterations];
@@ -65,6 +67,8 @@ public sealed class ProfileTool : IMcpTool
                 typePresencePrefilterElapsed[i] = diagnostics.TypePresencePrefilterElapsedMs;
                 propertyKeyCandidates[i] = diagnostics.PropertyKeyCandidates;
                 propertyKeyPrefilterElapsed[i] = diagnostics.PropertyKeyPrefilterElapsedMs;
+                scalarValueCandidates[i] = diagnostics.ScalarValueCandidates;
+                scalarValuePrefilterElapsed[i] = diagnostics.ScalarValuePrefilterElapsedMs;
                 metadataPrefilterElapsed[i] = diagnostics.MetadataPrefilterElapsedMs;
                 textFilterElapsed[i] = diagnostics.TextFilterElapsedMs;
                 treeCandidates[i] = diagnostics.TreeCandidates;
@@ -99,6 +103,10 @@ public sealed class ProfileTool : IMcpTool
                 ["propertyKeyCandidates"] = new JsonArray(propertyKeyCandidates.Select(value =>
                     (JsonNode)JsonValue.Create(value)!).ToArray()),
                 ["propertyKeyPrefilterMs"] = new JsonArray(propertyKeyPrefilterElapsed.Select(value =>
+                    (JsonNode)JsonValue.Create(Math.Round(value, 3))!).ToArray()),
+                ["scalarValueCandidates"] = new JsonArray(scalarValueCandidates.Select(value =>
+                    (JsonNode)JsonValue.Create(value)!).ToArray()),
+                ["scalarValuePrefilterMs"] = new JsonArray(scalarValuePrefilterElapsed.Select(value =>
                     (JsonNode)JsonValue.Create(Math.Round(value, 3))!).ToArray()),
                 ["metadataPrefilterMs"] = new JsonArray(metadataPrefilterElapsed.Select(value =>
                     (JsonNode)JsonValue.Create(Math.Round(value, 3))!).ToArray()),

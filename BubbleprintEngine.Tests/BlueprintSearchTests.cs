@@ -154,7 +154,7 @@ public class BlueprintSearchTests
     }
 
     [Fact]
-    public void SearchBlueprints_PropertyKeyBloomIndex_PrefiltersRequiredEscapedKey()
+    public void SearchBlueprints_PropertyKeyPostingIndex_PrefiltersRequiredEscapedKey()
     {
         var db = new BlueprintDB("Test");
         db.AddBlueprint(Blueprint(
@@ -165,7 +165,7 @@ public class BlueprintSearchTests
             "00000000-0000-0000-0000-000000000002",
             "Other",
             """{"Unrelated":"target"}"""));
-        db.BuildPropertyKeyBloomIndex();
+        db.BuildPropertyKeyPostingIndex();
 
         var diagnostics = new BlueprintDB.SearchDiagnostics();
         var results = db.SearchBlueprints(
@@ -175,35 +175,253 @@ public class BlueprintSearchTests
             diagnostics);
 
         Assert.Equal("Wanted", Assert.Single(results).Name);
-        Assert.True(db.HasPropertyKeyBloomIndex);
-        Assert.Equal(
-            2 * BlueprintDB.PropertyKeyBloomBitsPerBlueprint / 8,
-            db.PropertyKeyBloomIndexBytes);
+        Assert.True(db.HasPropertyKeyPostingIndex);
+        Assert.Equal(2, db.PropertyKeyPostingCount);
+        Assert.Equal(2, db.PropertyKeyPostingIndexBytes);
         Assert.Equal(1, diagnostics.PropertyKeyCandidates);
         Assert.Equal(1, diagnostics.TreeCandidatesEvaluated);
     }
 
     [Fact]
-    public void AddBlueprint_InvalidatesPropertyKeyBloomIndex()
+    public void AddBlueprint_InvalidatesPropertyKeyPostingIndex()
     {
         var db = new BlueprintDB("Test");
         db.AddBlueprint(Blueprint(
             "00000000-0000-0000-0000-000000000001",
             "Initial",
             """{"InitialKey":"yes"}"""));
-        db.BuildPropertyKeyBloomIndex();
+        db.BuildPropertyKeyPostingIndex();
 
         db.AddBlueprint(Blueprint(
             "00000000-0000-0000-0000-000000000002",
             "Added",
             """{"LateKey":"yes"}"""));
 
-        Assert.False(db.HasPropertyKeyBloomIndex);
+        Assert.False(db.HasPropertyKeyPostingIndex);
         var results = db.SearchBlueprints(
             "^LateKey=yes^",
             new ScoreBuffer(),
             CancellationToken.None);
         Assert.Equal("Added", Assert.Single(results).Name);
+    }
+
+    [Fact]
+    public void SearchBlueprints_ScalarValuePostingIndex_RejectsMissingExactValue()
+    {
+        var db = new BlueprintDB("Test");
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000001",
+            "And",
+            """{"Operation":"And"}"""));
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000002",
+            "Or",
+            """{"Operation":"Or"}"""));
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000003",
+            "Other",
+            """{"Unrelated":"Missing"}"""));
+        db.BuildPropertyKeyPostingIndex();
+        db.BuildScalarValuePostingIndex();
+
+        var diagnostics = new BlueprintDB.SearchDiagnostics();
+        var results = db.SearchBlueprints(
+            "^Operation=Missing^",
+            new ScoreBuffer(),
+            CancellationToken.None,
+            diagnostics);
+
+        Assert.Empty(results);
+        Assert.True(db.HasScalarValuePostingIndex);
+        Assert.Equal(3, diagnostics.PropertyKeyCandidates);
+        Assert.Equal(0, diagnostics.ScalarValueCandidates);
+        Assert.Equal(0, diagnostics.TreeCandidatesEvaluated);
+    }
+
+    [Theory]
+    [InlineData("Flag=true", 2)]
+    [InlineData("Count=1", 2)]
+    [InlineData("Empty=null", 2)]
+    public void SearchBlueprints_ScalarValuePostingIndex_PreservesCrossTypeMatches(
+        string predicate,
+        int expected)
+    {
+        var db = new BlueprintDB("Test");
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000001",
+            "Typed",
+            """{"Flag":true,"Count":1,"Empty":null}"""));
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000002",
+            "Strings",
+            """{"Flag":"TRUE","Count":"1","Empty":"NULL"}"""));
+        db.BuildPropertyKeyPostingIndex();
+        db.BuildScalarValuePostingIndex();
+
+        var diagnostics = new BlueprintDB.SearchDiagnostics();
+        var results = db.SearchBlueprints(
+            $"^{predicate}^",
+            new ScoreBuffer(),
+            CancellationToken.None,
+            diagnostics);
+
+        Assert.Equal(expected, results.Count);
+        Assert.Equal(expected, diagnostics.ScalarValueCandidates);
+    }
+
+    [Fact]
+    public void SearchBlueprints_ScalarValuePostingIndex_IntersectsExactPredicates()
+    {
+        var db = new BlueprintDB("Test");
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000001",
+            "Both",
+            """{"First":"yes","Second":"target"}"""));
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000002",
+            "FirstOnly",
+            """{"First":"yes","Second":"other"}"""));
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000003",
+            "SecondOnly",
+            """{"First":"no","Second":"target"}"""));
+        db.BuildPropertyKeyPostingIndex();
+        db.BuildScalarValuePostingIndex();
+
+        var diagnostics = new BlueprintDB.SearchDiagnostics();
+        var results = db.SearchBlueprints(
+            "^First=yes & Second=target^",
+            new ScoreBuffer(),
+            CancellationToken.None,
+            diagnostics);
+
+        Assert.Equal("Both", Assert.Single(results).Name);
+        Assert.Equal(1, diagnostics.ScalarValueCandidates);
+        Assert.Equal(1, diagnostics.TreeCandidatesEvaluated);
+    }
+
+    [Fact]
+    public void SearchBlueprints_ScalarValuePostingIndex_BypassesFuzzyAndLongValues()
+    {
+        string longValue = new('x', 65);
+        var db = new BlueprintDB("Test");
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000001",
+            "Wanted",
+            $$"""{"Text":"target","Long":"{{longValue}}"}"""));
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000002",
+            "Other",
+            """{"Text":"other"}"""));
+        db.BuildPropertyKeyPostingIndex();
+        db.BuildScalarValuePostingIndex();
+
+        var diagnostics = new BlueprintDB.SearchDiagnostics();
+        var fuzzyResults = db.SearchBlueprints(
+            "^Text~=arg^",
+            new ScoreBuffer(),
+            CancellationToken.None,
+            diagnostics);
+
+        Assert.Equal("Wanted", Assert.Single(fuzzyResults).Name);
+        Assert.Equal(2, diagnostics.ScalarValueCandidates);
+
+        var longResults = db.SearchBlueprints(
+            $"^Long={longValue}^",
+            new ScoreBuffer(),
+            CancellationToken.None,
+            diagnostics);
+
+        Assert.Equal("Wanted", Assert.Single(longResults).Name);
+        Assert.Equal(1, diagnostics.ScalarValueCandidates);
+    }
+
+    [Fact]
+    public void SearchBlueprints_ScalarValuePostingIndex_FallsBackForHighCardinalityKey()
+    {
+        var db = new BlueprintDB("Test");
+        for (int i = 0; i < 257; i++)
+        {
+            db.AddBlueprint(Blueprint(
+                $"00000000-0000-0000-0000-{i + 1:D12}",
+                $"Blueprint{i}",
+                $$"""{"HighCardinality":"value{{i}}"}"""));
+        }
+        db.BuildPropertyKeyPostingIndex();
+        db.BuildScalarValuePostingIndex();
+
+        var diagnostics = new BlueprintDB.SearchDiagnostics();
+        var results = db.SearchBlueprints(
+            "^HighCardinality=value0^",
+            new ScoreBuffer(),
+            CancellationToken.None,
+            diagnostics);
+
+        Assert.Equal("Blueprint0", Assert.Single(results).Name);
+        Assert.Equal(1, db.ScalarValueDisqualifiedKeyCount);
+        Assert.Equal(257, diagnostics.ScalarValueCandidates);
+    }
+
+    [Fact]
+    public void AddBlueprint_InvalidatesScalarValuePostingIndex()
+    {
+        var db = new BlueprintDB("Test");
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000001",
+            "Initial",
+            """{"Status":"old"}"""));
+        db.BuildScalarValuePostingIndex();
+
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000002",
+            "Added",
+            """{"Status":"new"}"""));
+
+        Assert.False(db.HasScalarValuePostingIndex);
+        var results = db.SearchBlueprints(
+            "^Status=new^",
+            new ScoreBuffer(),
+            CancellationToken.None);
+        Assert.Equal("Added", Assert.Single(results).Name);
+    }
+
+    [Fact]
+    public void SearchBlueprints_PropertyKeyPostingIndex_IntersectsRequiredKeys()
+    {
+        var db = new BlueprintDB("Test");
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000001",
+            "Both",
+            """{"First":true,"Second":true}"""));
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000002",
+            "FirstOnly",
+            """{"First":true}"""));
+        db.AddBlueprint(Blueprint(
+            "00000000-0000-0000-0000-000000000003",
+            "SecondOnly",
+            """{"Second":true}"""));
+        db.BuildPropertyKeyPostingIndex();
+
+        var diagnostics = new BlueprintDB.SearchDiagnostics();
+        var results = db.SearchBlueprints(
+            "^First & Second^",
+            new ScoreBuffer(),
+            CancellationToken.None,
+            diagnostics);
+
+        Assert.Equal("Both", Assert.Single(results).Name);
+        Assert.Equal(1, diagnostics.PropertyKeyCandidates);
+
+        results = db.SearchBlueprints(
+            "^MissingKey^",
+            new ScoreBuffer(),
+            CancellationToken.None,
+            diagnostics);
+
+        Assert.Empty(results);
+        Assert.Equal(0, diagnostics.PropertyKeyCandidates);
+        Assert.Equal(0, diagnostics.TreeCandidatesEvaluated);
     }
 
     [Fact]

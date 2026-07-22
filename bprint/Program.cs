@@ -85,7 +85,8 @@ public static class Program
         BlueprintDB db = new(game);
 
         var loadProgress = new ConnectionProgress();
-        var initialize = Task.Run(() => db.TryConnect(loadProgress, binz.Path));
+        var initialize = Task.Run(() =>
+            db.TryConnect(loadProgress, binz.Path, saveSettings: false));
         var idle = Task.Run(() =>
         {
             while (!initialize.IsCompleted)

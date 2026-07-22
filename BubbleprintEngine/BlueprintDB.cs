@@ -338,10 +338,16 @@ public partial class BlueprintDB
             AddBlueprint(bp);
         }
         loadMeta.Wait();
-        BuildPropertyKeyBloomIndex();
+        BuildPropertyKeyPostingIndex();
+        BuildScalarValuePostingIndex();
         Console.WriteLine(
-            $"Built {PropertyKeyBloomBitsPerBlueprint}-bit property-key Bloom index " +
-            $"in {PropertyKeyBloomBuildElapsedMs:F0}ms");
+            $"Built exact property-key posting index " +
+            $"({PropertyKeyPostingIndexBytes:N0} bytes) " +
+            $"in {PropertyKeyPostingBuildElapsedMs:F0}ms");
+        Console.WriteLine(
+            $"Built exact scalar-value posting index " +
+            $"({ScalarValuePostingIndexBytes:N0} bytes) " +
+            $"in {ScalarValuePostingBuildElapsedMs:F0}ms");
         Console.WriteLine($"Loaded {cache.Count} blueprints in {watch.ElapsedMilliseconds}ms");
 
         if (saveSettings)
@@ -391,7 +397,8 @@ public partial class BlueprintDB
         bp.db = this;
         var end = bp.Type.LastIndexOf('.');
         types.Add(bp.Type.Substring(end + 1));
-        InvalidatePropertyKeyBloomIndex();
+        InvalidatePropertyKeyPostingIndex();
+        InvalidateScalarValuePostingIndex();
         bp.DatabaseIndex = cache.Count;
         EnsureRootTypeCapacity(cache.Count + 1);
         rootTypeByBlueprint[cache.Count] = GetOrAddRootTypeId(bp.Type);
@@ -441,6 +448,8 @@ public partial class BlueprintDB
         public double TypePresencePrefilterElapsedMs { get; internal set; }
         public int PropertyKeyCandidates { get; internal set; }
         public double PropertyKeyPrefilterElapsedMs { get; internal set; }
+        public int ScalarValueCandidates { get; internal set; }
+        public double ScalarValuePrefilterElapsedMs { get; internal set; }
         public double MetadataPrefilterElapsedMs { get; internal set; }
         public double TextFilterElapsedMs { get; internal set; }
         public int TreeCandidates { get; internal set; }
@@ -457,6 +466,8 @@ public partial class BlueprintDB
             TypePresencePrefilterElapsedMs = 0;
             PropertyKeyCandidates = 0;
             PropertyKeyPrefilterElapsedMs = 0;
+            ScalarValueCandidates = 0;
+            ScalarValuePrefilterElapsedMs = 0;
             MetadataPrefilterElapsedMs = 0;
             TextFilterElapsedMs = 0;
             TreeCandidates = 0;
@@ -483,7 +494,7 @@ public partial class BlueprintDB
 
         List<BlueprintHandle> toSearch = cache;
 
-        var results = new List<BlueprintHandle>() { Capacity = cache.Count };
+        var results = new List<BlueprintHandle>();
         if (searchText[0] == '#')
         {
             StringBuilder buffer = new();
@@ -586,6 +597,15 @@ public partial class BlueprintDB
                 diagnostics.PropertyKeyCandidates = toSearch.Count;
                 diagnostics.PropertyKeyPrefilterElapsedMs =
                     propertyKeyPrefilterWatch.Elapsed.TotalMilliseconds;
+            }
+
+            var scalarValuePrefilterWatch = Stopwatch.StartNew();
+            ApplyScalarValuePrefilter(queryMatcher, ref toSearch);
+            if (diagnostics is not null)
+            {
+                diagnostics.ScalarValueCandidates = toSearch.Count;
+                diagnostics.ScalarValuePrefilterElapsedMs =
+                    scalarValuePrefilterWatch.Elapsed.TotalMilliseconds;
             }
         }
 

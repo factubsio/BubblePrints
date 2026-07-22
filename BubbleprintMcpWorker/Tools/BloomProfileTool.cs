@@ -65,7 +65,7 @@ public sealed class BloomProfileTool : IMcpTool
 
             distinctDocumentKeys += documentKeys.Count;
             foreach (ulong hash in documentKeys)
-                keyStats[hash].Documents++;
+                keyStats[hash].AddDocument(blueprintIndex);
         }
 
         double scanAndBuildMs = stopwatch.Elapsed.TotalMilliseconds;
@@ -147,6 +147,27 @@ public sealed class BloomProfileTool : IMcpTool
             };
         }).ToArray();
 
+        var postingEstimates = new[] { 0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0 }
+            .Select(maxDocumentFraction =>
+            {
+                int maxDocuments = Math.Max(
+                    1,
+                    (int)(blueprintCount * maxDocumentFraction));
+                var included = keyStats.Values
+                    .Where(stats => stats.Documents <= maxDocuments)
+                    .ToArray();
+                long entries = included.Sum(stats => (long)stats.Documents);
+                return new
+                {
+                    maxDocumentFraction,
+                    keys = included.Length,
+                    entries,
+                    int32Bytes = entries * sizeof(int),
+                    deltaVarintBytes = included.Sum(stats => stats.DeltaVarintBytes),
+                };
+            })
+            .ToArray();
+
         return new
         {
             blueprints = blueprintCount,
@@ -159,6 +180,7 @@ public sealed class BloomProfileTool : IMcpTool
             scanAndBuildMs,
             deriveSmallerFiltersMs = deriveMs,
             configurations,
+            exactPostingEstimates = postingEstimates,
             keys = keyResults,
         };
     }
@@ -304,5 +326,28 @@ public sealed class BloomProfileTool : IMcpTool
     {
         public string Name { get; } = name;
         public int Documents { get; set; }
+        public long DeltaVarintBytes { get; private set; }
+        private int lastDocument = -1;
+
+        public void AddDocument(int document)
+        {
+            uint delta = (uint)(lastDocument < 0
+                ? document
+                : document - lastDocument);
+            DeltaVarintBytes += VarintSize(delta);
+            Documents++;
+            lastDocument = document;
+        }
+
+        private static int VarintSize(uint value)
+        {
+            int size = 1;
+            while (value >= 0x80)
+            {
+                value >>= 7;
+                size++;
+            }
+            return size;
+        }
     }
 }

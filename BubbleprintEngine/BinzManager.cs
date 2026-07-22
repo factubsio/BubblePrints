@@ -170,12 +170,20 @@ public class BinzManager
             match = extractVersion.Match(file);
         }
 
+        string suffix = match.Groups[4].Value;
+        if (suffix.StartsWith('.')
+            && suffix.Length > 1
+            && suffix[1..].All(char.IsDigit))
+        {
+            suffix = suffix[1..];
+        }
+
         GameVersion v = new()
         {
             Major = int.Parse(match.Groups[1].Value),
             Minor = int.Parse(match.Groups[2].Value),
             Patch = int.Parse(match.Groups[3].Value),
-            Suffix = match.Groups[4].Value,
+            Suffix = suffix,
             Bubble = int.Parse(match.Groups[5].Value),
         };
         return new()

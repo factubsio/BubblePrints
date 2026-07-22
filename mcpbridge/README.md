@@ -24,4 +24,5 @@ BUBBLEPRINT_WORKER = "/path/to/BubblePrints/BubbleprintMcpWorker/bin/Debug/net8.
 ```
 
 Bridge tools are `open_binz`, `close_binz`, `list_tools`, `run`, and `status`.
-Use `list_tools` after opening a database to discover worker operations.
+Use `list_tools` after opening a database to discover worker operations,
+including `referenced_by` for incoming blueprint references.

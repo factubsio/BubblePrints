@@ -37,6 +37,8 @@ public sealed class SearchTool : IMcpTool
             ["typePresencePrefilterMs"] = diagnostics.TypePresencePrefilterElapsedMs,
             ["propertyKeyCandidates"] = diagnostics.PropertyKeyCandidates,
             ["propertyKeyPrefilterMs"] = diagnostics.PropertyKeyPrefilterElapsedMs,
+            ["scalarValueCandidates"] = diagnostics.ScalarValueCandidates,
+            ["scalarValuePrefilterMs"] = diagnostics.ScalarValuePrefilterElapsedMs,
             ["metadataPrefilterMs"] = diagnostics.MetadataPrefilterElapsedMs,
             ["textFilterMs"] = diagnostics.TextFilterElapsedMs,
             ["treeCandidates"] = diagnostics.TreeCandidates,
