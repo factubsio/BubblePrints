@@ -11,6 +11,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Web;
+using BubbleprintEngine;
 
 namespace bprintweb.Controllers;
 
@@ -271,6 +272,39 @@ public class MaxResidentBlueprintDataProvider(ILogger<MaxResidentBlueprintDataPr
     public byte[] GetRawUtf8(BlueprintHandle bp) => GetDataFor(bp, parse: false).RawUtf8;
 
     public JsonElement GetRoot(BlueprintHandle bp) => GetDataFor(bp, parse: true).Root;
+
+    public bool TryMatchTreeQuery(
+        BlueprintHandle bp,
+        StreamingTreeQuery query,
+        out bool matches)
+    {
+        if (bp._obj.ValueKind != JsonValueKind.Undefined)
+        {
+            matches = false;
+            return false;
+        }
+
+        var residentRaw = bp._RawUtf8;
+        if (residentRaw is not null)
+        {
+            matches = query.CheckMatch(residentRaw);
+            return true;
+        }
+
+        var gameData = (bp.db.UserData as GameData)!;
+        var meta = (bp.UserData as StringMetadata)!;
+        byte[] temporary = ArrayPool<byte>.Shared.Rent(meta.Length);
+        try
+        {
+            gameData.Data.ReadArray<byte>(meta.Offset, temporary, 0, meta.Length);
+            matches = query.CheckMatch(temporary.AsSpan(0, meta.Length));
+            return true;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(temporary);
+        }
+    }
 
     private (byte[] RawUtf8, JsonElement Root) GetDataFor(BlueprintHandle bp, bool parse)
     {

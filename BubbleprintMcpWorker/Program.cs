@@ -16,6 +16,7 @@ try
     var version = BinzManager.VersionFromFile(path);
     var db = new BlueprintDB(version.Game);
     db.TryConnect(new ConnectionProgress(), path, saveSettings: false);
+    db.PreferStreamingTreeQueries = true;
 
     Console.Error.WriteLine($"bubbleprint-worker: loaded {path}");
     Console.Error.WriteLine($"bubbleprint-worker: {db.BlueprintsInOrder.Count} blueprints");

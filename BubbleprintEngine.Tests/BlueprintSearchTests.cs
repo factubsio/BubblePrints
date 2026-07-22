@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using BlueprintExplorer;
 
 namespace BubbleprintEngine.Tests;
@@ -203,6 +204,37 @@ public class BlueprintSearchTests
             new ScoreBuffer(),
             CancellationToken.None);
         Assert.Equal("Added", Assert.Single(results).Name);
+    }
+
+    [Fact]
+    public void SearchBlueprints_StreamingMode_DoesNotPopulateJsonElementCache()
+    {
+        var db = new BlueprintDB("Test")
+        {
+            PreferStreamingTreeQueries = true,
+        };
+        var wanted = Blueprint(
+            "00000000-0000-0000-0000-000000000001",
+            "Wanted",
+            """{"RareKey":"target"}""");
+        var other = Blueprint(
+            "00000000-0000-0000-0000-000000000002",
+            "Other",
+            """{"Unrelated":"target"}""");
+        db.AddBlueprint(wanted);
+        db.AddBlueprint(other);
+
+        var diagnostics = new BlueprintDB.SearchDiagnostics();
+        var results = db.SearchBlueprints(
+            "^RareKey=target^",
+            new ScoreBuffer(),
+            CancellationToken.None,
+            diagnostics);
+
+        Assert.Equal("Wanted", Assert.Single(results).Name);
+        Assert.Equal(2, diagnostics.TreeCandidatesStreamed);
+        Assert.Equal(JsonValueKind.Undefined, wanted._obj.ValueKind);
+        Assert.Equal(JsonValueKind.Undefined, other._obj.ValueKind);
     }
 
     [Fact]

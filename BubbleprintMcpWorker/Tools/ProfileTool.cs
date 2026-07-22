@@ -8,7 +8,7 @@ public sealed class ProfileTool : IMcpTool
 {
     public string Name => "profile";
     public string Description =>
-        "Run a query repeatedly. Args: query (required), iterations (default 5, max 20), warmup (default true), timeoutMs (optional).";
+        "Run a query repeatedly. Args: query (required), iterations (default 5, max 20), warmup (default true), timeoutMs (optional), streaming (optional).";
 
     public object Handle(BlueprintDB db, JsonObject args)
     {
@@ -17,9 +17,12 @@ public sealed class ProfileTool : IMcpTool
         var iterations = Math.Clamp(args["iterations"]?.GetValue<int>() ?? 5, 1, 20);
         var warmup = args["warmup"]?.GetValue<bool>() ?? true;
         var oldTimeout = BlueprintDB.MAX_TREE_QUERY_RUNTIME_MS;
+        var oldStreaming = db.PreferStreamingTreeQueries;
 
         if (args["timeoutMs"] is JsonValue timeoutNode)
             BlueprintDB.MAX_TREE_QUERY_RUNTIME_MS = Math.Max(1, timeoutNode.GetValue<int>());
+        if (args["streaming"] is JsonValue streamingNode)
+            db.PreferStreamingTreeQueries = streamingNode.GetValue<bool>();
 
         try
         {
@@ -27,6 +30,7 @@ public sealed class ProfileTool : IMcpTool
                 db.SearchBlueprints(query, new ScoreBuffer(), CancellationToken.None);
 
             var elapsed = new double[iterations];
+            var allocatedBytes = new long[iterations];
             var matches = new int[iterations];
             var rootTypeCandidates = new int[iterations];
             var rootTypePrefilterElapsed = new double[iterations];
@@ -38,11 +42,13 @@ public sealed class ProfileTool : IMcpTool
             var textFilterElapsed = new double[iterations];
             var treeCandidates = new int[iterations];
             var treeCandidatesEvaluated = new int[iterations];
+            var treeCandidatesStreamed = new int[iterations];
             var treeElapsed = new double[iterations];
             var truncated = new bool[iterations];
             for (int i = 0; i < iterations; i++)
             {
                 var diagnostics = new BlueprintDB.SearchDiagnostics();
+                long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
                 var stopwatch = Stopwatch.StartNew();
                 matches[i] = db.SearchBlueprints(
                     query,
@@ -50,6 +56,8 @@ public sealed class ProfileTool : IMcpTool
                     CancellationToken.None,
                     diagnostics).Count;
                 stopwatch.Stop();
+                allocatedBytes[i] =
+                    GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
                 elapsed[i] = stopwatch.Elapsed.TotalMilliseconds;
                 rootTypeCandidates[i] = diagnostics.RootTypeCandidates;
                 rootTypePrefilterElapsed[i] = diagnostics.RootTypePrefilterElapsedMs;
@@ -61,6 +69,7 @@ public sealed class ProfileTool : IMcpTool
                 textFilterElapsed[i] = diagnostics.TextFilterElapsedMs;
                 treeCandidates[i] = diagnostics.TreeCandidates;
                 treeCandidatesEvaluated[i] = diagnostics.TreeCandidatesEvaluated;
+                treeCandidatesStreamed[i] = diagnostics.TreeCandidatesStreamed;
                 treeElapsed[i] = diagnostics.TreeElapsedMs;
                 truncated[i] = diagnostics.TreeTruncated;
             }
@@ -71,11 +80,14 @@ public sealed class ProfileTool : IMcpTool
                 ["query"] = query,
                 ["iterations"] = iterations,
                 ["warmup"] = warmup,
+                ["streaming"] = db.PreferStreamingTreeQueries,
                 ["timeoutMs"] = BlueprintDB.MAX_TREE_QUERY_RUNTIME_MS,
                 ["stableMatches"] = matches.Distinct().Count() == 1,
                 ["matches"] = new JsonArray(matches.Select(value => (JsonNode)JsonValue.Create(value)!).ToArray()),
                 ["elapsedMs"] = new JsonArray(elapsed.Select(value =>
                     (JsonNode)JsonValue.Create(Math.Round(value, 3))!).ToArray()),
+                ["allocatedBytes"] = new JsonArray(allocatedBytes.Select(value =>
+                    (JsonNode)JsonValue.Create(value)!).ToArray()),
                 ["rootTypeCandidates"] = new JsonArray(rootTypeCandidates.Select(value =>
                     (JsonNode)JsonValue.Create(value)!).ToArray()),
                 ["rootTypePrefilterMs"] = new JsonArray(rootTypePrefilterElapsed.Select(value =>
@@ -96,6 +108,8 @@ public sealed class ProfileTool : IMcpTool
                     (JsonNode)JsonValue.Create(value)!).ToArray()),
                 ["treeCandidatesEvaluated"] = new JsonArray(treeCandidatesEvaluated.Select(value =>
                     (JsonNode)JsonValue.Create(value)!).ToArray()),
+                ["treeCandidatesStreamed"] = new JsonArray(treeCandidatesStreamed.Select(value =>
+                    (JsonNode)JsonValue.Create(value)!).ToArray()),
                 ["treeElapsedMs"] = new JsonArray(treeElapsed.Select(value =>
                     (JsonNode)JsonValue.Create(Math.Round(value, 3))!).ToArray()),
                 ["truncated"] = new JsonArray(truncated.Select(value =>
@@ -109,6 +123,7 @@ public sealed class ProfileTool : IMcpTool
         finally
         {
             BlueprintDB.MAX_TREE_QUERY_RUNTIME_MS = oldTimeout;
+            db.PreferStreamingTreeQueries = oldStreaming;
         }
     }
 }

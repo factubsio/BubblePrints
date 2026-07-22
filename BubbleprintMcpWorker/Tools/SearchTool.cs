@@ -41,6 +41,7 @@ public sealed class SearchTool : IMcpTool
             ["textFilterMs"] = diagnostics.TextFilterElapsedMs,
             ["treeCandidates"] = diagnostics.TreeCandidates,
             ["treeCandidatesEvaluated"] = diagnostics.TreeCandidatesEvaluated,
+            ["treeCandidatesStreamed"] = diagnostics.TreeCandidatesStreamed,
             ["treeElapsedMs"] = diagnostics.TreeElapsedMs,
             ["truncated"] = diagnostics.TreeTruncated,
             ["results"] = new JsonArray(matches.Take(limit).Select(ToolHelpers.Summary).ToArray()),

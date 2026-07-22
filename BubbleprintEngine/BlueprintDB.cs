@@ -445,6 +445,7 @@ public partial class BlueprintDB
         public double TextFilterElapsedMs { get; internal set; }
         public int TreeCandidates { get; internal set; }
         public int TreeCandidatesEvaluated { get; internal set; }
+        public int TreeCandidatesStreamed { get; internal set; }
         public double TreeElapsedMs { get; internal set; }
         public bool TreeTruncated { get; internal set; }
 
@@ -460,12 +461,14 @@ public partial class BlueprintDB
             TextFilterElapsedMs = 0;
             TreeCandidates = 0;
             TreeCandidatesEvaluated = 0;
+            TreeCandidatesStreamed = 0;
             TreeElapsedMs = 0;
             TreeTruncated = false;
         }
     }
 
     public static int MAX_TREE_QUERY_RUNTIME_MS = 100;
+    public bool PreferStreamingTreeQueries { get; set; }
 
     public List<BlueprintHandle> SearchBlueprints(
         string searchText,
@@ -532,6 +535,7 @@ public partial class BlueprintDB
 
         string treeQuery = "";
         Matcher queryMatcher = null;
+        StreamingTreeQuery streamingTreeQuery = null;
         int treeQueryStart = searchText.IndexOf('^');
         if (treeQueryStart >= 0)
         {
@@ -555,6 +559,7 @@ public partial class BlueprintDB
             queryMatcher = parser.Parse();
             if (parser.Error)
                 throw new ArgumentException($"Invalid tree query: {parser.ErrorMessage}", nameof(searchText));
+            StreamingTreeQuery.TryCompile(queryMatcher, out streamingTreeQuery);
 
             var rootTypePrefilterWatch = Stopwatch.StartNew();
             ApplyRootTypePrefilter(queryMatcher, ref toSearch);
@@ -734,13 +739,33 @@ public partial class BlueprintDB
             List<BlueprintHandle> ret = [];
 
             int queried = 0;
+            int streamed = 0;
             //bool brokeEarly = false;
             Stopwatch w = Stopwatch.StartNew();
 
             foreach (var res in results)
             {
                 queried++;
-                if (TreeQueryEngine.CheckMatch(queryMatcher, res.EnsureObj))
+                bool matched;
+                if (streamingTreeQuery is not null
+                    && BlueprintHandle.DataProvider.TryMatchTreeQuery(
+                        res,
+                        streamingTreeQuery,
+                        out matched))
+                {
+                    streamed++;
+                }
+                else if (streamingTreeQuery is not null && PreferStreamingTreeQueries)
+                {
+                    matched = streamingTreeQuery.CheckMatch(res.RawUtf8);
+                    streamed++;
+                }
+                else
+                {
+                    matched = TreeQueryEngine.CheckMatch(queryMatcher, res.EnsureObj);
+                }
+
+                if (matched)
                     ret.Add(res);
                 if (w.ElapsedMilliseconds > MAX_TREE_QUERY_RUNTIME_MS)
                 {
@@ -753,6 +778,7 @@ public partial class BlueprintDB
             {
                 diagnostics.TreeCandidates = results.Count;
                 diagnostics.TreeCandidatesEvaluated = queried;
+                diagnostics.TreeCandidatesStreamed = streamed;
                 diagnostics.TreeElapsedMs = w.Elapsed.TotalMilliseconds;
                 diagnostics.TreeTruncated = queried < results.Count;
             }

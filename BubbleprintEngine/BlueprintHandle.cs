@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using BubbleprintEngine;
 
 namespace BlueprintExplorer;
 
@@ -35,6 +36,10 @@ public interface IBlueprintDataProvider
 {
     public byte[] GetRawUtf8(BlueprintHandle bp);
     public JsonElement GetRoot(BlueprintHandle bp);
+    public bool TryMatchTreeQuery(
+        BlueprintHandle bp,
+        StreamingTreeQuery query,
+        out bool matches);
 }
 
 public class DefaultBlueprintDataProvider : IBlueprintDataProvider
@@ -47,6 +52,15 @@ public class DefaultBlueprintDataProvider : IBlueprintDataProvider
             bp._obj = BlueprintHandle.Parse(bp._RawUtf8);
 
         return bp._obj;
+    }
+
+    public bool TryMatchTreeQuery(
+        BlueprintHandle bp,
+        StreamingTreeQuery query,
+        out bool matches)
+    {
+        matches = false;
+        return false;
     }
 }
 

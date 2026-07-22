@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json;
 using BlueprintExplorer;
 
 namespace BubbleprintMcpWorker.Tools;
@@ -20,6 +21,8 @@ public sealed class InfoTool : IMcpTool
             ["propertyKeyBloomBitsPerBlueprint"] = BlueprintDB.PropertyKeyBloomBitsPerBlueprint,
             ["propertyKeyBloomIndexBytes"] = db.PropertyKeyBloomIndexBytes,
             ["propertyKeyBloomBuildMs"] = db.PropertyKeyBloomBuildElapsedMs,
+            ["cachedJsonElements"] = db.BlueprintsInOrder.Count(
+                blueprint => blueprint._obj.ValueKind != JsonValueKind.Undefined),
             ["strings"] = db.Strings.Count,
             ["indexedWords"] = db.IndexByWord.Count,
         };
